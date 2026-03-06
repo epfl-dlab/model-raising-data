@@ -9,5 +9,4 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-# Generate sample if not already present, then start the dashboard
-CMD ["sh", "-c", "uv run python -m annotation.generate_sample && uv run python -m annotation.dashboard"]
+CMD ["sh", "-c", "touch annotation/annotations.jsonl annotation/comments.jsonl && uv run python -m annotation.generate_sample && uv run python -m annotation.dashboard"]
