@@ -7,15 +7,14 @@ from pathlib import Path
 import duckdb
 import requests
 
-from annotation.config import CLIMBMIX_DATASET, FOURCHAN_DATASET, ITEMS_PER_SOURCE
+from annotation.config import CLIMBMIX_DATASET, DATA_DIR, FOURCHAN_DATASET, ITEMS_PER_SOURCE
 from annotation.storage import compute_item_id
-
-ANNOTATION_DIR = Path(__file__).parent
 
 
 def sample_path() -> Path:
     """Return the path to the persisted sample file."""
-    return ANNOTATION_DIR / "sample.json"
+    DATA_DIR.mkdir(exist_ok=True)
+    return DATA_DIR / "sample.json"
 
 
 def _compute_reflection_point(text: str, rng: random.Random) -> int:

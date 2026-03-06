@@ -4,6 +4,4 @@ services:
     ports:
       - "8600:8600"
     volumes:
-      - ./annotation/sample.json:/app/annotation/sample.json
-      - ./annotation/annotations.jsonl:/app/annotation/annotations.jsonl
-      - ./annotation/comments.jsonl:/app/annotation/comments.jsonl
+      - ./annotation-data:/app/annotation-data

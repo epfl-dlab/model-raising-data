@@ -5,12 +5,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-ANNOTATION_DIR = Path(__file__).parent
+from annotation.config import DATA_DIR
 
 
 def annotations_path() -> Path:
     """Return the JSONL file path for annotations."""
-    return ANNOTATION_DIR / "annotations.jsonl"
+    DATA_DIR.mkdir(exist_ok=True)
+    return DATA_DIR / "annotations.jsonl"
 
 
 def load_annotations() -> list[dict]:
@@ -86,7 +87,8 @@ def compute_item_id(text: str) -> str:
 
 def comments_path() -> Path:
     """Return the JSONL file path for annotation comments."""
-    return ANNOTATION_DIR / "comments.jsonl"
+    DATA_DIR.mkdir(exist_ok=True)
+    return DATA_DIR / "comments.jsonl"
 
 
 def load_comments() -> list[dict]:

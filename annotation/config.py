@@ -5,6 +5,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 CHARTER_PATH = PROJECT_ROOT / "safety" / "SwissAICharter.md"
+DATA_DIR = PROJECT_ROOT / "annotation-data"
 
 CLIMBMIX_DATASET = "OptimalScale/ClimbMix"
 FOURCHAN_DATASET = "Fal7acy/4chan-archive"

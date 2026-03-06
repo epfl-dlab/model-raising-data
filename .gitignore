@@ -3,9 +3,7 @@ __pycache__/
 .env
 .nicegui/
 *.arrow
-annotation/annotations.jsonl
-annotation/comments.jsonl
-annotation/sample.json
+annotation-data/
 food/feedback.jsonl
 food/feedback_v1.jsonl
 food/output/
