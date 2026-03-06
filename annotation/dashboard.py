@@ -6,9 +6,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import os
+
 from nicegui import app, ui
 
 from annotation.config import CHARTER_ELEMENT_IDS, CHARTER_PATH
+
+PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
+
+
+def require_password():
+    """Redirect to password page if not yet authenticated. Returns True if authenticated."""
+    if PASSWORD and not app.storage.browser.get("authenticated"):
+        ui.navigate.to("/password")
+        return False
+    return True
 from annotation.sampling import load_sample
 from annotation.storage import (
     load_annotator_ids,
@@ -74,9 +86,34 @@ def render_source_text(text: str, reflection_point: int) -> str:
     return f"{esc_before}{marker}{esc_after}"
 
 
+@ui.page("/password")
+def password_page():
+    """Simple password gate, stored in browser storage (cookie-persisted)."""
+    if not PASSWORD or app.storage.browser.get("authenticated"):
+        ui.navigate.to("/")
+        return
+
+    with ui.column().classes("absolute-center items-center gap-4"):
+        ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
+        ui.label("Enter the password to continue.").classes("text-subtitle1 text-grey-7")
+        pw_input = ui.input(label="Password", password=True, password_toggle_button=True).classes("w-64")
+
+        def check_password():
+            if pw_input.value == PASSWORD:
+                app.storage.browser["authenticated"] = True
+                ui.navigate.to("/")
+            else:
+                ui.notify("Wrong password", type="negative")
+
+        pw_input.on("keydown.enter", lambda _: check_password())
+        ui.button("Enter", on_click=check_password, color="primary").classes("w-64")
+
+
 @ui.page("/")
 def login_page():
     """Login page where annotator enters their name."""
+    if not require_password():
+        return
     existing_names = load_annotator_ids()
 
     with ui.column().classes("absolute-center items-center gap-4"):
@@ -106,6 +143,8 @@ def login_page():
 @ui.page("/annotate")
 def annotate_page():
     """Main annotation interface."""
+    if not require_password():
+        return
     annotator_id = app.storage.user.get("annotator_id")
     if not annotator_id:
         ui.navigate.to("/")
@@ -343,6 +382,8 @@ def annotate_page():
 @ui.page("/overview")
 def overview_page():
     """Overview panel: annotation stats and side-by-side annotation viewer."""
+    if not require_password():
+        return
     ensure_sample_loaded()
     items_by_id = {item["item_id"]: item for item in SAMPLE_ITEMS}
     annotations_by_item = load_annotations_by_item()
