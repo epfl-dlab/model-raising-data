@@ -79,64 +79,58 @@ def render_source_text(text: str, reflection_point: int) -> str:
 PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 MAX_PASSWORD_ATTEMPTS = 10
 
+from fastapi.responses import RedirectResponse
 
-def require_password() -> bool:
-    """Redirect to password page if not yet authenticated."""
-    if PASSWORD and not app.storage.browser.get("authenticated"):
-        ui.navigate.to("/password")
-        return False
-    return True
+if PASSWORD:
+    from fastapi import Request
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    @app.add_middleware
+    class PasswordMiddleware(BaseHTTPMiddleware):
+        """Redirect all pages to /password if not yet authenticated."""
+
+        async def dispatch(self, request: Request, call_next):
+            if not app.storage.user.get("password_ok", False):
+                if not request.url.path.startswith("/_nicegui") and request.url.path != "/password":
+                    return RedirectResponse("/password")
+            return await call_next(request)
 
 
 @ui.page("/password")
 def password_page():
-    """Simple password gate, stored in browser storage (cookie-persisted)."""
-    if not PASSWORD or app.storage.browser.get("authenticated"):
-        ui.navigate.to("/")
-        return
+    """Simple password gate, stored in user storage (cookie-persisted)."""
+    if not PASSWORD or app.storage.user.get("password_ok", False):
+        return RedirectResponse("/")
 
-    attempts = app.storage.browser.get("password_attempts", 0)
+    def try_password():
+        attempts = app.storage.user.get("password_attempts", 0)
+        if attempts >= MAX_PASSWORD_ATTEMPTS:
+            ui.notify("Too many failed attempts. Access locked.", color="negative")
+            return
+        if pw_input.value == PASSWORD:
+            app.storage.user["password_ok"] = True
+            app.storage.user["password_attempts"] = 0
+            ui.navigate.to("/")
+        else:
+            attempts += 1
+            app.storage.user["password_attempts"] = attempts
+            remaining = MAX_PASSWORD_ATTEMPTS - attempts
+            ui.notify(f"Wrong password. {remaining} attempt(s) remaining.", color="negative")
+            pw_input.set_value("")
 
     with ui.column().classes("absolute-center items-center gap-4"):
         ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
-
-        if attempts >= MAX_PASSWORD_ATTEMPTS:
-            ui.label("Too many failed attempts. Access locked.").classes(
-                "text-subtitle1 text-red"
-            )
-            return
-
         ui.label("Enter the password to continue.").classes("text-subtitle1 text-grey-7")
-        pw_input = ui.input(label="Password", password=True, password_toggle_button=True).classes("w-64")
-        error_label = ui.label("").classes("text-red").set_visibility(False)
-
-        def check_password():
-            current_attempts = app.storage.browser.get("password_attempts", 0)
-            if current_attempts >= MAX_PASSWORD_ATTEMPTS:
-                error_label.set_text("Too many failed attempts. Access locked.")
-                error_label.set_visibility(True)
-                return
-            if pw_input.value == PASSWORD:
-                app.storage.browser["authenticated"] = True
-                app.storage.browser["password_attempts"] = 0
-                ui.navigate.to("/")
-            else:
-                current_attempts += 1
-                app.storage.browser["password_attempts"] = current_attempts
-                remaining = MAX_PASSWORD_ATTEMPTS - current_attempts
-                error_label.set_text(f"Wrong password. {remaining} attempt(s) remaining.")
-                error_label.set_visibility(True)
-                pw_input.set_value("")
-
-        pw_input.on("keydown.enter", lambda _: check_password())
-        ui.button("Enter", on_click=check_password, color="primary").classes("w-64")
+        pw_input = ui.input("Password", password=True, password_toggle_button=True).on(
+            "keydown.enter", try_password
+        ).classes("w-64")
+        ui.button("Enter", on_click=try_password, color="primary").classes("w-64")
+    return None
 
 
 @ui.page("/")
 def login_page():
     """Login page where annotator enters their name."""
-    if not require_password():
-        return
     existing_names = load_annotator_ids()
 
     with ui.column().classes("absolute-center items-center gap-4"):
@@ -166,8 +160,6 @@ def login_page():
 @ui.page("/annotate")
 def annotate_page():
     """Main annotation interface."""
-    if not require_password():
-        return
     annotator_id = app.storage.user.get("annotator_id")
     if not annotator_id:
         ui.navigate.to("/")
@@ -405,8 +397,6 @@ def annotate_page():
 @ui.page("/overview")
 def overview_page():
     """Overview panel: annotation stats and side-by-side annotation viewer."""
-    if not require_password():
-        return
     ensure_sample_loaded()
     items_by_id = {item["item_id"]: item for item in SAMPLE_ITEMS}
     annotations_by_item = load_annotations_by_item()
