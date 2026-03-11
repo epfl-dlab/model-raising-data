@@ -11,6 +11,7 @@ dependencies = [
     "krippendorff>=0.8.2",
     "nicegui>=3.8.0",
     "openai>=2.25.0",
+    "pyfirecrest>=3.7.0",
     "python-dotenv>=1.2.2",
     "scikit-learn>=1.8.0",
     "streamlit>=1.55.0",
