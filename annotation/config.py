@@ -4,13 +4,13 @@ import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
-CHARTER_PATH = PROJECT_ROOT / "safety" / "SwissAICharter.md"
-DATA_DIR = PROJECT_ROOT / "annotation-data"
+CHARTER_PATH = PROJECT_ROOT / "resources" / "SwissAICharter.md"
+DATA_DIR = PROJECT_ROOT / "data" / "annotation"
 
-CLIMBMIX_DATASET = "OptimalScale/ClimbMix"
-FOURCHAN_DATASET = "Fal7acy/4chan-archive"
+FINEWEB_DATASET = "locuslab/fineweb_annotated"
+FINEWEB_SUBSETS = [f"score_{i}" for i in range(6)]
 SAMPLE_SIZE = 200
-ITEMS_PER_SOURCE = SAMPLE_SIZE // 2
+ITEMS_PER_SUBSET = SAMPLE_SIZE // len(FINEWEB_SUBSETS)
 
 def load_charter_element_ids() -> list[str]:
     """Extract all [X.Y] element IDs from the charter, in order."""

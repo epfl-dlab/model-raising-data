@@ -8,3 +8,5 @@ food/feedback.jsonl
 food/feedback_v1.jsonl
 food/output/
 safety/output/
+annotation_data/
+data/

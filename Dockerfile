@@ -9,4 +9,4 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-CMD ["sh", "-c", "touch annotation/annotations.jsonl annotation/comments.jsonl && uv run python -m annotation.generate_sample && uv run python -m annotation.dashboard"]
+CMD ["sh", "-c", "mkdir -p data/annotation && touch data/annotation/annotations.jsonl data/annotation/comments.jsonl && uv run python -m annotation.dashboard"]

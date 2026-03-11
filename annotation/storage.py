@@ -45,6 +45,7 @@ def save_annotation(
     item_id: str,
     annotator_id: str,
     subset: str,
+    text: str,
     reflection_point: int,
     analysis: str,
     preflection: str,
@@ -52,11 +53,12 @@ def save_annotation(
     charter_elements: list[str],
     presentation_order: int,
 ) -> None:
-    """Append a single annotation record."""
+    """Append a single annotation record (includes full source text)."""
     record = {
         "item_id": item_id,
         "annotator_id": annotator_id,
         "subset": subset,
+        "text": text,
         "reflection_point": reflection_point,
         "analysis": analysis,
         "preflection": preflection,

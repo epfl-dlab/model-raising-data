@@ -6,4 +6,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./annotation-data:/app/annotation-data
+      - ./data/annotation:/app/data/annotation

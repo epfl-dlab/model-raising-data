@@ -1,7 +1,9 @@
 """Stage 1 annotation dashboard: humans write preflections and reflections on raw FineWeb text."""
 
+import random as _random
 import re
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -10,8 +12,8 @@ import os
 
 from nicegui import app, ui
 
-from annotation.config import CHARTER_ELEMENT_IDS, CHARTER_PATH
-from annotation.sampling import load_sample
+from annotation.config import CHARTER_ELEMENT_IDS, CHARTER_PATH, FINEWEB_SUBSETS, ITEMS_PER_SUBSET
+from annotation.sampling import sample_items
 from annotation.storage import (
     load_annotator_ids,
     load_annotations_by_item,
@@ -23,29 +25,100 @@ from annotation.storage import (
 
 REFLECTION_MARKER_ID = "reflection-marker"
 
+N_PHASES = 3
+
+
+def render_phase_bar(active_phase: int = 1, right_slot=None):
+    """Render a stepper-style phase bar with optional right-aligned slot.
+
+    Args:
+        active_phase: Currently active phase number (1-indexed).
+        right_slot: Optional callable rendered on the right side of the bar.
+    """
+    def _circle(n: int) -> str:
+        style = (
+            "background:#1976d2;border:2px solid #1976d2;color:white;"
+            if n <= active_phase
+            else "background:transparent;border:2px solid #555;color:#666;"
+        )
+        return (
+            f'<div style="width:26px;height:26px;border-radius:50%;{style}'
+            f'display:flex;align-items:center;justify-content:center;'
+            f'font-size:0.8em;font-weight:600;flex-shrink:0;">{n}</div>'
+        )
+
+    def _label(n: int) -> str:
+        color = "white" if n == active_phase else "#666"
+        weight = "600" if n == active_phase else "400"
+        return (
+            f'<span style="color:{color};font-size:0.8em;font-weight:{weight};'
+            f'white-space:nowrap;margin-left:6px;">Phase {n}</span>'
+        )
+
+    connector_color = lambda n: "#1976d2" if n < active_phase else "#444"
+    connector = lambda n: f'<div style="width:40px;height:2px;background:{connector_color(n)};margin:0 8px;flex-shrink:0;"></div>'
+
+    parts = []
+    for n in range(1, N_PHASES + 1):
+        if n > 1:
+            parts.append(connector(n - 1))
+        parts.append(_circle(n))
+        parts.append(_label(n))
+
+    stepper_html = (
+        '<div style="display:flex;align-items:center;padding:6px 0;">'
+        + "".join(parts)
+        + "</div>"
+    )
+
+    with ui.row().classes("items-center justify-between w-full q-px-md").style(
+        "background:#252525;border-top:1px solid #333;min-height:44px;"
+    ):
+        ui.html(stepper_html)
+        if right_slot:
+            with ui.row().classes("items-center gap-2"):
+                right_slot()
+
+
+def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
+    """Render the shared page header: title bar + phase stepper.
+
+    Args:
+        annotator_id: Current user's name (empty string if not logged in).
+        active_phase: Currently active phase number, passed through to render_phase_bar.
+        right_slot: Optional callable for phase-bar right side (phase-specific actions).
+    """
+    with ui.header().classes("column items-stretch q-pa-none").style("background: #1d1d1d;"):
+        with ui.row().classes("items-center justify-between q-px-md q-py-xs w-full"):
+            ui.label("Model Raising Annotation Platform").classes("text-h6 text-white")
+            with ui.row().classes("items-center gap-4"):
+                if annotator_id:
+                    ui.label(f"Account: {annotator_id}").classes(
+                        "text-caption text-weight-medium"
+                    ).style("color:#aaa;")
+                ui.button("Logout", on_click=lambda: (
+                    app.storage.user.clear(),
+                    ui.navigate.to("/"),
+                )).classes("text-white").props("flat dense")
+        render_phase_bar(active_phase, right_slot=right_slot)
+
 
 def load_charter() -> str:
     return CHARTER_PATH.read_text(encoding="utf-8")
 
 
-def get_sample_items() -> list[dict]:
-    """Load the pre-generated sample from disk."""
-    sample = load_sample()
-    assert sample is not None, (
-        "sample.json not found. Run `uv run python -m annotation.generate_sample` first."
-    )
-    return sample
-
-
 CHARTER_TEXT = load_charter()
 SAMPLE_ITEMS: list[dict] = []
+_sample_lock = threading.Lock()
 
 
 def ensure_sample_loaded():
-    """Lazy-load sample items (expensive HF call on first run)."""
+    """Lazy-load sample items via HF streaming (runs once, thread-safe)."""
     global SAMPLE_ITEMS
     if not SAMPLE_ITEMS:
-        SAMPLE_ITEMS = get_sample_items()
+        with _sample_lock:
+            if not SAMPLE_ITEMS:
+                SAMPLE_ITEMS = sample_items(n_per_subset=ITEMS_PER_SUBSET)
 
 
 def highlight_charter_md(charter: str, query: str) -> str:
@@ -165,241 +238,263 @@ def annotate_page():
         ui.navigate.to("/")
         return
 
-    ensure_sample_loaded()
-    items_by_id = {item["item_id"]: item for item in SAMPLE_ITEMS}
-    sample_ids = [item["item_id"] for item in SAMPLE_ITEMS]
+    # === Header (rendered immediately, before data loads) ===
+    progress_label: ui.label
+    status_label: ui.label
 
-    def get_my_annotations() -> dict[str, dict]:
-        """Return {item_id: record} for this annotator's latest annotations."""
-        all_ann = load_latest_annotations()
-        return {
-            item_id: record
-            for (item_id, ann_id), record in all_ann.items()
-            if ann_id == annotator_id
-        }
+    def annotate_actions():
+        nonlocal progress_label, status_label
+        progress_label = ui.label().classes("text-caption").style("color:#aaa;")
+        status_label = ui.label().classes("text-caption").style("color:#aaa;")
+        ui.button("Overview", icon="dashboard",
+                  on_click=lambda: ui.navigate.to("/overview"),
+                  ).classes("text-white").props("flat dense")
 
-    my_annotations = get_my_annotations()
+    render_header(annotator_id, active_phase=1, right_slot=annotate_actions)
 
-    # Full queue: all sample items in deterministic random order per annotator
-    import random as _random
-    full_queue = list(sample_ids)
-    _random.Random(annotator_id).shuffle(full_queue)
-    # Start at first unannotated item
-    start_pos = 0
-    for i, iid in enumerate(full_queue):
-        if iid not in my_annotations:
-            start_pos = i
-            break
-    state = {"pos": start_pos, "queue": full_queue}
+    def build_content():
+        """Build the main annotation UI. Called once SAMPLE_ITEMS is populated."""
+        items_by_id = {item["item_id"]: item for item in SAMPLE_ITEMS}
+        sample_ids = [item["item_id"] for item in SAMPLE_ITEMS]
 
-    # === Header ===
-    with ui.header().classes("items-center justify-between").style("background: #1d1d1d;"):
-        ui.label("Model Raising Annotation Platform").classes("text-h6 text-white")
-        with ui.row().classes("items-center gap-4"):
-            progress_label = ui.label().classes("text-white")
-            status_label = ui.label().classes("text-white text-caption")
-            ui.button("Overview", icon="dashboard",
-                      on_click=lambda: ui.navigate.to("/overview"),
-                      ).classes("text-white").props("flat dense")
-            ui.button("Logout", on_click=lambda: (
-                app.storage.user.clear(),
-                ui.navigate.to("/"),
-            )).classes("text-white").props("flat dense")
+        def get_my_annotations() -> dict[str, dict]:
+            """Return {item_id: record} for this annotator's latest annotations."""
+            all_ann = load_latest_annotations()
+            return {
+                item_id: record
+                for (item_id, ann_id), record in all_ann.items()
+                if ann_id == annotator_id
+            }
 
-    assert len(full_queue) > 0, "No items in sample"
+        my_annotations = get_my_annotations()
 
-    # === Main layout: splitter with charter left, content right ===
-    with ui.splitter(value=35).classes("w-full").style("height: calc(100vh - 64px)") as splitter:
-        # --- Left panel: Charter (sticky, full height, scrollable) ---
-        with splitter.before:
-            with ui.column().classes("w-full p-4 gap-2").style(
-                "position: sticky; top: 0; height: calc(100vh - 64px); overflow: hidden;"
-            ):
-                with ui.row().classes("items-center gap-2 w-full"):
-                    ui.label("Constitution").classes("text-h6 text-weight-bold")
-                    ui.button(
-                        icon="content_copy",
-                        on_click=lambda: (
-                            ui.run_javascript(f'navigator.clipboard.writeText({repr(CHARTER_TEXT)})'),
-                            ui.notify("Charter copied!", type="info"),
-                        ),
-                    ).props("flat dense size=sm").tooltip("Copy charter to clipboard")
-                def on_search_change(e):
-                    query = e.value if e.value else ""
-                    charter_md.set_content(highlight_charter_md(CHARTER_TEXT, query))
+        full_queue = list(sample_ids)
+        _random.Random(annotator_id).shuffle(full_queue)
+        start_pos = 0
+        for i, iid in enumerate(full_queue):
+            if iid not in my_annotations:
+                start_pos = i
+                break
+        state = {"pos": start_pos, "queue": full_queue}
 
-                charter_search = ui.input(
-                    placeholder="Search charter...",
-                    on_change=on_search_change,
-                ).classes("w-full").props("dense clearable outlined")
+        assert len(full_queue) > 0, "No items in sample"
 
-                charter_md = ui.markdown(
-                    CHARTER_TEXT,
-                    extras=["tables"],
-                ).classes("text-body2").style(
-                    "flex: 1; overflow-y: auto; padding: 8px; line-height: 1.6;"
-                ).props('sanitize=false')
+        # === Main layout: splitter with charter left, content right ===
+        with ui.splitter(value=35).classes("w-full").style("height: calc(100vh - 64px)") as splitter:
+            # --- Left panel: Charter (sticky, full height, scrollable) ---
+            with splitter.before:
+                with ui.column().classes("w-full p-4 gap-2").style(
+                    "position: sticky; top: 0; height: calc(100vh - 64px); overflow: hidden;"
+                ):
+                    with ui.row().classes("items-center gap-2 w-full"):
+                        ui.label("Constitution").classes("text-h6 text-weight-bold")
+                        ui.button(
+                            icon="content_copy",
+                            on_click=lambda: (
+                                ui.run_javascript(f'navigator.clipboard.writeText({repr(CHARTER_TEXT)})'),
+                                ui.notify("Charter copied!", type="info"),
+                            ),
+                        ).props("flat dense size=sm").tooltip("Copy charter to clipboard")
 
-        # --- Right panel: Source text + annotation form ---
-        with splitter.after:
-            with ui.column().classes("w-full p-4 gap-2"):
-                # -- Item metadata + navigation --
-                with ui.row().classes("items-center gap-4 w-full"):
-                    nav_label = ui.label().classes("text-subtitle1 text-weight-medium")
-                    subset_badge = ui.badge("").props("outline")
-                    item_id_label = ui.label().classes("text-caption text-grey-6")
-                    ui.space()
-                    prev_btn = ui.button(icon="arrow_back", on_click=lambda: navigate(-1)).props("flat dense")
-                    next_btn = ui.button(icon="arrow_forward", on_click=lambda: navigate(1)).props("flat dense")
-                    skip_btn = ui.button("Skip", on_click=lambda: navigate(1)).props("flat dense")
+                    def on_search_change(e):
+                        query = e.value if e.value else ""
+                        charter_md.set_content(highlight_charter_md(CHARTER_TEXT, query))
 
-                # -- Source text with reflection point --
-                with ui.row().classes("items-center gap-2"):
-                    ui.label("Source Text").classes("text-subtitle2 text-weight-bold")
-                    goto_btn = ui.button(
-                        "Go to reflection point",
-                        icon="my_location",
-                        on_click=lambda: ui.run_javascript(
-                            f'document.getElementById("{REFLECTION_MARKER_ID}")?.scrollIntoView({{behavior:"smooth",block:"center"}})'
-                        ),
-                        color="red-4",
-                    ).props("flat dense size=sm")
-                    copy_text_btn = ui.button(
-                        icon="content_copy",
-                        on_click=lambda: copy_source_text(),
-                    ).props("flat dense size=sm").tooltip("Copy source text to clipboard")
+                    ui.input(
+                        placeholder="Search charter...",
+                        on_change=on_search_change,
+                    ).classes("w-full").props("dense clearable outlined")
 
-                source_html = ui.html("").style(
-                    "min-height: 200px; max-height: 600px; height: 400px; "
-                    "overflow-y: auto; resize: vertical; "
-                    "border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; "
-                    "line-height: 1.7; font-family: Georgia, serif; white-space: pre-wrap; "
-                    "font-size: 1.05em;"
-                )
+                    charter_md = ui.markdown(
+                        CHARTER_TEXT,
+                        extras=["tables"],
+                    ).classes("text-body2").style(
+                        "flex: 1; overflow-y: auto; padding: 8px; line-height: 1.6;"
+                    ).props('sanitize=false')
 
-                ui.separator()
+            # --- Right panel: Source text + annotation form ---
+            with splitter.after:
+                with ui.column().classes("w-full p-4 gap-2"):
+                    with ui.row().classes("items-center gap-4 w-full"):
+                        nav_label = ui.label().classes("text-subtitle1 text-weight-medium")
+                        subset_badge = ui.badge("").props("outline")
+                        item_id_label = ui.label().classes("text-caption text-grey-6")
+                        ui.space()
+                        prev_btn = ui.button(icon="arrow_back", on_click=lambda: navigate(-1)).props("flat dense")
+                        next_btn = ui.button(icon="arrow_forward", on_click=lambda: navigate(1)).props("flat dense")
+                        ui.button("Skip", on_click=lambda: navigate(1)).props("flat dense")
 
-                # -- Annotation form --
-                ui.label("Your Annotation").classes("text-subtitle2 text-weight-bold")
+                    with ui.row().classes("items-center gap-2"):
+                        ui.label("Source Text").classes("text-subtitle2 text-weight-bold")
+                        ui.button(
+                            "Go to reflection point",
+                            icon="my_location",
+                            on_click=lambda: ui.run_javascript(
+                                f'document.getElementById("{REFLECTION_MARKER_ID}")?.scrollIntoView({{behavior:"smooth",block:"center"}})'
+                            ),
+                            color="red-4",
+                        ).props("flat dense size=sm")
+                        ui.button(
+                            icon="content_copy",
+                            on_click=lambda: copy_source_text(),
+                        ).props("flat dense size=sm").tooltip("Copy source text to clipboard")
 
-                ui.label(
-                    "Step 1 — Charter Elements: Select all constitution articles relevant to this text."
-                ).classes("text-caption text-grey-7")
-                charter_select = ui.select(
-                    options=CHARTER_ELEMENT_IDS,
-                    multiple=True,
-                    label="Charter elements",
-                    value=[],
-                ).classes("w-full").props("use-chips outlined")
+                    source_html = ui.html("").style(
+                        "min-height: 200px; max-height: 600px; height: 400px; "
+                        "overflow-y: auto; resize: vertical; "
+                        "border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; "
+                        "line-height: 1.7; font-family: Georgia, serif; white-space: pre-wrap; "
+                        "font-size: 1.05em;"
+                    )
 
-                ui.label(
-                    "Step 2 — Analysis: Read the text against the constitution. "
-                    "List key elements: important claims, quality signals, notable features."
-                ).classes("text-caption text-grey-7")
-                analysis_input = ui.textarea(placeholder="Your analysis...").classes("w-full").props("outlined")
+                    ui.separator()
 
-                ui.label(
-                    "Step 3 — Preflection: Contextualize for a reader who has NOT yet read the text. "
-                    "Frame what matters, provide background — do NOT spoil conclusions."
-                ).classes("text-caption text-grey-7")
-                preflection_input = ui.textarea(placeholder="Your preflection...").classes("w-full").props("outlined")
+                    ui.label("Your Annotation").classes("text-subtitle2 text-weight-bold")
 
-                ui.label(
-                    "Step 4 — Reflection: Evaluate for a reader who HAS read the text. "
-                    "Assess quality, identify issues, add analytical value beyond restating."
-                ).classes("text-caption text-grey-7")
-                reflection_input = ui.textarea(placeholder="Your reflection...").classes("w-full").props("outlined")
+                    ui.label(
+                        "Step 1 — Charter Elements: Select all constitution articles relevant to this text."
+                    ).classes("text-caption text-grey-7")
+                    charter_select = ui.select(
+                        options=CHARTER_ELEMENT_IDS,
+                        multiple=True,
+                        label="Charter elements",
+                        value=[],
+                    ).classes("w-full").props("use-chips outlined")
 
-                with ui.row().classes("w-full justify-end q-mt-sm"):
-                    ui.button("Submit annotation", on_click=lambda: submit(), color="primary")
+                    ui.label(
+                        "Step 2 — Analysis: Read the text against the constitution. "
+                        "List key elements: important claims, quality signals, notable features."
+                    ).classes("text-caption text-grey-7")
+                    analysis_input = ui.textarea(placeholder="Your analysis...").classes("w-full").props("outlined")
 
-    # === Logic ===
-    def current_item() -> dict:
-        return items_by_id[state["queue"][state["pos"]]]
+                    ui.label(
+                        "Step 3 — Preflection: Contextualize for a reader who has NOT yet read the text. "
+                        "Frame what matters, provide background — do NOT spoil conclusions."
+                    ).classes("text-caption text-grey-7")
+                    preflection_input = ui.textarea(placeholder="Your preflection...").classes("w-full").props("outlined")
 
-    def copy_source_text():
-        text = current_item()["text"]
-        ui.run_javascript(f'navigator.clipboard.writeText({repr(text)})')
-        ui.notify("Source text copied!", type="info")
+                    ui.label(
+                        "Step 4 — Reflection: Evaluate for a reader who HAS read the text. "
+                        "Assess quality, identify issues, add analytical value beyond restating."
+                    ).classes("text-caption text-grey-7")
+                    reflection_input = ui.textarea(placeholder="Your reflection...").classes("w-full").props("outlined")
 
-    def update_display():
-        item = current_item()
-        item_id = item["item_id"]
-        existing = my_annotations.get(item_id)
+                    with ui.row().classes("w-full justify-end q-mt-sm"):
+                        ui.button("Submit annotation", on_click=lambda: submit(), color="primary")
 
-        n_done = len(my_annotations)
-        progress_label.set_text(f"{annotator_id} · {n_done}/{len(sample_ids)} done")
-        nav_label.set_text(f"Item {state['pos'] + 1} / {len(state['queue'])}")
-        subset_badge.set_text(item["subset"])
-        item_id_label.set_text(item_id[:16])
-        source_html.set_content(render_source_text(item["text"], item["reflection_point"]))
-        prev_btn.set_enabled(state["pos"] > 0)
-        next_btn.set_enabled(state["pos"] < len(state["queue"]) - 1)
+        # === Logic ===
+        def current_item() -> dict:
+            return items_by_id[state["queue"][state["pos"]]]
 
-        # Pre-fill from existing annotation or clear
-        if existing:
-            status_label.set_text("✎ Editing existing annotation")
-            analysis_input.set_value(existing["analysis"])
-            preflection_input.set_value(existing["preflection"])
-            reflection_input.set_value(existing["reflection"])
-            charter_select.set_value(existing.get("charter_elements", []))
-        else:
-            status_label.set_text("New item")
-            analysis_input.set_value("")
-            preflection_input.set_value("")
-            reflection_input.set_value("")
-            charter_select.set_value([])
+        def copy_source_text():
+            text = current_item()["text"]
+            ui.run_javascript(f'navigator.clipboard.writeText({repr(text)})')
+            ui.notify("Source text copied!", type="info")
 
-        # Auto-scroll to reflection point on load
-        ui.run_javascript(
-            f'setTimeout(() => document.getElementById("{REFLECTION_MARKER_ID}")?.scrollIntoView({{behavior:"smooth",block:"center"}}), 300)'
-        )
+        def update_display():
+            item = current_item()
+            item_id = item["item_id"]
+            existing = my_annotations.get(item_id)
 
-    def navigate(delta: int):
-        new_pos = state["pos"] + delta
-        if 0 <= new_pos < len(state["queue"]):
-            state["pos"] = new_pos
+            n_done = len(my_annotations)
+            progress_label.set_text(f"{annotator_id} · {n_done} done")
+            nav_label.set_text(f"Item {state['pos'] + 1} / {len(state['queue'])}")
+            subset_badge.set_text(item["subset"])
+            item_id_label.set_text(item_id[:16])
+            source_html.set_content(render_source_text(item["text"], item["reflection_point"]))
+            prev_btn.set_enabled(state["pos"] > 0)
+            next_btn.set_enabled(state["pos"] < len(state["queue"]) - 1)
+
+            if existing:
+                status_label.set_text("✎ Editing existing annotation")
+                analysis_input.set_value(existing["analysis"])
+                preflection_input.set_value(existing["preflection"])
+                reflection_input.set_value(existing["reflection"])
+                charter_select.set_value(existing.get("charter_elements", []))
+            else:
+                status_label.set_text("New item")
+                analysis_input.set_value("")
+                preflection_input.set_value("")
+                reflection_input.set_value("")
+                charter_select.set_value([])
+
+            ui.run_javascript(
+                f'setTimeout(() => document.getElementById("{REFLECTION_MARKER_ID}")?.scrollIntoView({{behavior:"smooth",block:"center"}}), 300)'
+            )
+
+        def navigate(delta: int):
+            new_pos = state["pos"] + delta
+            if 0 <= new_pos < len(state["queue"]):
+                state["pos"] = new_pos
+                update_display()
+
+        def submit():
+            assert analysis_input.value.strip(), "Analysis cannot be empty"
+            assert preflection_input.value.strip(), "Preflection cannot be empty"
+            assert reflection_input.value.strip(), "Reflection cannot be empty"
+
+            item = current_item()
+            is_edit = item["item_id"] in my_annotations
+            save_annotation(
+                item_id=item["item_id"],
+                annotator_id=annotator_id,
+                subset=item["subset"],
+                text=item["text"],
+                reflection_point=item["reflection_point"],
+                analysis=analysis_input.value.strip(),
+                preflection=preflection_input.value.strip(),
+                reflection=reflection_input.value.strip(),
+                charter_elements=charter_select.value or [],
+                presentation_order=state["pos"],
+            )
+            my_annotations.update(get_my_annotations())
+            ui.notify("Updated!" if is_edit else "Saved!", type="positive")
+            if not is_edit:
+                for i in range(state["pos"] + 1, len(state["queue"])):
+                    if state["queue"][i] not in my_annotations:
+                        state["pos"] = i
+                        update_display()
+                        return
             update_display()
 
-    def submit():
-        assert analysis_input.value.strip(), "Analysis cannot be empty"
-        assert preflection_input.value.strip(), "Preflection cannot be empty"
-        assert reflection_input.value.strip(), "Reflection cannot be empty"
-
-        item = current_item()
-        is_edit = item["item_id"] in my_annotations
-        save_annotation(
-            item_id=item["item_id"],
-            annotator_id=annotator_id,
-            subset=item["subset"],
-            reflection_point=item["reflection_point"],
-            analysis=analysis_input.value.strip(),
-            preflection=preflection_input.value.strip(),
-            reflection=reflection_input.value.strip(),
-            charter_elements=charter_select.value or [],
-            presentation_order=state["pos"],
-        )
-        # Refresh local cache
-        my_annotations.update(get_my_annotations())
-        ui.notify("Updated!" if is_edit else "Saved!", type="positive")
-        # Advance to next unannotated item if this was new
-        if not is_edit:
-            for i in range(state["pos"] + 1, len(state["queue"])):
-                if state["queue"][i] not in my_annotations:
-                    state["pos"] = i
-                    update_display()
-                    return
         update_display()
 
-    update_display()
+    # === Loading gate: show spinner while data loads, then build UI ===
+    if SAMPLE_ITEMS:
+        build_content()
+        return
+
+    loading = ui.column().classes("absolute-center items-center gap-4")
+    with loading:
+        ui.spinner("dots", size="xl", color="primary")
+        ui.label("Loading data...").classes("text-grey-6 text-subtitle1")
+
+    # Kick off the blocking load in a background thread
+    threading.Thread(target=ensure_sample_loaded, daemon=True).start()
+
+    # Poll until loaded; timer callback runs in the correct client context
+    def _check_loaded():
+        if SAMPLE_ITEMS:
+            poll_timer.active = False
+            loading.delete()
+            build_content()
+
+    poll_timer = ui.timer(0.3, _check_loaded)
 
 
 @ui.page("/overview")
 def overview_page():
     """Overview panel: annotation stats and side-by-side annotation viewer."""
-    ensure_sample_loaded()
-    items_by_id = {item["item_id"]: item for item in SAMPLE_ITEMS}
     annotations_by_item = load_annotations_by_item()
+    items_by_id: dict[str, dict] = {}
+    for item_id, records in annotations_by_item.items():
+        rec = records[0]
+        items_by_id[item_id] = {
+            "item_id": item_id,
+            "subset": rec["subset"],
+            "text": rec["text"],
+            "reflection_point": rec["reflection_point"],
+        }
     all_annotator_ids = sorted({
         r["annotator_id"]
         for records in annotations_by_item.values()
@@ -407,12 +502,14 @@ def overview_page():
     })
 
     # === Header ===
-    with ui.header().classes("items-center justify-between").style("background: #1d1d1d;"):
-        ui.label("Overview").classes("text-h6 text-white")
-        with ui.row().classes("items-center gap-4"):
-            ui.button("Back to annotating", icon="edit",
-                      on_click=lambda: ui.navigate.to("/annotate"),
-                      ).classes("text-white").props("flat dense")
+    viewer_id = app.storage.user.get("annotator_id", "")
+
+    def overview_actions():
+        ui.button("Back to annotating", icon="edit",
+                  on_click=lambda: ui.navigate.to("/annotate"),
+                  ).classes("text-white").props("flat dense")
+
+    render_header(viewer_id, active_phase=1, right_slot=overview_actions)
 
     # === Stats ===
     with ui.row().classes("w-full p-4 gap-8 items-start"):
@@ -434,11 +531,9 @@ def overview_page():
         # -- Overall stats --
         with ui.card().classes("q-pa-md"):
             ui.label("Dataset").classes("text-subtitle1 text-weight-bold")
-            n_items = len(SAMPLE_ITEMS)
             n_annotated = len(annotations_by_item)
             n_dual = sum(1 for recs in annotations_by_item.values() if len(recs) >= 2)
-            ui.label(f"Total items: {n_items}")
-            ui.label(f"Annotated: {n_annotated}")
+            ui.label(f"Annotated items: {n_annotated}")
             ui.label(f"Dual-annotated: {n_dual}")
 
     ui.separator()
@@ -460,30 +555,24 @@ def overview_page():
         ).classes("w-48")
 
         source_filter = ui.select(
-            options=["All", "climbmix", "4chan"],
+            options=["All"] + FINEWEB_SUBSETS,
             value="All",
-            label="Filter by source",
+            label="Filter by score",
         ).classes("w-48")
 
     # Container for the annotation cards
     cards_container = ui.column().classes("w-full q-px-md gap-4 q-mt-md")
 
-    viewer_id = app.storage.user.get("annotator_id", "")
-
     def render_annotations():
         cards_container.clear()
         filt_annotator = annotator_filter.value
         filt_source = source_filter.value
-        comments_by_ann = load_comments_by_annotation()
 
         filtered_ids = annotated_ids
         if filt_source != "All":
             filtered_ids = [
                 iid for iid in filtered_ids
-                if iid in items_by_id and (
-                    items_by_id[iid]["subset"] == filt_source
-                    or items_by_id[iid]["subset"].startswith(filt_source + "/")
-                )
+                if iid in items_by_id and items_by_id[iid]["subset"] == filt_source
             ]
         if filt_annotator != "All":
             filtered_ids = [
@@ -495,6 +584,8 @@ def overview_page():
             if not filtered_ids:
                 ui.label("No annotations match filters.").classes("text-grey-6")
                 return
+
+            comments_by_ann = load_comments_by_annotation()
 
             for item_id in filtered_ids:
                 item = items_by_id.get(item_id)
@@ -592,4 +683,4 @@ def overview_page():
     render_annotations()
 
 
-ui.run(title="Model Raising Annotation Platform", port=8600, storage_secret="annotation-dashboard")
+ui.run(title="Model Raising Annotation Platform", port=int(os.environ.get("DASHBOARD_PORT", 8600)), storage_secret="annotation-dashboard")
