@@ -50,7 +50,8 @@ def save_annotation(
     analysis: str,
     preflection: str,
     reflection: str,
-    charter_elements: list[str],
+    preflection_charter_elements: list[str],
+    reflection_charter_elements: list[str],
     presentation_order: int,
 ) -> None:
     """Append a single annotation record (includes full source text)."""
@@ -63,7 +64,8 @@ def save_annotation(
         "analysis": analysis,
         "preflection": preflection,
         "reflection": reflection,
-        "charter_elements": charter_elements,
+        "preflection_charter_elements": preflection_charter_elements,
+        "reflection_charter_elements": reflection_charter_elements,
         "presentation_order": presentation_order,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

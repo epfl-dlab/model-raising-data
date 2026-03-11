@@ -4,20 +4,39 @@ import itertools
 import random
 
 from datasets import load_dataset
+from transformers import AutoTokenizer
 
 from annotation.config import FINEWEB_DATASET, FINEWEB_SUBSETS
 from annotation.storage import compute_item_id
 
+TOKENIZER_NAME = "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+_tokenizer = None
+
+
+def _get_tokenizer() -> AutoTokenizer:
+    global _tokenizer
+    if _tokenizer is None:
+        _tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
+    return _tokenizer
+
 
 def _compute_reflection_point(text: str, rng: random.Random) -> int:
-    """Pick a reflection point between 10%-90% of text, snapped to a word boundary."""
-    min_pos = max(1, int(len(text) * 0.1))
-    max_pos = max(min_pos + 1, int(len(text) * 0.9))
-    char_pos = rng.randint(min_pos, max_pos)
-    space_idx = text.find(" ", char_pos)
-    if space_idx != -1 and space_idx - char_pos < 50:
-        char_pos = space_idx
-    return char_pos
+    """Pick a reflection point between 10%-90% of text, snapped to a token boundary.
+
+    Uses the SmolLM2 tokenizer to determine token boundaries, then selects a
+    random token position within the 10%-90% range and returns the corresponding
+    character offset.
+    """
+    tokenizer = _get_tokenizer()
+    encoding = tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
+    offsets = encoding["offset_mapping"]
+    n_tokens = len(offsets)
+    assert n_tokens > 0, "Text produced no tokens"
+
+    min_tok = max(1, int(n_tokens * 0.1))
+    max_tok = min(n_tokens - 1, max(min_tok, int(n_tokens * 0.9)))
+    tok_idx = rng.randint(min_tok, max_tok)
+    return offsets[tok_idx][0]
 
 
 def sample_items(n_per_subset: int, seed: int = 42) -> list[dict]:

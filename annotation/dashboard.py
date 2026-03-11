@@ -16,7 +16,7 @@ from nicegui import app, ui
 
 from annotation.config import CHARTER_ELEMENT_IDS, CHARTER_PATH, FINEWEB_SUBSETS, ITEMS_PER_SUBSET
 from annotation.sampling import sample_items
-from annotation.backup import start_backup_loop
+from annotation.backup import force_upload, start_backup_loop
 from annotation.storage import (
     load_annotator_ids,
     load_annotations_by_item,
@@ -47,6 +47,19 @@ _COPY_JS_TEMPLATE = """(e) => {{
 }}"""
 
 N_PHASES = 3
+_CHARTER_ID_SET = set(CHARTER_ELEMENT_IDS)
+
+
+def extract_charter_elements(text: str) -> list[str]:
+    """Extract charter element IDs ([X.Y] patterns) from text, preserving order."""
+    matches = re.findall(r"\[(\d+\.\d+)\]", text)
+    seen = set()
+    result = []
+    for m in matches:
+        if m in _CHARTER_ID_SET and m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
 
 
 def render_phase_bar(active_phase: int = 1, right_slot=None):
@@ -231,19 +244,17 @@ def login_page():
         ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
         ui.label("Enter your name to begin annotating.").classes("text-subtitle1 text-grey-7")
 
-        if existing_names:
-            name_input = ui.select(
-                options=existing_names,
-                with_input=True,
-                label="Annotator name",
-                new_value_mode="add",
-            ).classes("w-64")
-        else:
-            name_input = ui.input(label="Annotator name", placeholder="e.g. Alice").classes("w-64")
+        name_input = ui.input(
+            label="Annotator name",
+            placeholder="e.g. Alice",
+            autocomplete=existing_names,
+        ).classes("w-64")
 
         def start():
             val = name_input.value
-            assert val and str(val).strip(), "Please enter a name"
+            if not val or not str(val).strip():
+                ui.notify("Please enter a name", type="warning")
+                return
             app.storage.user["annotator_id"] = str(val).strip()
             ui.navigate.to("/annotate")
 
@@ -267,6 +278,16 @@ def annotate_page():
         nonlocal progress_label, status_label
         progress_label = ui.label().classes("text-caption").style("color:#aaa;")
         status_label = ui.label().classes("text-caption").style("color:#aaa;")
+
+        def _do_upload():
+            if force_upload():
+                ui.notify("Uploaded to HuggingFace", type="positive")
+            else:
+                ui.notify("Backup not configured (BACKUP_REPO not set)", type="warning")
+
+        ui.button(icon="cloud_upload", on_click=_do_upload).props(
+            "flat dense size=sm"
+        ).tooltip("Force upload to HuggingFace").style("color:#666;")
         ui.button("Overview", icon="dashboard",
                   on_click=lambda: ui.navigate.to("/overview"),
                   ).classes("text-white").props("flat dense")
@@ -374,32 +395,57 @@ def annotate_page():
                     ui.label("Your Annotation").classes("text-subtitle2 text-weight-bold")
 
                     ui.label(
-                        "Step 1 — Charter Elements: Select all constitution articles relevant to this text."
-                    ).classes("text-caption text-grey-7")
-                    charter_select = ui.select(
-                        options=CHARTER_ELEMENT_IDS,
-                        multiple=True,
-                        label="Charter elements",
-                        value=[],
-                    ).classes("w-full").props("use-chips outlined")
-
-                    ui.label(
-                        "Step 2 — Analysis: Read the text against the constitution. "
+                        "Step 1 — Analysis: Read the text against the constitution. "
                         "List key elements: important claims, quality signals, notable features."
                     ).classes("text-caption text-grey-7")
                     analysis_input = ui.textarea(placeholder="Your analysis...").classes("w-full").props("outlined")
 
                     ui.label(
-                        "Step 3 — Preflection: Contextualize for a reader who has NOT yet read the text. "
-                        "Frame what matters, provide background — do NOT spoil conclusions."
+                        "Step 2 — Preflection: Contextualize for a reader who has NOT yet read the text. "
+                        "Frame what matters, provide background — do NOT spoil conclusions. "
+                        "Reference charter elements as [X.Y]."
                     ).classes("text-caption text-grey-7")
                     preflection_input = ui.textarea(placeholder="Your preflection...").classes("w-full").props("outlined")
 
+                    ui.label("Preflection charter elements (auto-extracted, editable)").classes("text-caption text-grey-7")
+                    preflection_charter_select = ui.select(
+                        options=CHARTER_ELEMENT_IDS,
+                        multiple=True,
+                        label="Preflection charter elements",
+                        value=[],
+                    ).classes("w-full").props("use-chips outlined")
+
                     ui.label(
-                        "Step 4 — Reflection: Evaluate for a reader who HAS read the text. "
-                        "Assess quality, identify issues, add analytical value beyond restating."
+                        "Step 3 — Reflection: Evaluate for a reader who HAS read the text. "
+                        "Assess quality, identify issues, add analytical value beyond restating. "
+                        "Reference charter elements as [X.Y]."
                     ).classes("text-caption text-grey-7")
                     reflection_input = ui.textarea(placeholder="Your reflection...").classes("w-full").props("outlined")
+
+                    ui.label("Reflection charter elements (auto-extracted, must be subset of preflection)").classes("text-caption text-grey-7")
+                    reflection_charter_select = ui.select(
+                        options=CHARTER_ELEMENT_IDS,
+                        multiple=True,
+                        label="Reflection charter elements",
+                        value=[],
+                    ).classes("w-full").props("use-chips outlined")
+
+                    def _on_preflection_change(_=None):
+                        extracted = extract_charter_elements(preflection_input.value or "")
+                        preflection_charter_select.set_value(extracted)
+                        # Constrain reflection to subset of preflection
+                        refl_val = reflection_charter_select.value or []
+                        filtered = [e for e in refl_val if e in set(extracted)]
+                        if filtered != refl_val:
+                            reflection_charter_select.set_value(filtered)
+
+                    def _on_reflection_change(_=None):
+                        extracted = extract_charter_elements(reflection_input.value or "")
+                        pre_set = set(preflection_charter_select.value or [])
+                        reflection_charter_select.set_value([e for e in extracted if e in pre_set])
+
+                    preflection_input.on("blur", _on_preflection_change)
+                    reflection_input.on("blur", _on_reflection_change)
 
                     with ui.row().classes("w-full justify-end q-mt-sm"):
                         ui.button("Submit annotation", on_click=lambda: submit(), color="primary")
@@ -429,13 +475,19 @@ def annotate_page():
                 analysis_input.set_value(existing["analysis"])
                 preflection_input.set_value(existing["preflection"])
                 reflection_input.set_value(existing["reflection"])
-                charter_select.set_value(existing.get("charter_elements", []))
+                # Backward compat: old records have "charter_elements" for both
+                fallback = existing.get("charter_elements", [])
+                preflection_charter_select.set_value(
+                    existing.get("preflection_charter_elements", fallback))
+                reflection_charter_select.set_value(
+                    existing.get("reflection_charter_elements", fallback))
             else:
                 status_label.set_text("New item")
                 analysis_input.set_value("")
                 preflection_input.set_value("")
                 reflection_input.set_value("")
-                charter_select.set_value([])
+                preflection_charter_select.set_value([])
+                reflection_charter_select.set_value([])
 
             ui.run_javascript(
                 f'setTimeout(() => document.getElementById("{REFLECTION_MARKER_ID}")?.scrollIntoView({{behavior:"smooth",block:"center"}}), 300)'
@@ -463,7 +515,8 @@ def annotate_page():
                 analysis=analysis_input.value.strip(),
                 preflection=preflection_input.value.strip(),
                 reflection=reflection_input.value.strip(),
-                charter_elements=charter_select.value or [],
+                preflection_charter_elements=preflection_charter_select.value or [],
+                reflection_charter_elements=reflection_charter_select.value or [],
                 presentation_order=state["pos"],
             )
             my_annotations.update(get_my_annotations())
@@ -656,12 +709,19 @@ def overview_page():
                                     "white-space: pre-wrap;"
                                 )
 
-                                elements = rec.get("charter_elements", [])
-                                if elements:
-                                    ui.label("Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
+                                fallback_elems = rec.get("charter_elements", [])
+                                pre_elems = rec.get("preflection_charter_elements", fallback_elems)
+                                refl_elems = rec.get("reflection_charter_elements", fallback_elems)
+                                if pre_elems:
+                                    ui.label("Preflection Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
                                     with ui.row().classes("gap-1"):
-                                        for eid in elements:
+                                        for eid in pre_elems:
                                             ui.badge(eid, color="blue-grey-3").props("outline")
+                                if refl_elems:
+                                    ui.label("Reflection Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
+                                    with ui.row().classes("gap-1"):
+                                        for eid in refl_elems:
+                                            ui.badge(eid, color="teal-3").props("outline")
 
                                 # -- Comments thread --
                                 comments = comments_by_ann.get((ann_item_id, ann_author), [])

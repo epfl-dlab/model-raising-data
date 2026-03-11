@@ -131,6 +131,16 @@ def check_and_upload(api: HfApi, repo: str) -> bool:
     return False
 
 
+def force_upload() -> bool:
+    """Force an immediate upload. Returns True if successful, False if backup is not configured."""
+    repo = _get_repo()
+    if not repo:
+        return False
+    api = HfApi()
+    _upload(api, repo)
+    return True
+
+
 def start_backup_loop() -> threading.Thread | None:
     """Start the background backup loop. Returns the thread, or None if disabled.
 
