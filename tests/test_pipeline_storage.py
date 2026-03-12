@@ -12,9 +12,10 @@ import pytest
 def tmp_data_dir(tmp_path):
     """Redirect pipeline storage to a temp directory."""
     with patch("pipeline.phase2.storage.PIPELINE_DATA_DIR", tmp_path):
-        # Also patch the TEST_RESULTS_PATH since it's computed at import time
+        # Also patch module-level paths computed at import time
         with patch("pipeline.phase2.storage.TEST_RESULTS_PATH", tmp_path / "test_results.jsonl"):
-            yield tmp_path
+            with patch("pipeline.phase2.storage.LOOP_HISTORY_PATH", tmp_path / "loop_history.jsonl"):
+                yield tmp_path
 
 
 def test_save_and_load_run():
@@ -150,6 +151,27 @@ def test_save_and_load_test_result():
     assert len(results) == 1
     assert results[0]["test_id"] == "tg_20260312_143022"
     assert results[0]["type"] == "generate"
+
+
+def test_save_and_load_loop_history():
+    from pipeline.phase2.storage import load_loop_history, save_loop_run
+
+    record = {
+        "started_at": "2026-03-12T14:00:00",
+        "finished_at": "2026-03-12T15:00:00",
+        "phase_a": {"status": "done", "reasoning": "improved judge"},
+        "phase_b": {"status": "done", "reasoning": "improved generator"},
+        "error": None,
+        "model_alias": "glm45",
+        "prompts_before": {"judge_v1.md": "old judge", "generator_v1.md": "old gen"},
+        "prompts_after": {"judge_v1.md": "old judge", "judge_v2.md": "new judge", "generator_v1.md": "old gen"},
+    }
+    save_loop_run(record)
+    history = load_loop_history()
+    assert len(history) == 1
+    assert history[0]["model_alias"] == "glm45"
+    assert "judge_v2.md" in history[0]["prompts_after"]
+    assert "judge_v2.md" not in history[0]["prompts_before"]
 
 
 def test_load_test_results_filter_by_phase():

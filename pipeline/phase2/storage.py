@@ -125,6 +125,22 @@ def load_test_results(phase: str | None = None) -> list[dict]:
     return results
 
 
+# --- Loop History ---
+
+LOOP_HISTORY_PATH = PIPELINE_DATA_DIR / "loop_history.jsonl"
+
+
+def save_loop_run(record: dict) -> None:
+    """Append a completed loop run record."""
+    _ensure_dir()
+    append_jsonl(LOOP_HISTORY_PATH, record)
+
+
+def load_loop_history() -> list[dict]:
+    """Load all loop run records."""
+    return load_jsonl(LOOP_HISTORY_PATH)
+
+
 def save_review(
     item_id: str,
     iteration: int,

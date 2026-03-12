@@ -29,7 +29,7 @@ from pipeline.config import (
     load_config,
     resolve_prompt_path,
 )
-from pipeline.phase2.storage import items_path
+from pipeline.phase2.storage import items_path, save_loop_run
 
 STATUS_PATH = PIPELINE_DATA_DIR / "loop_status.json"
 IMPROVER_LOG_A_PATH = PIPELINE_DATA_DIR / "improver_log_A.txt"
@@ -402,6 +402,46 @@ def _make_phase_status(status_str: str = "pending") -> dict:
     }
 
 
+def _snapshot_prompts(cfg: AppConfig) -> dict[str, str]:
+    """Capture current prompt file contents keyed by filename."""
+    alias = cfg.phase2.generator.model
+    model_dir = PROMPTS_DIR / alias
+    prompts = {}
+    for path in sorted(model_dir.glob("*.md")):
+        if path.name == "state.md":
+            continue
+        prompts[path.name] = path.read_text(encoding="utf-8")
+    return prompts
+
+
+def _extract_reasoning_from_log(log_path: Path) -> str:
+    """Extract the last consecutive [text] block from a log file as reasoning fallback.
+
+    Log format: ``[text] first line`` followed by plain continuation lines until the
+    next tagged line (``[tool]``, ``[ok]``, ``[done]``, etc). Walking backward from the
+    end we collect continuation lines first, then the ``[text]`` header.
+    """
+    if not log_path.exists():
+        return ""
+    lines = log_path.read_text().splitlines()
+    result: list[str] = []
+    collecting = False
+    for line in reversed(lines):
+        if line.startswith(("[tool]", "[ok]", "[FAIL]", "[done]")):
+            if collecting:
+                break
+            continue
+        if line.startswith("[text] "):
+            result.append(line[7:])
+            # Found the block header — we're done
+            break
+        # Plain continuation line (part of the text block)
+        collecting = True
+        result.append(line)
+    result.reverse()
+    return "\n".join(result).strip()[:2000]
+
+
 ALLOWED_TOOLS = [
     "Read", "Glob", "Grep", "Bash(uv run python:*)",
     "Agent", "TaskCreate", "TaskUpdate", "TaskList",
@@ -413,6 +453,7 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
     """Two-phase improver loop: Phase A (judge) -> Phase B (generator).
 
     Writes progress to loop_status.json for dashboard polling.
+    Persists completed loop to loop_history.jsonl for post-mortem review.
     """
     if cfg is None:
         cfg = load_config()
@@ -433,6 +474,9 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
         "error": None,
     }
     write_status(status)
+
+    # Snapshot prompts before the loop starts
+    prompts_before = _snapshot_prompts(cfg)
 
     try:
         # --- Phase A: Judge Improvement ---
@@ -487,7 +531,6 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
         status["error"] = "Interrupted by user"
         status["running"] = False
         status["phase"] = "interrupted"
-        # Mark current phase as error
         for p in ("phase_a", "phase_b"):
             if status[p]["status"] == "running":
                 status[p]["status"] = "error"
@@ -502,6 +545,32 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
                 status[p]["status"] = "error"
         write_status(status)
         raise
+    finally:
+        # Persist loop history (even on error/interrupt)
+        _save_history(status, prompts_before, cfg)
+
+
+def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) -> None:
+    """Persist a loop run to loop_history.jsonl with prompt snapshots."""
+    prompts_after = _snapshot_prompts(cfg)
+
+    # Use log-extracted reasoning as fallback for empty reasoning
+    for phase_key, log_path in [("phase_a", IMPROVER_LOG_A_PATH), ("phase_b", IMPROVER_LOG_B_PATH)]:
+        phase_data = status.get(phase_key, {})
+        if not phase_data.get("reasoning") and phase_data.get("status") != "pending":
+            phase_data["reasoning"] = _extract_reasoning_from_log(log_path)
+
+    record = {
+        "started_at": status.get("started_at"),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "phase_a": status.get("phase_a", {}),
+        "phase_b": status.get("phase_b", {}),
+        "error": status.get("error"),
+        "model_alias": cfg.phase2.generator.model,
+        "prompts_before": prompts_before,
+        "prompts_after": prompts_after,
+    }
+    save_loop_run(record)
 
 
 def main():

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import statistics
 import threading
 from pathlib import Path
@@ -14,6 +15,7 @@ from pipeline.dashboard.shared import render_source_text
 from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_latest_reviews,
+    load_loop_history,
     load_reviews,
     load_runs,
     load_test_results,
@@ -94,6 +96,104 @@ def _phase_badge(status: str) -> tuple[str, str]:
         "error": "red",
     }
     return status.upper(), colors.get(status, "grey")
+
+
+def _prompt_diff_html(before: str, after: str, filename: str) -> str:
+    """Generate an HTML unified diff between two prompt versions."""
+    before_lines = before.splitlines(keepends=True)
+    after_lines = after.splitlines(keepends=True)
+    diff = difflib.unified_diff(before_lines, after_lines, fromfile=filename, tofile=filename, lineterm="")
+    lines = []
+    for line in diff:
+        line = line.rstrip("\n")
+        esc = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        if line.startswith("+++") or line.startswith("---"):
+            lines.append(f'<span style="color:#888;">{esc}</span>')
+        elif line.startswith("@@"):
+            lines.append(f'<span style="color:#8be9fd;">{esc}</span>')
+        elif line.startswith("+"):
+            lines.append(f'<span style="color:#50fa7b;">{esc}</span>')
+        elif line.startswith("-"):
+            lines.append(f'<span style="color:#ff5555;">{esc}</span>')
+        else:
+            lines.append(esc)
+    return "<br>".join(lines) if lines else "<em>No changes</em>"
+
+
+def _render_loop_history():
+    """Render past loop runs from loop_history.jsonl."""
+    history = load_loop_history()
+    if not history:
+        return
+
+    with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
+        ui.label("Improver Loop History").classes("text-h6 text-weight-bold")
+        ui.label(f"{len(history)} past loop run(s)").classes("text-caption text-grey-7")
+
+        for i, run in enumerate(reversed(history)):
+            run_idx = len(history) - i
+            started = run.get("started_at", "?")[:19]
+            finished = run.get("finished_at", "?")[:19]
+            error = run.get("error")
+            status_label = "ERROR" if error else "DONE"
+            status_color = "red" if error else "green"
+
+            with ui.expansion(
+                f"Loop #{run_idx} — {started}",
+                icon="history",
+            ).classes("w-full"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.badge(status_label, color=status_color)
+                    ui.label(f"{started} → {finished}").classes("text-caption text-grey-6")
+                    if run.get("model_alias"):
+                        ui.badge(run["model_alias"], color="blue-grey").props("outline")
+
+                if error:
+                    ui.label(f"Error: {error}").classes("text-caption text-red q-mt-xs")
+
+                # Phase cards
+                with ui.row().classes("w-full gap-4 q-mt-sm"):
+                    for phase_key, phase_label in [("phase_a", "Phase A: Judge"), ("phase_b", "Phase B: Generator")]:
+                        phase = run.get(phase_key, {})
+                        p_status = phase.get("status", "pending")
+                        label, color = _phase_badge(p_status)
+                        with ui.card().classes("flex-1 q-pa-sm"):
+                            with ui.row().classes("items-center gap-2"):
+                                ui.label(phase_label).classes("text-subtitle2 text-weight-bold")
+                                ui.badge(label, color=color)
+                            reasoning = phase.get("reasoning", "")
+                            if reasoning:
+                                ui.label(reasoning).classes("text-body2 q-mt-xs").style(
+                                    "white-space: pre-wrap; font-size: 0.85em; max-height: 300px; overflow-y: auto;"
+                                )
+                            else:
+                                ui.label("No reasoning recorded.").classes("text-grey-6 text-caption")
+
+                # Prompt diffs
+                prompts_before = run.get("prompts_before", {})
+                prompts_after = run.get("prompts_after", {})
+                all_files = sorted(set(prompts_before) | set(prompts_after))
+                changed = [f for f in all_files if prompts_before.get(f, "") != prompts_after.get(f, "")]
+
+                if changed:
+                    with ui.expansion(
+                        f"Prompt Changes ({len(changed)} file{'s' if len(changed) != 1 else ''})",
+                        icon="difference",
+                    ).classes("w-full q-mt-sm"):
+                        for filename in changed:
+                            before = prompts_before.get(filename, "")
+                            after = prompts_after.get(filename, "")
+                            if not before:
+                                diff_label = f"{filename} (new)"
+                            else:
+                                diff_label = filename
+                            with ui.expansion(diff_label).classes("w-full"):
+                                html = _prompt_diff_html(before, after, filename)
+                                ui.html(f'<pre style="font-family: monospace; font-size: 0.8em; '
+                                        f'line-height: 1.4; padding: 8px; background: #1e1e1e; '
+                                        f'border-radius: 4px; overflow-x: auto;">{html}</pre>')
+                elif prompts_before:
+                    ui.label("No prompt changes in this run.").classes("text-grey-6 text-caption q-mt-xs")
 
 
 @ui.page("/pipeline")
@@ -249,6 +349,9 @@ def pipeline_monitoring_page():
                 with ui.expansion(f"Iteration {run['iteration']} Analysis").classes("w-full"):
                     ui.markdown(run.get("analysis", "No analysis recorded.")).classes("text-body2")
 
+    # --- Loop History ---
+    _render_loop_history()
+
     # --- Two-Phase Improver Loop ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
         ui.label("Autonomous Improver Loop").classes("text-h6 text-weight-bold")
@@ -308,18 +411,18 @@ def pipeline_monitoring_page():
             lines = log_path.read_text().splitlines()
             return "\n".join(lines[-n_lines:])
 
-        def _poll_loop_status():
+        def _update_from_status(st: dict) -> None:
+            """Update UI elements from a loop status dict."""
             from pipeline.phase2.loop import (
                 IMPROVER_LOG_A_PATH,
                 IMPROVER_LOG_B_PATH,
-                read_status,
+                _extract_reasoning_from_log,
             )
-            st = read_status()
-            if st is None:
-                return
 
-            # Update phase badges
-            for phase_key, badge in [("phase_a", phase_a_badge), ("phase_b", phase_b_badge)]:
+            for phase_key, badge, text_label, log_path in [
+                ("phase_a", phase_a_badge, phase_a_text, IMPROVER_LOG_A_PATH),
+                ("phase_b", phase_b_badge, phase_b_text, IMPROVER_LOG_B_PATH),
+            ]:
                 phase_data = st.get(phase_key, {})
                 phase_status = phase_data.get("status", "pending")
                 label, color = _phase_badge(phase_status)
@@ -327,24 +430,28 @@ def pipeline_monitoring_page():
                 badge._props["color"] = color
                 badge.update()
 
-            # Update reasoning text
-            pa = st.get("phase_a", {})
-            pb = st.get("phase_b", {})
-            if pa.get("reasoning"):
-                phase_a_text.set_text(pa["reasoning"][:1000])
-            if pb.get("reasoning"):
-                phase_b_text.set_text(pb["reasoning"][:1000])
+                reasoning = phase_data.get("reasoning", "")
+                if not reasoning and phase_status != "pending":
+                    reasoning = _extract_reasoning_from_log(log_path)
+                if reasoning:
+                    text_label.set_text(reasoning[:1000])
 
             if st.get("error"):
                 loop_error_label.set_text(f"Error: {st['error']}")
             else:
                 loop_error_label.set_text("")
 
-            # Update logs
-            current_phase = st.get("phase", "")
-            if current_phase in ("A", "B", "done", "error", "interrupted"):
-                log_a_display.set_content(_tail_log(IMPROVER_LOG_A_PATH))
-                log_b_display.set_content(_tail_log(IMPROVER_LOG_B_PATH))
+            # Always show logs if they exist
+            log_a_display.set_content(_tail_log(IMPROVER_LOG_A_PATH))
+            log_b_display.set_content(_tail_log(IMPROVER_LOG_B_PATH))
+
+        def _poll_loop_status():
+            from pipeline.phase2.loop import read_status
+            st = read_status()
+            if st is None:
+                return
+
+            _update_from_status(st)
 
             # Update test results
             results = load_test_results()
@@ -400,12 +507,14 @@ def pipeline_monitoring_page():
             color="primary",
         )
 
-        # Check if a loop is already running
+        # Load existing status on page render (show logs/reasoning even when not running)
         from pipeline.phase2.loop import read_status as _read_initial
         _initial = _read_initial()
-        if _initial and _initial.get("running"):
-            loop_btn.disable()
-            loop_timer.active = True
+        if _initial:
+            _update_from_status(_initial)
+            if _initial.get("running"):
+                loop_btn.disable()
+                loop_timer.active = True
 
     # --- Single Iteration ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
@@ -523,10 +632,10 @@ def pipeline_review_page():
 
                 ui.separator()
 
-                # Judge scores display
-                judge_section = ui.column().classes("w-full gap-1")
-
-                ui.separator()
+                # Judge scores (hidden by default)
+                judge_expansion = ui.expansion("Judge Scores", icon="gavel").classes("w-full")
+                with judge_expansion:
+                    judge_section = ui.column().classes("w-full gap-1")
 
                 # Human annotation (for gold items)
                 gold_section = ui.column().classes("w-full gap-1")
