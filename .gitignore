@@ -9,4 +9,6 @@ food/feedback_v1.jsonl
 food/output/
 safety/output/
 annotation_data/
-data/.claude/
+data/
+.claude/
+tmp_gold_output.txt
