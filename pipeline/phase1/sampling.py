@@ -1,13 +1,11 @@
 """Stratified sampling from locuslab/fineweb_annotated score subsets."""
 
-import itertools
-import json
 import random
 
-from datasets import load_dataset
 from transformers import AutoTokenizer
 
 from pipeline.config import PIPELINE_DATA_DIR, Phase1Config
+from pipeline.fineweb import load_or_build_fineweb_cache
 from pipeline.storage import compute_item_id
 
 TOKENIZER_NAME = "HuggingFaceTB/SmolLM2-1.7B-Instruct"
@@ -48,36 +46,15 @@ def _load_or_build_cache(phase1_cfg: Phase1Config, seed: int) -> dict[str, list[
 
     Returns {subset: [{text, subset}, ...]} with PHASE1_CACHE_PER_SUBSET items per subset.
     """
-    if PHASE1_CACHE_PATH.exists():
-        by_subset: dict[str, list[dict]] = {}
-        for line in PHASE1_CACHE_PATH.read_text().splitlines():
-            if line.strip():
-                rec = json.loads(line)
-                by_subset.setdefault(rec["subset"], []).append(rec)
-        if by_subset:
-            total = sum(len(v) for v in by_subset.values())
-            print(f"Loaded {total} items from phase 1 cache")
-            return by_subset
-
-    print(f"Building phase 1 cache ({PHASE1_CACHE_PER_SUBSET} items per subset)...")
-    records: list[dict] = []
-    for subset in phase1_cfg.subsets:
-        print(f"[{subset}] Streaming from HF...", flush=True)
-        ds = load_dataset(phase1_cfg.dataset, subset, split="train", streaming=True)
-        ds = ds.shuffle(seed=seed, buffer_size=10_000)
-        rows = list(itertools.islice(ds, PHASE1_CACHE_PER_SUBSET))
-        for row in rows:
-            records.append({"text": row["text"], "subset": subset})
-        print(f"[{subset}] Cached {len(rows)} items", flush=True)
-
-    PIPELINE_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(PHASE1_CACHE_PATH, "w") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
-    print(f"Cached {len(records)} items to {PHASE1_CACHE_PATH}")
-
-    by_subset = {}
-    for rec in records:
+    flat = load_or_build_fineweb_cache(
+        cache_path=PHASE1_CACHE_PATH,
+        dataset=phase1_cfg.dataset,
+        subsets=phase1_cfg.subsets,
+        per_subset=PHASE1_CACHE_PER_SUBSET,
+        seed=seed,
+    )
+    by_subset: dict[str, list[dict]] = {}
+    for rec in flat:
         by_subset.setdefault(rec["subset"], []).append(rec)
     return by_subset
 

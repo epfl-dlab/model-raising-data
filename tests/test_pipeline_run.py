@@ -85,8 +85,6 @@ class TestMakeApiClient:
 
     def test_missing_key_raises(self, monkeypatch):
         monkeypatch.delenv("SWISS_AI_API_KEY", raising=False)
-        # Prevent load_dotenv from re-loading the key
-        monkeypatch.setattr("pipeline.phase2.run.load_dotenv", lambda: None)
 
         from pipeline.config import load_config
         from pipeline.phase2.run import make_api_client

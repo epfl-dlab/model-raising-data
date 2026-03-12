@@ -31,6 +31,7 @@ from pipeline.config import (
     load_config,
     resolve_prompt_path,
 )
+from pipeline.fineweb import load_or_build_fineweb_cache
 from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_latest_items,
@@ -46,7 +47,6 @@ RETRY_BACKOFF_BASE = 2.0
 
 def make_api_client(cfg: AppConfig) -> tuple[openai.AsyncOpenAI, asyncio.Semaphore]:
     """Create an OpenAI client and concurrency semaphore from config."""
-    load_dotenv()
     api_key = os.environ.get("SWISS_AI_API_KEY")
     assert api_key, "SWISS_AI_API_KEY not set in environment"
     client = openai.AsyncOpenAI(api_key=api_key, base_url=cfg.phase2.endpoint)
@@ -198,49 +198,16 @@ FINEWEB_CACHE_PATH = PIPELINE_DATA_DIR / "fineweb_cache.jsonl"
 FINEWEB_CACHE_SIZE = 500
 
 
-def _load_or_build_cache(seed: int) -> list[dict]:
-    """Load cached FineWeb texts, or stream from HF and cache locally.
-
-    Caches FINEWEB_CACHE_SIZE raw items (text + subset) to avoid repeated
-    HF downloads. The cache is a simple JSONL file.
-    """
-    if FINEWEB_CACHE_PATH.exists():
-        records = []
-        for line in FINEWEB_CACHE_PATH.read_text().splitlines():
-            if line.strip():
-                records.append(json.loads(line))
-        if records:
-            print(f"Loaded {len(records)} items from FineWeb cache")
-            return records
-
-    print(f"Building FineWeb cache ({FINEWEB_CACHE_SIZE} items, stratified across {len(FINEWEB_SUBSETS)} subsets)...")
-    from datasets import load_dataset
-
-    per_subset = FINEWEB_CACHE_SIZE // len(FINEWEB_SUBSETS)
-    records = []
-    for subset in FINEWEB_SUBSETS:
-        ds = load_dataset(FINEWEB_DATASET, subset, split="train", streaming=True)
-        ds = ds.shuffle(seed=seed, buffer_size=10_000)
-        count = 0
-        for row in ds:
-            if count >= per_subset:
-                break
-            records.append({"text": row["text"], "subset": subset})
-            count += 1
-        print(f"  {subset}: {count} items")
-
-    PIPELINE_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(FINEWEB_CACHE_PATH, "w") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
-    print(f"Cached {len(records)} items to {FINEWEB_CACHE_PATH}")
-    return records
-
-
 def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
     """Sample fresh FineWeb items, stratified equally across subsets."""
     rng = random.Random(seed)
-    cache = _load_or_build_cache(seed)
+    cache = load_or_build_fineweb_cache(
+        cache_path=FINEWEB_CACHE_PATH,
+        dataset=FINEWEB_DATASET,
+        subsets=FINEWEB_SUBSETS,
+        per_subset=FINEWEB_CACHE_SIZE // len(FINEWEB_SUBSETS),
+        seed=seed,
+    )
 
     # Group by subset and shuffle each group
     by_subset: dict[str, list[dict]] = {}
