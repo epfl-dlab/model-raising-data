@@ -453,7 +453,9 @@ def judge_batch(
 
         all_scores = list(pre_parsed["scores"].values()) + list(ref_parsed["scores"].values())
         aggregate = sum(all_scores) / len(all_scores)
-        decision = "accept" if aggregate >= accept_threshold else "reject"
+        # Floor rule: any dimension <= 2 forces reject, matching judge prompt
+        has_floor_violation = any(s <= 2 for s in all_scores)
+        decision = "reject" if has_floor_violation or aggregate < accept_threshold else "accept"
 
         judgment = {
             "preflection": {
