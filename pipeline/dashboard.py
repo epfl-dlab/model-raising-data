@@ -107,6 +107,30 @@ def pipeline_monitoring_page():
         for item in load_items_for_iteration(run["iteration"]):
             items_by_key[(item["item_id"], item["iteration"])] = item
 
+    # --- Precompute per-iteration stats (used by charts + table) ---
+    iter_stats: list[dict] = []
+    for run in runs:
+        it = run["iteration"]
+        items = load_items_for_iteration(it)
+        judged = [i for i in items if i.get("judgment")]
+        n_acc = sum(1 for i in judged if i["judgment"]["decision"] == "accept")
+        scores = [i["judgment"]["aggregate"] for i in judged]
+        mean_s = statistics.mean(scores) if scores else 0
+        accept_rate = round(n_acc / len(judged) * 100, 1) if judged else 0
+
+        iter_reviews = [r for r in all_reviews if r["iteration"] == it]
+        iter_items = {(i["item_id"], i["iteration"]): i for i in items}
+        cal_iter = _compute_calibration(iter_reviews, iter_items)
+
+        iter_stats.append({
+            **run,
+            "n_acc": n_acc,
+            "n_rej": len(judged) - n_acc,
+            "mean_score": mean_s,
+            "accept_rate": accept_rate,
+            "calibration": cal_iter,
+        })
+
     # --- Judge Calibration Panel ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
         ui.label("Judge Calibration").classes("text-h6 text-weight-bold")
@@ -133,6 +157,50 @@ def pipeline_monitoring_page():
                         val = f"{corr:.3f}" if corr is not None else "N/A"
                         ui.label(f"  {dim}: {val}").classes("text-body2")
 
+    # --- Trend Charts ---
+    if len(iter_stats) >= 2:
+        iter_labels = [f"Iter {s['iteration']}" for s in iter_stats]
+        accept_rates = [s["accept_rate"] for s in iter_stats]
+        mean_scores = [round(s["mean_score"], 2) for s in iter_stats]
+        calibration_corrs = [s["calibration"]["aggregate_correlation"] for s in iter_stats]
+
+        with ui.row().classes("w-full q-mx-md q-mt-md gap-4"):
+            with ui.card().classes("flex-1 q-pa-md"):
+                ui.label("Acceptance Rate & Mean Score").classes("text-subtitle2 text-weight-bold")
+                ui.echart({
+                    "xAxis": {"type": "category", "data": iter_labels},
+                    "yAxis": [
+                        {"type": "value", "name": "Accept %", "min": 0, "max": 100, "position": "left"},
+                        {"type": "value", "name": "Mean Score", "min": 1, "max": 5, "position": "right"},
+                    ],
+                    "series": [
+                        {"name": "Accept %", "type": "line", "data": accept_rates, "yAxisIndex": 0,
+                         "itemStyle": {"color": "#4caf50"}},
+                        {"name": "Mean Score", "type": "line", "data": mean_scores, "yAxisIndex": 1,
+                         "itemStyle": {"color": "#2196f3"}},
+                    ],
+                    "tooltip": {"trigger": "axis"},
+                    "legend": {"bottom": 0},
+                }).classes("w-full").style("height: 250px;")
+
+            with ui.card().classes("flex-1 q-pa-md"):
+                ui.label("Judge–Human Correlation").classes("text-subtitle2 text-weight-bold")
+                has_any = any(c is not None for c in calibration_corrs)
+                if not has_any:
+                    ui.label("No human reviews yet.").classes("text-grey-6")
+                else:
+                    corr_data = [round(c, 3) if c is not None else None for c in calibration_corrs]
+                    ui.echart({
+                        "xAxis": {"type": "category", "data": iter_labels},
+                        "yAxis": {"type": "value", "name": "Pearson r", "min": -1, "max": 1},
+                        "series": [
+                            {"name": "Aggregate Correlation", "type": "line", "data": corr_data,
+                             "itemStyle": {"color": "#ff9800"},
+                             "connectNulls": True},
+                        ],
+                        "tooltip": {"trigger": "axis"},
+                    }).classes("w-full").style("height: 250px;")
+
     # --- Iteration Table ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
         ui.label("Iterations").classes("text-h6 text-weight-bold")
@@ -148,19 +216,15 @@ def pipeline_monitoring_page():
                 {"name": "n_gold", "label": "Gold", "field": "n_gold"},
                 {"name": "timestamp", "label": "Time", "field": "timestamp"},
             ]
-            rows = []
-            for run in runs:
-                items = load_items_for_iteration(run["iteration"])
-                judged = [i for i in items if i.get("judgment")]
-                n_acc = sum(1 for i in judged if i["judgment"]["decision"] == "accept")
-                scores = [i["judgment"]["aggregate"] for i in judged]
-                mean_s = statistics.mean(scores) if scores else 0
-                rows.append({
-                    **run,
-                    "timestamp": run["timestamp"][:19],
-                    "accept_reject": f"{n_acc}/{len(judged) - n_acc}",
-                    "mean_score": f"{mean_s:.2f}",
-                })
+            rows = [
+                {
+                    **s,
+                    "timestamp": s["timestamp"][:19],
+                    "accept_reject": f"{s['n_acc']}/{s['n_rej']}",
+                    "mean_score": f"{s['mean_score']:.2f}",
+                }
+                for s in iter_stats
+            ]
 
             extra_cols = [
                 {"name": "accept_reject", "label": "Accept/Reject", "field": "accept_reject"},
@@ -186,6 +250,18 @@ def pipeline_monitoring_page():
 
         loop_results_container = ui.column().classes("w-full gap-1 q-mt-sm")
 
+        with ui.expansion("Improver Log", icon="terminal").classes("w-full q-mt-sm"):
+            improver_log_display = ui.code("", language="text").classes("w-full").style(
+                "max-height: 400px; overflow-y: auto; font-size: 0.8em;"
+            )
+
+        def _tail_improver_log(n_lines: int = 50) -> str:
+            from pipeline.loop import IMPROVER_LOG_PATH
+            if not IMPROVER_LOG_PATH.exists():
+                return ""
+            lines = IMPROVER_LOG_PATH.read_text().splitlines()
+            return "\n".join(lines[-n_lines:])
+
         def _poll_loop_status():
             from pipeline.loop import read_status
             st = read_status()
@@ -203,6 +279,9 @@ def pipeline_monitoring_page():
                 loop_error_label.set_text(f"Error: {st['error']}")
             else:
                 loop_error_label.set_text("")
+
+            if phase == "improving" or (not st.get("running") and phase in ("done", "error")):
+                improver_log_display.set_content(_tail_improver_log())
 
             results = st.get("results", [])
             loop_results_container.clear()
