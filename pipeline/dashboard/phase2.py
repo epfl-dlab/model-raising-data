@@ -234,6 +234,49 @@ def _prompt_diff_html(before: str, after: str, filename: str) -> str:
     return stats + table
 
 
+def _find_predecessor(filename: str, available: dict[str, str]) -> str | None:
+    """Find the previous version of a versioned prompt file.
+
+    E.g. 'judge_v3.md' -> look for 'judge_v2.md' in available.
+    """
+    import re
+    m = re.match(r"^(.+)_v(\d+)(\.md)$", filename)
+    if not m:
+        return None
+    prefix, version, ext = m.group(1), int(m.group(2)), m.group(3)
+    prev = f"{prefix}_v{version - 1}{ext}"
+    return prev if prev in available else None
+
+
+def _compute_prompt_diffs(
+    before: dict[str, str], after: dict[str, str],
+) -> list[tuple[str, str, str, str]]:
+    """Compute meaningful diffs between prompt snapshots.
+
+    For new versioned files (e.g. judge_v3.md), diffs against the previous
+    version (judge_v2.md) rather than against empty string.
+
+    Returns list of (expansion_label, before_text, after_text, display_name).
+    """
+    new_files = sorted(set(after) - set(before))
+    modified = [f for f in sorted(set(before) & set(after)) if before[f] != after[f]]
+
+    diffs: list[tuple[str, str, str, str]] = []
+
+    for filename in new_files:
+        pred = _find_predecessor(filename, before)
+        if pred:
+            label = f"{pred} -> {filename}"
+            diffs.append((label, before[pred], after[filename], label))
+        else:
+            diffs.append((f"{filename} (new)", "", after[filename], filename))
+
+    for filename in modified:
+        diffs.append((filename, before[filename], after[filename], filename))
+
+    return diffs
+
+
 def _render_loop_history():
     """Render past loop runs from loop_history.jsonl."""
     history = load_loop_history()
@@ -283,32 +326,24 @@ def _render_loop_history():
                             else:
                                 ui.label("No reasoning recorded.").classes("text-grey-6 text-caption")
 
-                # Prompt diffs
-                prompts_before = run.get("prompts_before", {})
-                prompts_after = run.get("prompts_after", {})
-                all_files = sorted(set(prompts_before) | set(prompts_after))
-                changed = [f for f in all_files if prompts_before.get(f, "") != prompts_after.get(f, "")]
-
-                if changed:
+                # Prompt diffs — pair new versions against their predecessor
+                diffs = _compute_prompt_diffs(
+                    run.get("prompts_before", {}), run.get("prompts_after", {}),
+                )
+                if diffs:
                     with ui.expansion(
-                        f"Prompt Changes ({len(changed)} file{'s' if len(changed) != 1 else ''})",
+                        f"Prompt Changes ({len(diffs)} file{'s' if len(diffs) != 1 else ''})",
                         icon="difference",
                     ).classes("w-full q-mt-sm"):
-                        for filename in changed:
-                            before = prompts_before.get(filename, "")
-                            after = prompts_after.get(filename, "")
-                            if not before:
-                                diff_label = f"{filename} (new)"
-                            else:
-                                diff_label = filename
-                            with ui.expansion(diff_label).classes("w-full"):
-                                html = _prompt_diff_html(before, after, filename)
+                        for label, before_text, after_text, display_name in diffs:
+                            with ui.expansion(label).classes("w-full"):
+                                html = _prompt_diff_html(before_text, after_text, display_name)
                                 ui.html(
                                     f'<div style="background:#0d1117;border:1px solid #30363d;'
                                     f'border-radius:6px;overflow:hidden;max-height:600px;'
                                     f'overflow-y:auto;">{html}</div>'
                                 )
-                elif prompts_before:
+                elif run.get("prompts_before"):
                     ui.label("No prompt changes in this run.").classes("text-grey-6 text-caption q-mt-xs")
 
 
