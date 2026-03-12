@@ -42,7 +42,6 @@ def save_annotation(
     analysis: str,
     preflection: str,
     reflection: str,
-    preflection_charter_elements: list[str],
     reflection_charter_elements: list[str],
     presentation_order: int,
 ) -> None:
@@ -56,7 +55,6 @@ def save_annotation(
         "analysis": analysis,
         "preflection": preflection,
         "reflection": reflection,
-        "preflection_charter_elements": preflection_charter_elements,
         "reflection_charter_elements": reflection_charter_elements,
         "presentation_order": presentation_order,
         "timestamp": datetime.now(timezone.utc).isoformat(),

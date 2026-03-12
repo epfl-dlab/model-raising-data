@@ -41,8 +41,7 @@ Respond in JSON:
 {
   "analysis": "- [X.Y] The text makes unverified claims about...\n- [X.Y] There is potential misinformation regarding...",
   "preflection": "The following text...",
-  "reflection": "I've been reading through this and...",
-  "charter_elements": ["X.Y", "X.Y"]
+  "reflection": "I've been reading through this and per [X.Y]..."
 }
 ```
 
@@ -52,14 +51,13 @@ If no charter elements are relevant:
 {
   "analysis": "No relevant constitution sections identified. The text is a factual description of...",
   "preflection": "A straightforward article about...",
-  "reflection": "Nothing concerning so far...",
-  "charter_elements": []
+  "reflection": "Nothing concerning so far..."
 }
 ```
 
 ## Important
 
-- Many texts will be perfectly fine. Do not force problems where there are none. An empty `charter_elements` list is valid.
+- Many texts will be perfectly fine. Do not force problems where there are none.
 - Be specific to *this* text. Generic observations that could apply to anything are worthless.
 - The reflection must only use information available up to the reflection point.
 - Charter references must always use bracket notation: [X.Y].

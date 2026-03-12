@@ -18,7 +18,7 @@ You can evaluate annotation quality better than the small judge model can. Human
 
 ### Rubric Clarity
 - Are dimension descriptions specific enough for a small model to follow?
-- Are there edge cases the rubric doesn't cover (e.g., benign texts, empty charter_elements)?
+- Are there edge cases the rubric doesn't cover (e.g., benign texts, no charter references)?
 - Does the rubric correctly handle the preflection/reflection voice distinction?
 
 ### Common Judge Errors

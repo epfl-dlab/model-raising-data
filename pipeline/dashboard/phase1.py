@@ -169,18 +169,9 @@ def annotate_page():
 
                     ui.label(
                         "Step 2 — Preflection: Contextualize for a reader who has NOT yet read the text. "
-                        "Frame what matters, provide background — do NOT spoil conclusions. "
-                        "Reference charter elements as [X.Y]."
+                        "Frame what matters, provide background — do NOT spoil conclusions."
                     ).classes("text-caption text-grey-7")
                     preflection_input = ui.textarea(placeholder="Your preflection...").classes("w-full").props("outlined")
-
-                    ui.label("Preflection charter elements (auto-extracted, editable)").classes("text-caption text-grey-7")
-                    preflection_charter_select = ui.select(
-                        options=CHARTER_ELEMENT_IDS,
-                        multiple=True,
-                        label="Preflection charter elements",
-                        value=[],
-                    ).classes("w-full").props("use-chips outlined")
 
                     ui.label(
                         "Step 3 — Reflection: Evaluate for a reader who HAS read the text. "
@@ -189,7 +180,7 @@ def annotate_page():
                     ).classes("text-caption text-grey-7")
                     reflection_input = ui.textarea(placeholder="Your reflection...").classes("w-full").props("outlined")
 
-                    ui.label("Reflection charter elements (auto-extracted, must be subset of preflection)").classes("text-caption text-grey-7")
+                    ui.label("Reflection charter elements (auto-extracted from [X.Y] references)").classes("text-caption text-grey-7")
                     reflection_charter_select = ui.select(
                         options=CHARTER_ELEMENT_IDS,
                         multiple=True,
@@ -197,21 +188,10 @@ def annotate_page():
                         value=[],
                     ).classes("w-full").props("use-chips outlined")
 
-                    def _on_preflection_change(_=None):
-                        extracted = extract_charter_elements(preflection_input.value or "")
-                        preflection_charter_select.set_value(extracted)
-                        # Constrain reflection to subset of preflection
-                        refl_val = reflection_charter_select.value or []
-                        filtered = [e for e in refl_val if e in set(extracted)]
-                        if filtered != refl_val:
-                            reflection_charter_select.set_value(filtered)
-
                     def _on_reflection_change(_=None):
                         extracted = extract_charter_elements(reflection_input.value or "")
-                        pre_set = set(preflection_charter_select.value or [])
-                        reflection_charter_select.set_value([e for e in extracted if e in pre_set])
+                        reflection_charter_select.set_value(extracted)
 
-                    preflection_input.on("blur", _on_preflection_change)
                     reflection_input.on("blur", _on_reflection_change)
 
                     with ui.row().classes("w-full justify-end q-mt-sm"):
@@ -242,10 +222,8 @@ def annotate_page():
                 analysis_input.set_value(existing["analysis"])
                 preflection_input.set_value(existing["preflection"])
                 reflection_input.set_value(existing["reflection"])
-                # Backward compat: old records have "charter_elements" for both
+                # Backward compat: old records may have "charter_elements" or "preflection_charter_elements"
                 fallback = existing.get("charter_elements", [])
-                preflection_charter_select.set_value(
-                    existing.get("preflection_charter_elements", fallback))
                 reflection_charter_select.set_value(
                     existing.get("reflection_charter_elements", fallback))
             else:
@@ -253,7 +231,6 @@ def annotate_page():
                 analysis_input.set_value("")
                 preflection_input.set_value("")
                 reflection_input.set_value("")
-                preflection_charter_select.set_value([])
                 reflection_charter_select.set_value([])
 
             ui.run_javascript(
@@ -282,7 +259,6 @@ def annotate_page():
                 analysis=analysis_input.value.strip(),
                 preflection=preflection_input.value.strip(),
                 reflection=reflection_input.value.strip(),
-                preflection_charter_elements=preflection_charter_select.value or [],
                 reflection_charter_elements=reflection_charter_select.value or [],
                 presentation_order=state["pos"],
             )
@@ -480,15 +456,9 @@ def overview_page():
                                 )
 
                                 fallback_elems = rec.get("charter_elements", [])
-                                pre_elems = rec.get("preflection_charter_elements", fallback_elems)
                                 refl_elems = rec.get("reflection_charter_elements", fallback_elems)
-                                if pre_elems:
-                                    ui.label("Preflection Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
-                                    with ui.row().classes("gap-1"):
-                                        for eid in pre_elems:
-                                            ui.badge(eid, color="blue-grey-3").props("outline")
                                 if refl_elems:
-                                    ui.label("Reflection Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
+                                    ui.label("Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
                                     with ui.row().classes("gap-1"):
                                         for eid in refl_elems:
                                             ui.badge(eid, color="teal-3").props("outline")

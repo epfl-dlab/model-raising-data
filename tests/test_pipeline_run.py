@@ -14,28 +14,18 @@ class TestParseGeneration:
             "analysis": "test analysis",
             "preflection": "test preflection",
             "reflection": "test reflection",
-            "charter_elements": ["1.1", "3.2"],
         })
         result = _parse_generation(raw)
         assert result["analysis"] == "test analysis"
-        assert result["charter_elements"] == ["1.1", "3.2"]
 
     def test_json_with_code_fence(self):
-        raw = '```json\n{"analysis": "a", "preflection": "p", "reflection": "r", "charter_elements": ["1.1"]}\n```'
+        raw = '```json\n{"analysis": "a", "preflection": "p", "reflection": "r"}\n```'
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_missing_field_raises(self):
         raw = json.dumps({"analysis": "a", "preflection": "p"})
         with pytest.raises(AssertionError, match="Missing fields"):
-            _parse_generation(raw)
-
-    def test_charter_elements_must_be_list(self):
-        raw = json.dumps({
-            "analysis": "a", "preflection": "p", "reflection": "r",
-            "charter_elements": "1.1, 3.2",
-        })
-        with pytest.raises(AssertionError, match="charter_elements must be a list"):
             _parse_generation(raw)
 
 
@@ -122,8 +112,7 @@ class TestIntegration:
         gen_response = json.dumps({
             "analysis": "test analysis",
             "preflection": "test preflection",
-            "reflection": "test reflection",
-            "charter_elements": ["1.1"],
+            "reflection": "test reflection per [1.1]",
         })
         judge_response = json.dumps({
             "scores": {"relevance": 4, "specificity": 3, "charter_grounding": 4, "voice_tone": 4},
@@ -206,8 +195,7 @@ class TestIntegration:
     def test_save_false_no_write(self):
         """Test that save=False prevents writing to items.jsonl."""
         gen_response = json.dumps({
-            "analysis": "test", "preflection": "p", "reflection": "r",
-            "charter_elements": ["1.1"],
+            "analysis": "test", "preflection": "p", "reflection": "r per [1.1]",
         })
         judge_response = json.dumps({
             "scores": {"relevance": 4}, "aggregate": 4.0,

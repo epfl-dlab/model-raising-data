@@ -87,6 +87,10 @@ async def _api_call(
             async with semaphore:
                 response = await client.chat.completions.create(
                     model=model, messages=messages,
+                    extra_body={
+                        "separate_reasoning": True,
+                        "chat_template_kwargs": {"enable_thinking": True},
+                    },
                 )
             msg = response.choices[0].message
             content = msg.content
@@ -126,6 +130,18 @@ def health_check(client: openai.AsyncOpenAI, model: str) -> None:
         loop.close()
 
 
+def _extract_charter_refs(text: str) -> list[str]:
+    """Extract unique [X.Y] charter references from text, preserving order."""
+    import re
+    seen: set[str] = set()
+    result: list[str] = []
+    for m in re.findall(r"\[(\d+\.\d+)\]", text):
+        if m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
+
+
 def _parse_generation(raw: str) -> dict:
     """Parse generator JSON output into structured fields.
 
@@ -140,10 +156,9 @@ def _parse_generation(raw: str) -> dict:
         text = "\n".join(lines)
 
     parsed = json.loads(text)
-    required = {"analysis", "preflection", "reflection", "charter_elements"}
+    required = {"analysis", "preflection", "reflection"}
     missing = required - set(parsed.keys())
     assert not missing, f"Missing fields in generation: {missing}"
-    assert isinstance(parsed["charter_elements"], list), "charter_elements must be a list"
     return parsed
 
 
@@ -332,6 +347,7 @@ def generate_batch(
         latency_ms = int((time.monotonic() - t0) * 1000)
 
         parsed = _parse_generation(raw)
+        charter_elements = _extract_charter_refs(parsed["reflection"])
         record = {
             "item_id": item["item_id"],
             "iteration": iteration,
@@ -344,7 +360,7 @@ def generate_batch(
             "analysis": parsed["analysis"],
             "preflection": parsed["preflection"],
             "reflection": parsed["reflection"],
-            "charter_elements": parsed["charter_elements"],
+            "charter_elements": charter_elements,
             "raw_response": raw,
             "reasoning": reasoning,
             "latency_ms": latency_ms,
@@ -389,12 +405,10 @@ async def _judge_one_part(
         source_text = item["text"][:item["reflection_point"]]
 
     content = item[part_type]
-    charter_elements = ", ".join(item["charter_elements"])
 
     user_content = (
         f"## Source Text\n\n{source_text}\n\n"
-        f"## {part_type.title()} to Judge\n\n{content}\n\n"
-        f"## Charter Elements Cited\n\n{charter_elements}"
+        f"## {part_type.title()} to Judge\n\n{content}"
     )
     messages = [
         {"role": "system", "content": system_prompt},

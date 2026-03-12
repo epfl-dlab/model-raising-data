@@ -51,7 +51,7 @@ Does the {part_type} use the correct voice, read naturally, and have appropriate
 
 - A brief "this text is fine" preflection/reflection is CORRECT for unproblematic texts. Do not penalize for brevity — penalize only if the text actually has issues that were missed.
 - A reflection that discusses issues not yet visible at the reflection point is INCORRECT — it can only use context available up to that point.
-- Forced charter references on benign text should be penalized. An empty charter_elements list is valid.
+- Forced charter references on benign text should be penalized. Having no charter references is valid.
 - Charter references must use bracket notation like [X.Y]. Bare numbers or quoted charter text should be penalized.
 - Formulaic, repetitive phrasing (same opening every time, same structure) should be penalized in Voice & Tone. Diversity matters for training data.
 - Reflections must be in first person. Third-person reflections are wrong voice.
