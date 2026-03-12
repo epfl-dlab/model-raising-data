@@ -309,6 +309,8 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
             proc.wait()
         raise
 
+    # Collect exit status (reader thread EOF doesn't guarantee wait was called)
+    proc.wait()
     assert proc.returncode == 0, (
         f"Claude agent failed (rc={proc.returncode}). See {log_path}"
     )
