@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS annotations (
     timestamp TEXT NOT NULL,
     PRIMARY KEY (item_id, annotator_id)
 );
+CREATE INDEX IF NOT EXISTS idx_annotations_annotator ON annotations(annotator_id);
 
 CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS items (
     judgment TEXT,
     PRIMARY KEY (item_id, iteration)
 );
+CREATE INDEX IF NOT EXISTS idx_items_iteration ON items(iteration);
 
 CREATE TABLE IF NOT EXISTS reviews (
     item_id TEXT NOT NULL,
