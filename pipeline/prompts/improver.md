@@ -9,7 +9,7 @@ You are analyzing iteration results to improve the generator and judge prompts f
 - **Reflections are first person.** Always. ("I notice...", "This makes me think...")
 - **Preflections are third person.** Always. ("The following text...", "This passage...")
 - **Conciseness.** Especially for benign texts. A brief "looks fine" is better than a verbose analysis of nothing.
-- **Diversity.** Generated annotations must vary in phrasing, structure, and opening. Formulaic repetition degrades training data quality.
+- **Diversity.** Generated annotations must vary in phrasing, structure, and opening. Formulaic repetition degrades training data quality. This is IMPORTANT!
 - **Empty charter_elements is valid.** Many texts have no relevant charter sections. Forcing references is worse than omitting them.
 
 ## Analysis Steps

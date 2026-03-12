@@ -1,26 +1,22 @@
 model: jminder/data-annotator-glm45
 endpoint: https://api.swissai.cscs.ch/v1
-
 scoring:
   scale_min: 1
   scale_max: 5
   accept_threshold: 4
   dimensions:
-    - relevance
-    - specificity
-    - charter_grounding
-    - voice_tone
-
+  - relevance
+  - specificity
+  - charter_grounding
+  - voice_tone
 iteration:
-  n_items: 50
-  n_gold: 12
-  max_concurrent: 10
-
+  n_items: 20
+  n_gold: 10
+  max_concurrent: 20
 prompts:
   generator: generator_v1.md
   judge: judge_v1.md
   improver: improver.md
-
 loop:
   n_iterations: 5
   improver_timeout_s: 600
