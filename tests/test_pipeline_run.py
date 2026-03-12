@@ -95,15 +95,19 @@ class TestMakeApiClient:
 
 
 class TestIntegration:
-    """Integration test: mock _api_call, run iteration with 3 items."""
+    """Integration test: mock _api_call, run generate/judge with SQLite storage."""
 
     @pytest.fixture(autouse=True)
-    def tmp_dirs(self, tmp_path):
+    def _isolate_db(self, tmp_path):
+        """Redirect SQLite storage to a temp DB and clear cached connection."""
         self.tmp_path = tmp_path
-        self.data_dir = tmp_path / "data" / "pipeline"
-        self.data_dir.mkdir(parents=True)
-        self.ann_dir = tmp_path / "data" / "annotation"
-        self.ann_dir.mkdir(parents=True)
+        import pipeline.storage as _mod
+        original = _mod.DB_PATH
+        _mod.DB_PATH = tmp_path / "test.db"
+        _mod._local.__dict__.pop("conn", None)
+        yield
+        _mod.DB_PATH = original
+        _mod._local.__dict__.pop("conn", None)
 
     def test_generate_and_judge(self):
         """Test generate_batch and judge_batch with mocked API calls."""
@@ -123,8 +127,6 @@ class TestIntegration:
         import openai
 
         mock_client = AsyncMock(spec=openai.AsyncOpenAI)
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
 
         call_count = {"n": 0}
 
@@ -133,8 +135,7 @@ class TestIntegration:
             resp = MagicMock()
             resp.choices = [MagicMock()]
             msg = resp.choices[0].message
-            msg.reasoning_content = None  # simulate non-reasoning model
-            # First 3 calls are generation, next 6 are judging (2 per item: preflection + reflection)
+            msg.reasoning_content = None
             if call_count["n"] <= 3:
                 msg.content = gen_response
             else:
@@ -149,7 +150,6 @@ class TestIntegration:
             for i in range(3)
         ]
 
-        # Write a minimal prompt file
         prompt_dir = self.tmp_path / "prompts"
         prompt_dir.mkdir()
         gen_prompt = prompt_dir / "gen_v1.md"
@@ -159,39 +159,35 @@ class TestIntegration:
 
         semaphore = asyncio.Semaphore(10)
 
-        with patch("pipeline.phase2.storage.PIPELINE_DATA_DIR", self.data_dir):
-            from pipeline.phase2.run import generate_batch, judge_batch
+        from pipeline.phase2.run import generate_batch, judge_batch
 
-            generated = generate_batch(
-                items, gen_prompt, "charter text", "test-model",
-                iteration=1, client=mock_client, semaphore=semaphore,
-            )
-            assert len(generated) == 3
-            assert all(g["analysis"] == "test analysis" for g in generated)
+        generated = generate_batch(
+            items, gen_prompt, "charter text", "test-model",
+            iteration=1, client=mock_client, semaphore=semaphore,
+        )
+        assert len(generated) == 3
+        assert all(g["analysis"] == "test analysis" for g in generated)
 
-            judged = judge_batch(
-                generated, judge_prompt, "test-model",
-                iteration=1, accept_threshold=4.0,
-                client=mock_client, semaphore=semaphore,
-            )
-            assert len(judged) == 3
-            # aggregate=3.75 < threshold=4.0 -> reject
-            assert all(j["judgment"]["decision"] == "reject" for j in judged)
-            # Verify separate preflection/reflection judgments
-            for j in judged:
-                assert "preflection" in j["judgment"]
-                assert "reflection" in j["judgment"]
-                assert "scores" in j["judgment"]["preflection"]
-                assert "scores" in j["judgment"]["reflection"]
+        judged = judge_batch(
+            generated, judge_prompt, "test-model",
+            iteration=1, accept_threshold=4.0,
+            client=mock_client, semaphore=semaphore,
+        )
+        assert len(judged) == 3
+        assert all(j["judgment"]["decision"] == "reject" for j in judged)
+        for j in judged:
+            assert "preflection" in j["judgment"]
+            assert "reflection" in j["judgment"]
+            assert "scores" in j["judgment"]["preflection"]
+            assert "scores" in j["judgment"]["reflection"]
 
-            # Verify JSONL was written (3 gen + 3 judged = 6 records)
-            items_file = self.data_dir / "items.jsonl"
-            assert items_file.exists()
-            lines = [l for l in items_file.read_text().splitlines() if l.strip()]
-            assert len(lines) == 6
+        # Verify items saved to SQLite (3 items, upserted by judge)
+        from pipeline.phase2.storage import load_items_for_iteration
+        rows = load_items_for_iteration(1)
+        assert len(rows) == 3
 
     def test_save_false_no_write(self):
-        """Test that save=False prevents writing to items.jsonl."""
+        """Test that save=False prevents writing to the database."""
         gen_response = json.dumps({
             "analysis": "test", "preflection": "p", "reflection": "r per [1.1]",
         })
@@ -229,22 +225,22 @@ class TestIntegration:
 
         semaphore = asyncio.Semaphore(10)
 
-        with patch("pipeline.phase2.storage.PIPELINE_DATA_DIR", self.data_dir):
-            from pipeline.phase2.run import generate_batch, judge_batch
+        from pipeline.phase2.run import generate_batch, judge_batch
 
-            generated = generate_batch(
-                items, gen_prompt, "charter text", "test-model",
-                iteration=1, client=mock_client, semaphore=semaphore, save=False,
-            )
-            assert len(generated) == 1
+        generated = generate_batch(
+            items, gen_prompt, "charter text", "test-model",
+            iteration=1, client=mock_client, semaphore=semaphore, save=False,
+        )
+        assert len(generated) == 1
 
-            judged = judge_batch(
-                generated, judge_prompt, "test-model",
-                iteration=1, accept_threshold=4.0,
-                client=mock_client, semaphore=semaphore, save=False,
-            )
-            assert len(judged) == 1
+        judged = judge_batch(
+            generated, judge_prompt, "test-model",
+            iteration=1, accept_threshold=4.0,
+            client=mock_client, semaphore=semaphore, save=False,
+        )
+        assert len(judged) == 1
 
-            # No JSONL should have been written
-            items_file = self.data_dir / "items.jsonl"
-            assert not items_file.exists()
+        # No items should have been written
+        from pipeline.phase2.storage import load_items_for_iteration
+        rows = load_items_for_iteration(1)
+        assert len(rows) == 0
