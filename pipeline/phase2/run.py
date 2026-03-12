@@ -34,6 +34,7 @@ from pipeline.config import (
 )
 from pipeline.phase2.storage import (
     load_items_for_iteration,
+    load_latest_items,
     load_runs,
     save_item,
     save_run,
@@ -229,19 +230,21 @@ def _load_or_build_cache(seed: int) -> list[dict]:
             print(f"Loaded {len(records)} items from FineWeb cache")
             return records
 
-    print(f"Building FineWeb cache ({FINEWEB_CACHE_SIZE} items)...")
+    print(f"Building FineWeb cache ({FINEWEB_CACHE_SIZE} items, stratified across {len(FINEWEB_SUBSETS)} subsets)...")
     from datasets import load_dataset
 
+    per_subset = FINEWEB_CACHE_SIZE // len(FINEWEB_SUBSETS)
     records = []
     for subset in FINEWEB_SUBSETS:
         ds = load_dataset(FINEWEB_DATASET, subset, split="train", streaming=True)
         ds = ds.shuffle(seed=seed, buffer_size=10_000)
+        count = 0
         for row in ds:
-            if len(records) >= FINEWEB_CACHE_SIZE:
+            if count >= per_subset:
                 break
             records.append({"text": row["text"], "subset": subset})
-        if len(records) >= FINEWEB_CACHE_SIZE:
-            break
+            count += 1
+        print(f"  {subset}: {count} items")
 
     PIPELINE_DATA_DIR.mkdir(parents=True, exist_ok=True)
     with open(FINEWEB_CACHE_PATH, "w") as f:
@@ -252,33 +255,52 @@ def _load_or_build_cache(seed: int) -> list[dict]:
 
 
 def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
-    """Sample fresh random FineWeb items, excluding already-used IDs."""
+    """Sample fresh FineWeb items, stratified equally across subsets."""
     rng = random.Random(seed)
     cache = _load_or_build_cache(seed)
-    rng.shuffle(cache)
 
-    items = []
+    # Group by subset and shuffle each group
+    by_subset: dict[str, list[dict]] = {}
     for row in cache:
-        if len(items) >= n:
+        by_subset.setdefault(row["subset"], []).append(row)
+    for rows in by_subset.values():
+        rng.shuffle(rows)
+
+    # Round-robin across subsets to get stratified sample
+    subsets = sorted(by_subset.keys())
+    cursors = {s: 0 for s in subsets}
+    items = []
+    while len(items) < n:
+        made_progress = False
+        for subset in subsets:
+            if len(items) >= n:
+                break
+            rows = by_subset.get(subset, [])
+            while cursors[subset] < len(rows):
+                row = rows[cursors[subset]]
+                cursors[subset] += 1
+                text = row["text"]
+                item_id = compute_item_id(text)
+                if item_id in exclude_ids:
+                    continue
+                min_pos = max(1, int(len(text) * 0.1))
+                max_pos = max(min_pos + 1, int(len(text) * 0.9))
+                char_pos = rng.randint(min_pos, max_pos)
+                space_idx = text.find(" ", char_pos)
+                if space_idx != -1 and space_idx - char_pos < 50:
+                    char_pos = space_idx
+                items.append({
+                    "item_id": item_id,
+                    "subset": subset,
+                    "text": text,
+                    "reflection_point": char_pos,
+                    "is_gold": False,
+                })
+                exclude_ids.add(item_id)
+                made_progress = True
+                break
+        if not made_progress:
             break
-        text = row["text"]
-        item_id = compute_item_id(text)
-        if item_id in exclude_ids:
-            continue
-        min_pos = max(1, int(len(text) * 0.1))
-        max_pos = max(min_pos + 1, int(len(text) * 0.9))
-        char_pos = rng.randint(min_pos, max_pos)
-        space_idx = text.find(" ", char_pos)
-        if space_idx != -1 and space_idx - char_pos < 50:
-            char_pos = space_idx
-        items.append({
-            "item_id": item_id,
-            "subset": row["subset"],
-            "text": text,
-            "reflection_point": char_pos,
-            "is_gold": False,
-        })
-        exclude_ids.add(item_id)
 
     assert len(items) >= n, f"Could only sample {len(items)}/{n} fresh items (cache has {len(cache)})"
     return items[:n]
@@ -580,6 +602,54 @@ def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
         "mean_score": mean_score,
         "items": judged,
     }
+
+
+def rejudge_reviewed_items(cfg: AppConfig) -> list[dict]:
+    """Re-judge all items that have human reviews using the current judge prompt.
+
+    This enables tracking judge calibration progression across prompt versions.
+    Items are re-judged and saved (overwriting their judgment in the append-only log).
+    Returns the list of re-judged items.
+    """
+    from pipeline.phase2.storage import load_latest_reviews
+
+    reviews = load_latest_reviews()
+    if not reviews:
+        print("No reviewed items to re-judge.")
+        return []
+
+    # Collect unique (item_id, iteration) pairs that have reviews
+    reviewed_keys = {(k[0], k[1]) for k in reviews}
+
+    # Load the actual items
+    latest_items = load_latest_items()
+    items_to_rejudge = [
+        latest_items[key] for key in reviewed_keys if key in latest_items
+    ]
+
+    if not items_to_rejudge:
+        print("No matching items found for reviewed keys.")
+        return []
+
+    client, semaphore = make_api_client(cfg)
+    judge_prompt = resolve_prompt_path(cfg.phase2.judge.prompt, alias=cfg.phase2.judge.model)
+    model = judge_api_name(cfg)
+
+    print(f"Re-judging {len(items_to_rejudge)} reviewed items with {judge_prompt.name}...")
+
+    judged = judge_batch(
+        items=items_to_rejudge,
+        prompt_path=judge_prompt,
+        model=model,
+        iteration=0,  # iteration param unused in judge_batch logic
+        accept_threshold=cfg.phase2.scoring.accept_threshold,
+        client=client,
+        semaphore=semaphore,
+        save=True,
+    )
+
+    print(f"Re-judged {len(judged)} items with {judge_prompt.name}.")
+    return judged
 
 
 def main():

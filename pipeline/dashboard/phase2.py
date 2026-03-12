@@ -43,11 +43,15 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
             continue
         judgment = item["judgment"]
 
-        # Collect per-dimension pairs from both preflection and reflection sub-judgments
+        review_scores = review["scores"]
+        # Detect per-part vs legacy flat format
+        is_per_part = review_scores and isinstance(next(iter(review_scores.values())), dict)
+
         for part in ("preflection", "reflection"):
             part_j = judgment.get(part, {})
             part_scores = part_j.get("scores", {})
-            for dim, human_score in review["scores"].items():
+            human_part = review_scores.get(part, {}) if is_per_part else review_scores
+            for dim, human_score in human_part.items():
                 if dim in part_scores:
                     paired_scores.setdefault(f"{part}_{dim}", []).append(
                         (part_scores[dim], human_score)
@@ -422,11 +426,18 @@ def pipeline_monitoring_page():
                     ui.label(
                         f"Decision agreement: {agr:.1%}" if agr is not None else "Decision agreement: N/A"
                     ).classes("text-body2")
-                with ui.column():
-                    ui.label("Per-dimension correlations:").classes("text-body2 text-weight-bold")
-                    for dim, corr in cal["dimension_correlations"].items():
-                        val = f"{corr:.3f}" if corr is not None else "N/A"
-                        ui.label(f"  {dim}: {val}").classes("text-body2")
+
+                dim_corrs = cal["dimension_correlations"]
+                for part in ("preflection", "reflection"):
+                    part_dims = {k: v for k, v in dim_corrs.items() if k.startswith(f"{part}_")}
+                    if not part_dims:
+                        continue
+                    with ui.column():
+                        ui.label(f"{part.title()} correlations:").classes("text-body2 text-weight-bold")
+                        for dim, corr in part_dims.items():
+                            short = dim.replace(f"{part}_", "")
+                            val = f"{corr:.3f}" if corr is not None else "N/A"
+                            ui.label(f"  {short}: {val}").classes("text-body2")
 
     # --- Trend Charts ---
     if len(iter_stats) >= 2:
@@ -766,6 +777,33 @@ def pipeline_review_page():
             label="Sort",
         ).classes("w-48")
 
+        rejudge_status = ui.label("").classes("text-caption")
+
+        def _rejudge():
+            rejudge_btn.disable()
+            rejudge_status.set_text("Re-judging...")
+
+            def _thread():
+                try:
+                    from pipeline.phase2.run import rejudge_reviewed_items
+                    result = rejudge_reviewed_items(cfg)
+                    rejudge_status.set_text(f"Re-judged {len(result)} items. Refresh to see results.")
+                    rejudge_btn.enable()
+                except Exception as exc:
+                    rejudge_status.set_text(f"Error: {exc}")
+                    rejudge_btn.enable()
+
+            threading.Thread(target=_thread, daemon=True).start()
+
+        rejudge_btn = ui.button(
+            "Re-judge Reviewed Items",
+            icon="gavel",
+            on_click=_rejudge,
+            color="secondary",
+        ).props("dense outline").tooltip(
+            f"Re-judge all reviewed items with current judge prompt ({cfg.phase2.judge.prompt})"
+        )
+
     # --- Main split panel ---
     with ui.splitter(value=35).classes("w-full").style("height: calc(100vh - 120px)") as splitter:
         # Left: source text + charter
@@ -813,14 +851,32 @@ def pipeline_review_page():
 
                 # Review form
                 ui.label("Your Review").classes("text-subtitle2 text-weight-bold")
-                score_inputs: dict[str, ui.slider] = {}
-                for dim in dimensions:
-                    with ui.row().classes("items-center gap-2 w-full"):
-                        ui.label(dim.replace("_", " ").title()).classes("w-40")
-                        slider = ui.slider(min=1, max=5, value=3).classes("flex-1")
-                        score_label = ui.label("3").classes("w-8")
-                        slider.on("update:model-value", lambda e, lbl=score_label: lbl.set_text(str(int(e.args))))
-                        score_inputs[dim] = slider
+
+                DIM_HINTS = {
+                    "relevance": "Does it identify what matters?",
+                    "specificity": "Is it specific to this text?",
+                    "charter_grounding": "Are charter refs appropriate and complete?",
+                    "voice_tone": "Correct voice, natural, concise?",
+                }
+
+                # Per-part scoring: {part: {dim: slider}}
+                score_inputs: dict[str, dict[str, ui.slider]] = {}
+                for part in ("preflection", "reflection"):
+                    ui.label(part.title()).classes("text-overline text-grey-7 q-mt-sm")
+                    score_inputs[part] = {}
+                    for dim in dimensions:
+                        with ui.column().classes("w-full gap-0"):
+                            with ui.row().classes("items-center gap-2 w-full"):
+                                ui.label(dim.replace("_", " ").title()).classes("w-40")
+                                slider = ui.slider(min=1, max=5, value=3).classes("flex-1")
+                                score_label = ui.label("3").classes("w-8")
+                                slider.on("update:model-value", lambda e, lbl=score_label: lbl.set_text(str(int(e.args))))
+                                score_inputs[part][dim] = slider
+                            hint = DIM_HINTS.get(dim, "")
+                            if hint:
+                                ui.label(hint).classes("text-caption text-grey-6").style(
+                                    "margin-left: 160px; margin-top: -4px;"
+                                )
 
                 decision_select = ui.select(
                     options=["accept", "reject"],
@@ -847,6 +903,15 @@ def pipeline_review_page():
 
     def current_items_list() -> list[dict]:
         return get_sorted_items()
+
+    def _first_unreviewed_pos(items: list[dict]) -> int:
+        """Return index of the first item without a review from this viewer."""
+        reviewed = load_latest_reviews()
+        reviewed_ids = {k[0] for k in reviewed if k[1] == state["iteration"] and k[2] == viewer_id}
+        for i, item in enumerate(items):
+            if item["item_id"] not in reviewed_ids:
+                return i
+        return 0
 
     def update_display():
         items = current_items_list()
@@ -891,6 +956,9 @@ def pipeline_review_page():
                         color="green" if judgment["decision"] == "accept" else "red",
                     )
                     ui.badge(judgment["decision"].upper(), color="green" if judgment["decision"] == "accept" else "red")
+                    jp = judgment.get("judge_prompt", "")
+                    if jp:
+                        ui.badge(jp, color="blue-grey").props("outline")
 
                 for part in ("preflection", "reflection"):
                     part_j = judgment.get(part, {})
@@ -916,13 +984,22 @@ def pipeline_review_page():
         latest_reviews = load_latest_reviews()
         existing = latest_reviews.get((item["item_id"], state["iteration"], viewer_id))
         if existing:
-            for dim, slider in score_inputs.items():
-                slider.set_value(existing["scores"].get(dim, 3))
+            ex_scores = existing["scores"]
+            # Handle both per-part {part: {dim: int}} and legacy flat {dim: int} formats
+            if ex_scores and isinstance(next(iter(ex_scores.values())), dict):
+                for part, dims in score_inputs.items():
+                    for dim, slider in dims.items():
+                        slider.set_value(ex_scores.get(part, {}).get(dim, 3))
+            else:
+                for part, dims in score_inputs.items():
+                    for dim, slider in dims.items():
+                        slider.set_value(ex_scores.get(dim, 3))
             decision_select.set_value(existing["decision"])
             notes_input.set_value(existing.get("notes", ""))
         else:
-            for slider in score_inputs.values():
-                slider.set_value(3)
+            for dims in score_inputs.values():
+                for slider in dims.values():
+                    slider.set_value(3)
             decision_select.set_value("accept")
             notes_input.set_value("")
 
@@ -959,8 +1036,12 @@ def pipeline_review_page():
         if not items:
             return
         item = items[state["pos"]]
-        scores = {dim: int(slider.value) for dim, slider in score_inputs.items()}
-        aggregate = statistics.mean(scores.values())
+        scores = {
+            part: {dim: int(slider.value) for dim, slider in dims.items()}
+            for part, dims in score_inputs.items()
+        }
+        all_vals = [v for part in scores.values() for v in part.values()]
+        aggregate = statistics.mean(all_vals)
         save_review(
             item_id=item["item_id"],
             iteration=state["iteration"],
@@ -975,7 +1056,8 @@ def pipeline_review_page():
 
     def on_iteration_change(e):
         state["iteration"] = e.args
-        state["pos"] = 0
+        items = current_items_list()
+        state["pos"] = _first_unreviewed_pos(items) if items else 0
         update_display()
 
     def on_sort_change(_):
@@ -984,4 +1066,7 @@ def pipeline_review_page():
 
     iter_select.on("update:model-value", on_iteration_change)
     sort_select.on("update:model-value", on_sort_change)
+    # Start at first unreviewed item
+    items = current_items_list()
+    state["pos"] = _first_unreviewed_pos(items) if items else 0
     update_display()

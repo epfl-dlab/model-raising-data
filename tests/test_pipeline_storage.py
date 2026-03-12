@@ -105,20 +105,28 @@ def test_load_items_for_iteration():
 def test_save_and_load_review():
     from pipeline.phase2.storage import load_latest_reviews, load_reviews, save_review
 
+    per_part_scores = {
+        "preflection": {"relevance": 4, "specificity": 3, "charter_grounding": 5, "voice_tone": 4},
+        "reflection": {"relevance": 3, "specificity": 4, "charter_grounding": 4, "voice_tone": 3},
+    }
     save_review(
         item_id="abc123", iteration=1, reviewer_id="alice",
-        scores={"relevance": 4, "specificity": 3, "charter_grounding": 5, "voice_tone": 4},
-        aggregate=4.0, decision="accept", notes="good",
+        scores=per_part_scores, aggregate=3.75, decision="accept", notes="good",
     )
     reviews = load_reviews()
     assert len(reviews) == 1
     assert reviews[0]["reviewer_id"] == "alice"
+    assert "preflection" in reviews[0]["scores"]
+    assert "reflection" in reviews[0]["scores"]
 
     # Dedup by (item_id, iteration, reviewer_id)
+    updated_scores = {
+        "preflection": {"relevance": 5, "specificity": 4, "charter_grounding": 5, "voice_tone": 5},
+        "reflection": {"relevance": 5, "specificity": 5, "charter_grounding": 5, "voice_tone": 4},
+    }
     save_review(
         item_id="abc123", iteration=1, reviewer_id="alice",
-        scores={"relevance": 5, "specificity": 4, "charter_grounding": 5, "voice_tone": 5},
-        aggregate=4.75, decision="accept", notes="updated",
+        scores=updated_scores, aggregate=4.75, decision="accept", notes="updated",
     )
     latest = load_latest_reviews()
     assert len(latest) == 1

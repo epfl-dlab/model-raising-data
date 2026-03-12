@@ -145,12 +145,15 @@ def save_review(
     item_id: str,
     iteration: int,
     reviewer_id: str,
-    scores: dict[str, int],
+    scores: dict[str, dict[str, int]],
     aggregate: float,
     decision: str,
     notes: str,
 ) -> None:
-    """Append a human review record."""
+    """Append a human review record.
+
+    scores is keyed by part: {"preflection": {dim: int}, "reflection": {dim: int}}.
+    """
     record = {
         "item_id": item_id,
         "iteration": iteration,
