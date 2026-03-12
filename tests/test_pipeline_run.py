@@ -63,10 +63,16 @@ class TestParseJudgment:
 
     def test_invalid_decision_raises(self):
         raw = json.dumps({
-            "scores": {}, "aggregate": 3.0,
-            "decision": "maybe", "reasoning": "idk",
+            "scores": {"relevance": 3}, "decision": "maybe", "reasoning": "idk",
         })
         with pytest.raises(AssertionError, match="Invalid decision"):
+            _parse_judgment(raw)
+
+    def test_empty_scores_raises(self):
+        raw = json.dumps({
+            "scores": {}, "decision": "accept", "reasoning": "ok",
+        })
+        with pytest.raises(AssertionError, match="scores must not be empty"):
             _parse_judgment(raw)
 
     def test_json_with_code_fence(self):
@@ -86,8 +92,7 @@ class TestIntegration:
         self.ann_dir = tmp_path / "data" / "annotation"
         self.ann_dir.mkdir(parents=True)
 
-    @pytest.mark.asyncio
-    async def test_generate_and_judge(self):
+    def test_generate_and_judge(self):
         """Test generate_batch and judge_batch with mocked API calls."""
         gen_response = json.dumps({
             "analysis": "test analysis",
@@ -145,14 +150,14 @@ class TestIntegration:
         with patch("pipeline.storage.PIPELINE_DATA_DIR", self.data_dir):
             from pipeline.run import generate_batch, judge_batch
 
-            generated = await generate_batch(
+            generated = generate_batch(
                 items, gen_prompt, "charter text", "test-model",
                 iteration=1, client=mock_client, semaphore=semaphore,
             )
             assert len(generated) == 3
             assert all(g["analysis"] == "test analysis" for g in generated)
 
-            judged = await judge_batch(
+            judged = judge_batch(
                 generated, judge_prompt, "test-model",
                 iteration=1, accept_threshold=4.0,
                 client=mock_client, semaphore=semaphore,

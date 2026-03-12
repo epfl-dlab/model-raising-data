@@ -43,6 +43,19 @@ FINEWEB_DATASET = "locuslab/fineweb_annotated"
 FINEWEB_SUBSETS = [f"score_{i}" for i in range(6)]
 
 
+def _gather(*coros, desc: str) -> list:
+    """Run async coroutines concurrently with a tqdm progress bar.
+
+    Creates a temporary event loop that doesn't touch SIGINT handling,
+    so Ctrl+C raises KeyboardInterrupt normally.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(tqdm_asyncio.gather(*coros, desc=desc))
+    finally:
+        loop.close()
+
+
 async def _api_call(
     client: openai.AsyncOpenAI,
     model: str,
@@ -79,18 +92,24 @@ async def _api_call(
     raise RuntimeError(f"Failed after {MAX_RETRIES} retries: {last_error}")
 
 
-async def health_check(client: openai.AsyncOpenAI, model: str) -> None:
+def health_check(client: openai.AsyncOpenAI, model: str) -> None:
     """Ping the API with a lightweight request. Fail fast if model unavailable."""
-    try:
+    async def _check():
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=1,
         )
         assert response.choices[0].message.content is not None
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_check())
         print(f"Health check passed: model={model}")
     except Exception as e:
         raise RuntimeError(f"Health check failed for model={model}: {e}") from e
+    finally:
+        loop.close()
 
 
 def _parse_generation(raw: str) -> dict:
@@ -128,11 +147,13 @@ def _parse_judgment(raw: str) -> dict:
         text = "\n".join(lines)
 
     parsed = json.loads(text)
-    required = {"scores", "aggregate", "decision", "reasoning"}
+    required = {"scores", "decision", "reasoning"}
     missing = required - set(parsed.keys())
     assert not missing, f"Missing fields in judgment: {missing}"
     assert isinstance(parsed["scores"], dict), "scores must be a dict"
+    assert len(parsed["scores"]) > 0, "scores must not be empty"
     assert parsed["decision"] in ("accept", "reject"), f"Invalid decision: {parsed['decision']}"
+    parsed["aggregate"] = sum(parsed["scores"].values()) / len(parsed["scores"])
     return parsed
 
 
@@ -224,7 +245,7 @@ def select_items(n_total: int, n_gold: int, seed: int) -> list[dict]:
     return items
 
 
-async def generate_batch(
+def generate_batch(
     items: list[dict],
     prompt_path: Path,
     charter_text: str,
@@ -235,6 +256,7 @@ async def generate_batch(
 ) -> list[dict]:
     """Generate charter reflections for a batch of items.
 
+    Runs API calls concurrently via a temporary event loop.
     Saves each item to JSONL progressively as it completes.
     Returns the list of completed item records.
     """
@@ -286,9 +308,8 @@ async def generate_batch(
         save_item(record)
         return record
 
-    tasks = [process_one(item) for item in items]
-    results = await tqdm_asyncio.gather(*tasks, desc="Generating")
-    return list(results)
+    coros = [process_one(item) for item in items]
+    return list(_gather(*coros, desc="Generating"))
 
 
 async def _judge_one_part(
@@ -335,7 +356,7 @@ async def _judge_one_part(
     return parsed, raw, reasoning
 
 
-async def judge_batch(
+def judge_batch(
     items: list[dict],
     prompt_path: Path,
     model: str,
@@ -346,6 +367,7 @@ async def judge_batch(
 ) -> list[dict]:
     """Judge generated reflections. Judges preflection and reflection separately.
 
+    Runs API calls concurrently via a temporary event loop.
     Preflection is judged against the full text.
     Reflection is judged against only the context up to the reflection point.
 
@@ -393,12 +415,11 @@ async def judge_batch(
         save_item(judged)
         return judged
 
-    tasks = [judge_one(item) for item in items]
-    results = await tqdm_asyncio.gather(*tasks, desc="Judging")
-    return list(results)
+    coros = [judge_one(item) for item in items]
+    return list(_gather(*coros, desc="Judging"))
 
 
-async def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
+def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
     """Run a single generate→judge iteration. Returns the run summary.
 
     Orchestrates: select items → generate → judge → save run record.
@@ -420,7 +441,7 @@ async def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
     semaphore = asyncio.Semaphore(cfg.iteration.max_concurrent)
 
     print("Running health check...")
-    await health_check(client, cfg.model)
+    health_check(client, cfg.model)
 
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
 
@@ -433,14 +454,14 @@ async def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
     if phase_callback:
         phase_callback("generating")
     print(f"Generating with {gen_prompt.name}...")
-    generated = await generate_batch(
+    generated = generate_batch(
         items, gen_prompt, charter_text, cfg.model, iteration, client, semaphore,
     )
 
     if phase_callback:
         phase_callback("judging")
     print(f"Judging with {judge_prompt.name}...")
-    judged = await judge_batch(
+    judged = judge_batch(
         generated, judge_prompt, cfg.model, iteration,
         cfg.scoring.accept_threshold, client, semaphore,
     )
@@ -504,7 +525,7 @@ def main():
     print(f"Judge: {cfg.prompts.judge}")
     print(f"Threshold: {cfg.scoring.accept_threshold}")
 
-    result = asyncio.run(run_iteration(cfg))
+    result = run_iteration(cfg)
 
     print(f"\nDone. {result['n_accepted']}/{result['n_items']} accepted.")
 
