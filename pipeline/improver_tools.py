@@ -394,9 +394,13 @@ def cmd_run_batch(phase: str = "A") -> None:
 
     cfg = load_config()
 
-    # Auto-detect latest prompts
+    # Auto-detect latest prompts (resolve _latest sentinels for comparison)
     new_gen, new_judge = _detect_new_prompts(cfg)
-    if new_gen != cfg.phase2.generator.prompt or new_judge != cfg.phase2.judge.prompt:
+    alias = cfg.phase2.generator.model
+    from pipeline.phase2.loop import _resolve_config_prompt
+    current_gen = _resolve_config_prompt(cfg.phase2.generator.prompt, alias)
+    current_judge = _resolve_config_prompt(cfg.phase2.judge.prompt, alias)
+    if new_gen != current_gen or new_judge != current_judge:
         cfg = _update_config(cfg, new_gen, new_judge)
         print(f"Updated config: gen={new_gen}, judge={new_judge}")
 

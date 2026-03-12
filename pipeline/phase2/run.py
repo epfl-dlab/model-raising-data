@@ -581,8 +581,8 @@ def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
 
     save_run(
         iteration=iteration,
-        gen_prompt=cfg.phase2.generator.prompt,
-        judge_prompt=cfg.phase2.judge.prompt,
+        gen_prompt=gen_prompt.name,
+        judge_prompt=judge_prompt.name,
         generator_model=cfg.phase2.generator.model,
         judge_model=cfg.phase2.judge.model,
         n_items=len(judged),
@@ -661,8 +661,8 @@ def main():
     print(f"Judge: {cfg.phase2.judge.model} ({judge_api_name(cfg)})")
     print(f"Endpoint: {cfg.phase2.endpoint}")
     print(f"Items: {cfg.phase2.iteration.n_items} (gold: {cfg.phase2.iteration.n_gold})")
-    print(f"Generator prompt: {cfg.phase2.generator.prompt}")
-    print(f"Judge prompt: {cfg.phase2.judge.prompt}")
+    print(f"Generator prompt: {resolve_prompt_path(cfg.phase2.generator.prompt, cfg.phase2.generator.model).name}")
+    print(f"Judge prompt: {resolve_prompt_path(cfg.phase2.judge.prompt, cfg.phase2.judge.model).name}")
     print(f"Threshold: {cfg.phase2.scoring.accept_threshold}")
 
     result = run_iteration(cfg)

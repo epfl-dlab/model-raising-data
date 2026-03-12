@@ -9,7 +9,7 @@ from pathlib import Path
 
 from nicegui import app, ui
 
-from pipeline.config import CHARTER_PATH, AppConfig, load_config
+from pipeline.config import CHARTER_PATH, AppConfig, load_config, resolve_prompt_path
 from pipeline.dashboard import render_header
 from pipeline.dashboard.shared import render_source_text
 from pipeline.phase2.storage import (
@@ -118,8 +118,8 @@ def _word_diff_html(old_line: str, new_line: str) -> tuple[str, str]:
 
     old_parts: list[str] = []
     new_parts: list[str] = []
-    DEL = '<span style="background:#b3443a;border-radius:3px;padding:0 2px;">{}</span>'
-    INS = '<span style="background:#2ea04e;border-radius:3px;padding:0 2px;">{}</span>'
+    DEL = '<span style="background:#ffc9c9;border-radius:3px;padding:0 2px;">{}</span>'
+    INS = '<span style="background:#a8e6a1;border-radius:3px;padding:0 2px;">{}</span>'
 
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
         if tag == "equal":
@@ -145,9 +145,9 @@ def _prompt_diff_html(before: str, after: str, filename: str) -> str:
 
     # Collect aligned row pairs: (left_ln, left_html, left_bg, right_ln, right_html, right_bg)
     rows: list[tuple] = []
-    CTX_BG = "transparent"
-    DEL_BG = "rgba(248,81,73,0.10)"
-    INS_BG = "rgba(63,185,80,0.10)"
+    CTX_BG = "#ffffff"
+    DEL_BG = "rgba(255,129,130,0.15)"
+    INS_BG = "rgba(63,185,80,0.15)"
 
     for group in difflib.SequenceMatcher(None, before_lines, after_lines).get_grouped_opcodes(8):
         for tag, a0, a1, b0, b1 in group:
@@ -188,22 +188,22 @@ def _prompt_diff_html(before: str, after: str, filename: str) -> str:
 
     # Build stats bar
     stats = (
-        '<div style="padding:8px 14px;border-bottom:1px solid #30363d;display:flex;'
-        'align-items:center;gap:12px;">'
-        f'<span style="font-weight:600;color:#c9d1d9;">{_esc(filename)}</span>'
-        f'<span style="background:#238636;color:#fff;padding:1px 8px;border-radius:10px;'
+        '<div style="padding:8px 14px;border-bottom:1px solid #d0d7de;display:flex;'
+        'align-items:center;gap:12px;background:#f6f8fa;">'
+        f'<span style="font-weight:600;color:#1f2328;">{_esc(filename)}</span>'
+        f'<span style="background:#1a7f37;color:#fff;padding:1px 8px;border-radius:10px;'
         f'font-size:0.8em;font-weight:600;">+{n_add}</span>'
-        f'<span style="background:#da3633;color:#fff;padding:1px 8px;border-radius:10px;'
+        f'<span style="background:#cf222e;color:#fff;padding:1px 8px;border-radius:10px;'
         f'font-size:0.8em;font-weight:600;">-{n_del}</span>'
         '</div>'
     )
 
     # Cell styles
-    LN = ('padding:1px 8px;color:#484f58;text-align:right;user-select:none;'
+    LN = ('padding:1px 8px;color:#636c76;text-align:right;user-select:none;'
           'vertical-align:top;white-space:nowrap;width:1%;font-size:0.85em;')
     CELL = ('padding:1px 10px;white-space:pre-wrap;word-break:break-word;'
             'vertical-align:top;line-height:1.55;')
-    SEP = 'width:1px;background:#30363d;'
+    SEP = 'width:1px;background:#d0d7de;'
 
     html_rows: list[str] = []
     for left_ln, left_html, left_bg, right_ln, right_html, right_bg in rows:
@@ -219,18 +219,19 @@ def _prompt_diff_html(before: str, after: str, filename: str) -> str:
 
     # Column headers
     header = (
-        '<tr style="border-bottom:1px solid #30363d;">'
-        '<td colspan="2" style="padding:6px 10px;color:#8b949e;font-weight:600;'
+        '<tr style="border-bottom:1px solid #d0d7de;background:#f6f8fa;">'
+        '<td colspan="2" style="padding:6px 10px;color:#636c76;font-weight:600;'
         'font-size:0.85em;text-align:center;">Before</td>'
         f'<td style="{SEP}"></td>'
-        '<td colspan="2" style="padding:6px 10px;color:#8b949e;font-weight:600;'
+        '<td colspan="2" style="padding:6px 10px;color:#636c76;font-weight:600;'
         'font-size:0.85em;text-align:center;">After</td>'
         '</tr>'
     )
 
     table = (
         f'<table style="width:100%;border-collapse:collapse;font-family:\'SF Mono\','
-        f'Menlo,Consolas,monospace;font-size:0.82em;table-layout:fixed;">'
+        f'Menlo,Consolas,monospace;font-size:0.82em;table-layout:fixed;'
+        f'background:#ffffff;color:#1f2328;">'
         f'<colgroup><col style="width:30px"><col style="width:calc(50% - 30px)">'
         f'<col style="width:1px"><col style="width:30px"><col style="width:calc(50% - 30px)">'
         f'</colgroup>{header}{"".join(html_rows)}</table>'
@@ -506,17 +507,18 @@ def pipeline_monitoring_page():
                     "accept_reject": f"{s['n_acc']}/{s['n_rej']}",
                     "mean_score": f"{s['mean_score']:.2f}",
                 }
-                for s in iter_stats
+                for s in reversed(iter_stats)
             ]
 
             extra_cols = [
                 {"name": "accept_reject", "label": "Accept/Reject", "field": "accept_reject"},
                 {"name": "mean_score", "label": "Mean Score", "field": "mean_score"},
             ]
-            ui.table(columns=columns + extra_cols, rows=rows, row_key="iteration").classes("w-full")
+            with ui.scroll_area().style("max-height: 180px;"):
+                ui.table(columns=columns + extra_cols, rows=rows, row_key="iteration").classes("w-full")
 
             with ui.scroll_area().style("max-height: 300px;"):
-                for run in runs:
+                for run in reversed(runs):
                     with ui.expansion(f"Iteration {run['iteration']} Analysis").classes("w-full"):
                         ui.markdown(run.get("analysis", "No analysis recorded.")).classes("text-body2")
 
@@ -801,7 +803,7 @@ def pipeline_review_page():
             on_click=_rejudge,
             color="secondary",
         ).props("dense outline").tooltip(
-            f"Re-judge all reviewed items with current judge prompt ({cfg.phase2.judge.prompt})"
+            f"Re-judge all reviewed items with current judge prompt ({resolve_prompt_path(cfg.phase2.judge.prompt, cfg.phase2.judge.model).name})"
         )
 
     # --- Main split panel ---

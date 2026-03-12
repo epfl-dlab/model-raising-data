@@ -62,11 +62,14 @@ def _detect_new_prompts(cfg: AppConfig) -> tuple[str, str]:
     """
     model_dir = PROMPTS_DIR / cfg.phase2.generator.model
 
+    alias = cfg.phase2.generator.model
+
     def _highest_version(pattern: str, current: str) -> str:
         matches = sorted(glob.glob(str(model_dir / pattern)))
         assert matches, f"No files matching {pattern} in {model_dir}"
         latest = Path(matches[-1]).name
-        current_v = _extract_version(current)
+        resolved_current = _resolve_config_prompt(current, alias)
+        current_v = _extract_version(resolved_current)
         latest_v = _extract_version(latest)
         assert latest_v >= current_v, (
             f"Expected version >= {current_v}, got {latest_v} ({latest})"
@@ -78,6 +81,17 @@ def _detect_new_prompts(cfg: AppConfig) -> tuple[str, str]:
     return new_gen, new_judge
 
 
+def _resolve_config_prompt(filename: str, alias: str) -> str:
+    """Resolve a prompt config value to its concrete filename.
+
+    Handles '_latest.md' by resolving via resolve_prompt_path.
+    For concrete names like 'judge_v3.md', returns as-is.
+    """
+    if "_latest.md" in filename:
+        return resolve_prompt_path(filename, alias).name
+    return filename
+
+
 def _extract_version(filename: str) -> int:
     """Extract version number from a filename like 'generator_v3.md'."""
     match = re.search(r"_v(\d+)\.md$", filename)
@@ -86,12 +100,17 @@ def _extract_version(filename: str) -> int:
 
 
 def _update_config(cfg: AppConfig, new_gen: str, new_judge: str) -> AppConfig:
-    """Update config.yaml with new prompt filenames and return reloaded config."""
+    """Update config.yaml with new prompt filenames and return reloaded config.
+
+    Preserves '_latest.md' sentinels — only overwrites concrete filenames.
+    """
     from omegaconf import OmegaConf
 
     raw = OmegaConf.load(CONFIG_YAML_PATH)
-    raw.phase2.generator.prompt = new_gen
-    raw.phase2.judge.prompt = new_judge
+    if "_latest.md" not in cfg.phase2.generator.prompt:
+        raw.phase2.generator.prompt = new_gen
+    if "_latest.md" not in cfg.phase2.judge.prompt:
+        raw.phase2.judge.prompt = new_judge
     OmegaConf.save(raw, CONFIG_YAML_PATH)
     return load_config()
 
@@ -105,7 +124,7 @@ def _build_phase_a_prompt(cfg: AppConfig) -> str:
     improver_path = _INIT_PROMPTS_DIR / "improver.md"
     phase_prompt_path = _INIT_PROMPTS_DIR / cfg.phase2.improver.judge_prompt
 
-    current_judge_v = _extract_version(cfg.phase2.judge.prompt)
+    current_judge_v = _extract_version(_resolve_config_prompt(cfg.phase2.judge.prompt, alias))
     next_v = current_judge_v + 1
 
     state_path = model_dir / "state.md"
@@ -192,7 +211,7 @@ def _build_phase_b_prompt(cfg: AppConfig) -> str:
     improver_path = _INIT_PROMPTS_DIR / "improver.md"
     phase_prompt_path = _INIT_PROMPTS_DIR / cfg.phase2.improver.generator_prompt
 
-    current_gen_v = _extract_version(cfg.phase2.generator.prompt)
+    current_gen_v = _extract_version(_resolve_config_prompt(cfg.phase2.generator.prompt, alias))
     next_v = current_gen_v + 1
 
     state_path = model_dir / "state.md"
@@ -504,6 +523,8 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
     }
     write_status(status)
 
+    alias = cfg.phase2.generator.model
+
     # Snapshot prompts before the loop starts
     prompts_before = _snapshot_prompts(cfg)
 
@@ -518,7 +539,8 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
 
         # Sync config to latest judge prompts
         new_gen, new_judge = _detect_new_prompts(cfg)
-        if new_judge != cfg.phase2.judge.prompt:
+        current_judge = _resolve_config_prompt(cfg.phase2.judge.prompt, alias)
+        if new_judge != current_judge:
             cfg = _update_config(cfg, new_gen, new_judge)
             print(f"Phase A done: updated judge -> {new_judge}")
 
@@ -542,7 +564,8 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
 
         # Sync config to latest generator prompts
         new_gen, new_judge = _detect_new_prompts(cfg)
-        if new_gen != cfg.phase2.generator.prompt:
+        current_gen = _resolve_config_prompt(cfg.phase2.generator.prompt, alias)
+        if new_gen != current_gen:
             cfg = _update_config(cfg, new_gen, new_judge)
             print(f"Phase B done: updated generator -> {new_gen}")
 

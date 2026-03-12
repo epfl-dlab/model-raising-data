@@ -159,15 +159,39 @@ def _init_model_prompts(alias: str) -> None:
         shutil.copy2(src, model_dir / v1_name)
 
 
+def _resolve_latest_version(model_dir: Path, filename: str) -> Path:
+    """Resolve a 'latest' prompt filename to the highest versioned file.
+
+    E.g. 'judge_latest.md' finds the highest 'judge_vN.md' in model_dir.
+    """
+    import re
+
+    stem = filename.replace("_latest.md", "")
+    pattern = re.compile(rf"^{re.escape(stem)}_v(\d+)\.md$")
+    candidates = []
+    for p in model_dir.iterdir():
+        m = pattern.match(p.name)
+        if m:
+            candidates.append((int(m.group(1)), p))
+    assert candidates, f"No versioned files matching '{stem}_vN.md' in {model_dir}"
+    candidates.sort()
+    return candidates[-1][1]
+
+
 def resolve_prompt_path(filename: str, alias: str) -> Path:
     """Resolve a prompt filename within the model-specific directory.
 
     Prompts live at data/pipeline/prompts/{alias}/{filename}. If the
     model directory doesn't exist yet, initializes it from init templates.
+
+    Supports '_latest.md' suffix (e.g. 'judge_latest.md') which resolves
+    to the highest '_vN.md' version found on disk.
     """
     model_dir = PROMPTS_DIR / alias
     if not model_dir.exists():
         _init_model_prompts(alias)
+    if "_latest.md" in filename:
+        return _resolve_latest_version(model_dir, filename)
     path = model_dir / filename
     assert path.exists(), f"Prompt file not found: {path}"
     return path
