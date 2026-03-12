@@ -309,12 +309,18 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
             proc.wait()
         raise
 
-    # Collect exit status (reader thread EOF doesn't guarantee wait was called)
     proc.wait()
-    assert proc.returncode == 0, (
-        f"Claude agent failed (rc={proc.returncode}). See {log_path}"
-    )
-    return final_text_holder[0] if final_text_holder else ""
+    output = final_text_holder[0] if final_text_holder else ""
+
+    if proc.returncode != 0:
+        if output:
+            # Agent produced output but exited with non-zero/None code — warn, don't crash
+            print(f"WARNING: Claude agent exited with rc={proc.returncode} but produced output. Continuing.")
+        else:
+            raise RuntimeError(
+                f"Claude agent failed (rc={proc.returncode}) with no output. See {log_path}"
+            )
+    return output
 
 
 def _stream_improver_output(proc: subprocess.Popen, log_path: Path) -> str:
