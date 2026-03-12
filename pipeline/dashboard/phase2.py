@@ -98,26 +98,92 @@ def _phase_badge(status: str) -> tuple[str, str]:
     return status.upper(), colors.get(status, "grey")
 
 
+def _esc(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _prompt_diff_html(before: str, after: str, filename: str) -> str:
-    """Generate an HTML unified diff between two prompt versions."""
-    before_lines = before.splitlines(keepends=True)
-    after_lines = after.splitlines(keepends=True)
-    diff = difflib.unified_diff(before_lines, after_lines, fromfile=filename, tofile=filename, lineterm="")
-    lines = []
-    for line in diff:
-        line = line.rstrip("\n")
-        esc = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        if line.startswith("+++") or line.startswith("---"):
-            lines.append(f'<span style="color:#888;">{esc}</span>')
-        elif line.startswith("@@"):
-            lines.append(f'<span style="color:#8be9fd;">{esc}</span>')
-        elif line.startswith("+"):
-            lines.append(f'<span style="color:#50fa7b;">{esc}</span>')
-        elif line.startswith("-"):
-            lines.append(f'<span style="color:#ff5555;">{esc}</span>')
-        else:
-            lines.append(esc)
-    return "<br>".join(lines) if lines else "<em>No changes</em>"
+    """Generate a GitHub-style inline diff view with line numbers and colored backgrounds."""
+    before_lines = before.splitlines()
+    after_lines = after.splitlines()
+
+    n_add = n_del = 0
+    rows: list[str] = []
+
+    ROW = (
+        '<tr style="background:{bg};">'
+        '<td style="padding:0 8px;color:#888;text-align:right;user-select:none;'
+        'border-right:1px solid #444;min-width:35px;font-size:0.8em;">{old_ln}</td>'
+        '<td style="padding:0 8px;color:#888;text-align:right;user-select:none;'
+        'border-right:1px solid #444;min-width:35px;font-size:0.8em;">{new_ln}</td>'
+        '<td style="padding:0 4px;color:{sign_color};user-select:none;'
+        'font-weight:bold;width:1em;text-align:center;">{sign}</td>'
+        '<td style="padding:0 6px;white-space:pre-wrap;word-break:break-word;">{text}</td>'
+        '</tr>'
+    )
+    HUNK = (
+        '<tr style="background:#1a3a5c;">'
+        '<td colspan="4" style="padding:4px 12px;color:#58a6ff;font-size:0.85em;">{text}</td>'
+        '</tr>'
+    )
+
+    for group in difflib.SequenceMatcher(None, before_lines, after_lines).get_grouped_opcodes(3):
+        # Hunk header
+        i1, _, j1, _ = group[0][1], group[0][2], group[0][3], group[0][4]
+        i2, j2 = group[-1][2], group[-1][4]
+        rows.append(HUNK.format(text=f"@@ -{i1+1},{i2-i1} +{j1+1},{j2-j1} @@"))
+
+        for tag, a0, a1, b0, b1 in group:
+            if tag == "equal":
+                for i, line in enumerate(before_lines[a0:a1]):
+                    rows.append(ROW.format(
+                        bg="transparent", old_ln=a0+i+1, new_ln=b0+i+1,
+                        sign=" ", sign_color="#666", text=_esc(line),
+                    ))
+            elif tag == "replace":
+                for i, line in enumerate(before_lines[a0:a1]):
+                    n_del += 1
+                    rows.append(ROW.format(
+                        bg="rgba(248,81,73,0.15)", old_ln=a0+i+1, new_ln="",
+                        sign="-", sign_color="#ff7b72", text=_esc(line),
+                    ))
+                for i, line in enumerate(after_lines[b0:b1]):
+                    n_add += 1
+                    rows.append(ROW.format(
+                        bg="rgba(63,185,80,0.15)", old_ln="", new_ln=b0+i+1,
+                        sign="+", sign_color="#3fb950", text=_esc(line),
+                    ))
+            elif tag == "delete":
+                for i, line in enumerate(before_lines[a0:a1]):
+                    n_del += 1
+                    rows.append(ROW.format(
+                        bg="rgba(248,81,73,0.15)", old_ln=a0+i+1, new_ln="",
+                        sign="-", sign_color="#ff7b72", text=_esc(line),
+                    ))
+            elif tag == "insert":
+                for i, line in enumerate(after_lines[b0:b1]):
+                    n_add += 1
+                    rows.append(ROW.format(
+                        bg="rgba(63,185,80,0.15)", old_ln="", new_ln=b0+i+1,
+                        sign="+", sign_color="#3fb950", text=_esc(line),
+                    ))
+
+    if not rows:
+        return "<em>No changes</em>"
+
+    stats = (
+        f'<div style="padding:8px 12px;border-bottom:1px solid #444;font-size:0.85em;">'
+        f'<span style="color:#3fb950;font-weight:bold;">+{n_add}</span>'
+        f'<span style="color:#666;margin:0 6px;">/</span>'
+        f'<span style="color:#ff7b72;font-weight:bold;">-{n_del}</span>'
+        f'<span style="color:#888;margin-left:12px;">{_esc(filename)}</span>'
+        f'</div>'
+    )
+    table = (
+        f'<table style="width:100%;border-collapse:collapse;font-family:monospace;'
+        f'font-size:0.82em;line-height:1.5;">{"".join(rows)}</table>'
+    )
+    return stats + table
 
 
 def _render_loop_history():
@@ -189,9 +255,10 @@ def _render_loop_history():
                                 diff_label = filename
                             with ui.expansion(diff_label).classes("w-full"):
                                 html = _prompt_diff_html(before, after, filename)
-                                ui.html(f'<pre style="font-family: monospace; font-size: 0.8em; '
-                                        f'line-height: 1.4; padding: 8px; background: #1e1e1e; '
-                                        f'border-radius: 4px; overflow-x: auto;">{html}</pre>')
+                                ui.html(
+                                    f'<div style="background:#0d1117;border:1px solid #30363d;'
+                                    f'border-radius:6px;overflow:hidden;">{html}</div>'
+                                )
                 elif prompts_before:
                     ui.label("No prompt changes in this run.").classes("text-grey-6 text-caption q-mt-xs")
 
