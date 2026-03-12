@@ -7,7 +7,7 @@ from pipeline.config import CHARTER_ELEMENT_IDS, CHARTER_PATH
 
 REFLECTION_MARKER_ID = "reflection-marker"
 N_PHASES = 3
-PHASE_ROUTES = {1: "/annotate", 2: "/pipeline", 3: "/pipeline/review"}
+PHASE_ROUTES = {1: "/annotate", 2: "/pipeline"}
 
 _COPY_JS_TEMPLATE = """(e) => {{
     var text = window.{var_name} || "";
