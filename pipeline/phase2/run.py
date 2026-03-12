@@ -32,6 +32,7 @@ from pipeline.config import (
     resolve_prompt_path,
 )
 from pipeline.fineweb import load_or_build_fineweb_cache
+from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_latest_items,
@@ -174,8 +175,8 @@ def _parse_judgment(raw: str) -> dict:
     return parsed
 
 
-def _load_gold_items() -> list[dict]:
-    """Load gold set items from annotation data (SQLite)."""
+def _load_gold_items(max_tokens: int) -> list[dict]:
+    """Load gold set items from annotation data (SQLite), truncating to max_tokens."""
     from pipeline.phase1.storage import load_latest_annotations
 
     annotations = load_latest_annotations()
@@ -184,11 +185,13 @@ def _load_gold_items() -> list[dict]:
     for (item_id, _), record in annotations.items():
         if item_id not in seen_ids:
             seen_ids.add(item_id)
+            text = truncate_to_max_tokens(record["text"], max_tokens)
+            rp = min(record["reflection_point"], len(text))
             records.append({
                 "item_id": item_id,
                 "subset": record["subset"],
-                "text": record["text"],
-                "reflection_point": record["reflection_point"],
+                "text": text,
+                "reflection_point": rp,
                 "is_gold": True,
             })
     return records
@@ -198,8 +201,11 @@ FINEWEB_CACHE_PATH = PIPELINE_DATA_DIR / "fineweb_cache.jsonl"
 FINEWEB_CACHE_SIZE = 500
 
 
-def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
-    """Sample fresh FineWeb items, stratified equally across subsets."""
+def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str], max_tokens: int) -> list[dict]:
+    """Sample fresh FineWeb items, stratified equally across subsets.
+
+    Each text is truncated to max_tokens before computing the reflection point.
+    """
     rng = random.Random(seed)
     cache = load_or_build_fineweb_cache(
         cache_path=FINEWEB_CACHE_PATH,
@@ -229,21 +235,15 @@ def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
             while cursors[subset] < len(rows):
                 row = rows[cursors[subset]]
                 cursors[subset] += 1
-                text = row["text"]
+                text = truncate_to_max_tokens(row["text"], max_tokens)
                 item_id = compute_item_id(text)
                 if item_id in exclude_ids:
                     continue
-                min_pos = max(1, int(len(text) * 0.1))
-                max_pos = max(min_pos + 1, int(len(text) * 0.9))
-                char_pos = rng.randint(min_pos, max_pos)
-                space_idx = text.find(" ", char_pos)
-                if space_idx != -1 and space_idx - char_pos < 50:
-                    char_pos = space_idx
                 items.append({
                     "item_id": item_id,
                     "subset": subset,
                     "text": text,
-                    "reflection_point": char_pos,
+                    "reflection_point": compute_reflection_point(text, rng),
                     "is_gold": False,
                 })
                 exclude_ids.add(item_id)
@@ -256,13 +256,13 @@ def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
     return items[:n]
 
 
-def select_items(n_total: int, n_gold: int, seed: int) -> list[dict]:
+def select_items(n_total: int, n_gold: int, seed: int, max_tokens: int) -> list[dict]:
     """Select a mix of gold set items and fresh random FineWeb samples.
 
     Returns up to n_total items: min(n_gold, available_gold) gold items,
-    rest filled with fresh samples.
+    rest filled with fresh samples. All texts are truncated to max_tokens.
     """
-    gold = _load_gold_items()
+    gold = _load_gold_items(max_tokens)
     rng = random.Random(seed)
     rng.shuffle(gold)
     selected_gold = gold[:n_gold]
@@ -270,7 +270,7 @@ def select_items(n_total: int, n_gold: int, seed: int) -> list[dict]:
 
     exclude_ids = {item["item_id"] for item in selected_gold}
     if n_fresh > 0:
-        fresh = _sample_fresh_items(n_fresh, seed, exclude_ids)
+        fresh = _sample_fresh_items(n_fresh, seed, exclude_ids, max_tokens)
     else:
         fresh = []
 
@@ -486,7 +486,7 @@ def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
 
     print("Selecting items...")
-    items = select_items(cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold, seed)
+    items = select_items(cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold, seed, cfg.max_tokens)
 
     gen_prompt = resolve_prompt_path(cfg.phase2.generator.prompt, alias=cfg.phase2.generator.model)
     judge_prompt = resolve_prompt_path(cfg.phase2.judge.prompt, alias=cfg.phase2.judge.model)

@@ -2,43 +2,13 @@
 
 import random
 
-from transformers import AutoTokenizer
-
 from pipeline.config import PIPELINE_DATA_DIR, Phase1Config
 from pipeline.fineweb import load_or_build_fineweb_cache
 from pipeline.storage import compute_item_id
-
-TOKENIZER_NAME = "HuggingFaceTB/SmolLM2-1.7B-Instruct"
-_tokenizer = None
+from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 
 PHASE1_CACHE_PATH = PIPELINE_DATA_DIR / "phase1_fineweb_cache.jsonl"
 PHASE1_CACHE_PER_SUBSET = 100
-
-
-def _get_tokenizer() -> AutoTokenizer:
-    global _tokenizer
-    if _tokenizer is None:
-        _tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
-    return _tokenizer
-
-
-def _compute_reflection_point(text: str, rng: random.Random) -> int:
-    """Pick a reflection point between 10%-90% of text, snapped to a token boundary.
-
-    Uses the SmolLM2 tokenizer to determine token boundaries, then selects a
-    random token position within the 10%-90% range and returns the corresponding
-    character offset.
-    """
-    tokenizer = _get_tokenizer()
-    encoding = tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
-    offsets = encoding["offset_mapping"]
-    n_tokens = len(offsets)
-    assert n_tokens > 0, "Text produced no tokens"
-
-    min_tok = max(1, int(n_tokens * 0.1))
-    max_tok = min(n_tokens - 1, max(min_tok, int(n_tokens * 0.9)))
-    tok_idx = rng.randint(min_tok, max_tok)
-    return offsets[tok_idx][0]
 
 
 def _load_or_build_cache(phase1_cfg: Phase1Config, seed: int) -> dict[str, list[dict]]:
@@ -59,11 +29,17 @@ def _load_or_build_cache(phase1_cfg: Phase1Config, seed: int) -> dict[str, list[
     return by_subset
 
 
-def sample_items(n_per_subset: int, seed: int = 42, phase1_cfg: Phase1Config | None = None) -> list[dict]:
+def sample_items(
+    n_per_subset: int,
+    seed: int = 42,
+    phase1_cfg: Phase1Config | None = None,
+    max_tokens: int = 3840,
+) -> list[dict]:
     """Sample n_per_subset items from each fineweb_annotated score subset.
 
     Uses a local JSONL cache to avoid repeated HF downloads. On first call,
-    streams from HF and builds the cache. Returns items with item_id, subset,
+    streams from HF and builds the cache. Each text is truncated to max_tokens
+    before computing the reflection point. Returns items with item_id, subset,
     text, and reflection_point.
     """
     if phase1_cfg is None:
@@ -83,13 +59,13 @@ def sample_items(n_per_subset: int, seed: int = 42, phase1_cfg: Phase1Config | N
         selected = cached_rows[:n_per_subset]
 
         for row in selected:
-            text = row["text"]
+            text = truncate_to_max_tokens(row["text"], max_tokens)
             assert isinstance(text, str) and len(text) > 0, f"Empty text in {subset}"
             items.append({
                 "item_id": compute_item_id(text),
                 "subset": subset,
                 "text": text,
-                "reflection_point": _compute_reflection_point(text, rng),
+                "reflection_point": compute_reflection_point(text, rng),
             })
 
     assert len(items) > 0, "No fineweb items loaded"

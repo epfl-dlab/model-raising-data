@@ -116,6 +116,7 @@ class DashboardConfig:
 class AppConfig:
     charter_path: str = "resources/SwissAICharter.md"
     data_dir: str = "data"
+    max_tokens: int = 3840
     phase1: Phase1Config = field(default_factory=Phase1Config)
     phase2: Phase2Config = field(default_factory=Phase2Config)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)

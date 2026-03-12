@@ -1,5 +1,6 @@
 charter_path: resources/SwissAICharter.md
 data_dir: data
+max_tokens: 3840
 phase1:
   dataset: locuslab/fineweb_annotated
   subsets:
