@@ -11,16 +11,16 @@ import pytest
 @pytest.fixture(autouse=True)
 def tmp_data_dir(tmp_path):
     """Redirect pipeline storage to a temp directory."""
-    with patch("pipeline.storage.PIPELINE_DATA_DIR", tmp_path):
+    with patch("pipeline.phase2.storage.PIPELINE_DATA_DIR", tmp_path):
         yield tmp_path
 
 
 def test_save_and_load_run():
-    from pipeline.storage import load_runs, save_run
+    from pipeline.phase2.storage import load_runs, save_run
 
     save_run(
         iteration=1, gen_prompt="gen_v1.md", judge_prompt="judge_v1.md",
-        model="test-model", n_items=50, n_gold=12,
+        generator_model="glm45", judge_model="glm45", n_items=50, n_gold=12,
         config={"accept_threshold": 4}, analysis="test analysis",
     )
     runs = load_runs()
@@ -31,7 +31,7 @@ def test_save_and_load_run():
 
 
 def test_save_and_load_item():
-    from pipeline.storage import load_items, load_latest_items, save_item
+    from pipeline.phase2.storage import load_items, load_latest_items, save_item
 
     record = {
         "item_id": "abc123", "iteration": 1, "is_gold": True,
@@ -60,7 +60,7 @@ def test_save_and_load_item():
 
 
 def test_items_dedup_by_iteration():
-    from pipeline.storage import load_latest_items, save_item
+    from pipeline.phase2.storage import load_latest_items, save_item
 
     for iteration in [1, 2]:
         save_item({
@@ -80,7 +80,7 @@ def test_items_dedup_by_iteration():
 
 
 def test_load_items_for_iteration():
-    from pipeline.storage import load_items_for_iteration, save_item
+    from pipeline.phase2.storage import load_items_for_iteration, save_item
 
     for i, iteration in enumerate([1, 1, 2]):
         save_item({
@@ -100,7 +100,7 @@ def test_load_items_for_iteration():
 
 
 def test_save_and_load_review():
-    from pipeline.storage import load_latest_reviews, load_reviews, save_review
+    from pipeline.phase2.storage import load_latest_reviews, load_reviews, save_review
 
     save_review(
         item_id="abc123", iteration=1, reviewer_id="alice",
@@ -123,7 +123,7 @@ def test_save_and_load_review():
 
 
 def test_empty_loads():
-    from pipeline.storage import load_items, load_reviews, load_runs
+    from pipeline.phase2.storage import load_items, load_reviews, load_runs
 
     assert load_runs() == []
     assert load_items() == []

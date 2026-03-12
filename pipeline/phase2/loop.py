@@ -1,12 +1,12 @@
-"""Autonomous pipeline loop: generate → judge → improve prompts → repeat.
+"""Autonomous pipeline loop: generate -> judge -> improve prompts -> repeat.
 
 Spawns a Claude Code subprocess to analyze results and improve prompts
 between iterations. Progress is written to a JSON status file for
 dashboard polling.
 
 Usage:
-    uv run python -m pipeline.loop
-    uv run python -m pipeline.loop loop.n_iterations=3
+    uv run python -m pipeline.phase2.loop
+    uv run python -m pipeline.phase2.loop phase2.loop.n_iterations=3
 """
 
 from __future__ import annotations
@@ -21,16 +21,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pipeline.config import (
+    CONFIG_YAML_PATH,
     PIPELINE_DATA_DIR,
     PROMPTS_DIR,
     PROJECT_ROOT,
     _INIT_PROMPTS_DIR,
-    PipelineConfig,
+    AppConfig,
     load_config,
-    model_slug,
     resolve_prompt_path,
 )
-from pipeline.storage import items_path
+from pipeline.phase2.storage import items_path
 
 STATUS_PATH = PIPELINE_DATA_DIR / "loop_status.json"
 IMPROVER_LOG_PATH = PIPELINE_DATA_DIR / "improver_log.txt"
@@ -51,13 +51,13 @@ def read_status() -> dict | None:
     return json.loads(STATUS_PATH.read_text())
 
 
-def _detect_new_prompts(cfg: PipelineConfig) -> tuple[str, str]:
+def _detect_new_prompts(cfg: AppConfig) -> tuple[str, str]:
     """Find the highest-versioned generator and judge prompts in the model directory.
 
     Asserts that the detected versions are newer than the current config.
     Returns (generator_filename, judge_filename).
     """
-    model_dir = PROMPTS_DIR / model_slug(cfg.model)
+    model_dir = PROMPTS_DIR / cfg.phase2.generator.model
 
     def _highest_version(pattern: str, current: str) -> str:
         matches = sorted(glob.glob(str(model_dir / pattern)))
@@ -70,8 +70,8 @@ def _detect_new_prompts(cfg: PipelineConfig) -> tuple[str, str]:
         )
         return latest
 
-    new_gen = _highest_version("generator_v*.md", cfg.prompts.generator)
-    new_judge = _highest_version("judge_v*.md", cfg.prompts.judge)
+    new_gen = _highest_version("generator_v*.md", cfg.phase2.generator.prompt)
+    new_judge = _highest_version("judge_v*.md", cfg.phase2.judge.prompt)
     return new_gen, new_judge
 
 
@@ -82,15 +82,14 @@ def _extract_version(filename: str) -> int:
     return int(match.group(1))
 
 
-def _update_config(cfg: PipelineConfig, new_gen: str, new_judge: str) -> PipelineConfig:
+def _update_config(cfg: AppConfig, new_gen: str, new_judge: str) -> AppConfig:
     """Update config.yaml with new prompt filenames and return reloaded config."""
     from omegaconf import OmegaConf
 
-    yaml_path = Path(__file__).parent / "conf" / "config.yaml"
-    raw = OmegaConf.load(yaml_path)
-    raw.prompts.generator = new_gen
-    raw.prompts.judge = new_judge
-    OmegaConf.save(raw, yaml_path)
+    raw = OmegaConf.load(CONFIG_YAML_PATH)
+    raw.phase2.generator.prompt = new_gen
+    raw.phase2.judge.prompt = new_judge
+    OmegaConf.save(raw, CONFIG_YAML_PATH)
     return load_config()
 
 
@@ -100,7 +99,7 @@ def _write_improver_summary(iteration: int) -> Path:
     Strips bulky fields (full text, raw_response) and keeps only what's
     needed for analysis: scores, decisions, generated outputs, charter elements.
     """
-    from pipeline.storage import load_items_for_iteration
+    from pipeline.phase2.storage import load_items_for_iteration
 
     items = load_items_for_iteration(iteration)
     summary_path = PIPELINE_DATA_DIR / f"improver_input_iter{iteration}.jsonl"
@@ -136,7 +135,7 @@ def _write_improver_summary(iteration: int) -> Path:
     return summary_path
 
 
-def run_improver(iteration: int, cfg: PipelineConfig) -> str:
+def run_improver(iteration: int, cfg: AppConfig) -> str:
     """Spawn a sandboxed Claude CLI to analyze results and improve prompts.
 
     Pre-extracts a condensed summary of iteration results (no full texts
@@ -144,16 +143,16 @@ def run_improver(iteration: int, cfg: PipelineConfig) -> str:
     Bash/python. The subprocess is restricted to Read/Glob/Grep/Write.
     Returns the analysis text from Claude's stdout.
     """
-    slug = model_slug(cfg.model)
-    model_dir = PROMPTS_DIR / slug
-    gen_path = resolve_prompt_path(cfg.prompts.generator, cfg.model)
-    judge_path = resolve_prompt_path(cfg.prompts.judge, cfg.model)
-    improver_path = _INIT_PROMPTS_DIR / cfg.prompts.improver
+    alias = cfg.phase2.generator.model
+    model_dir = PROMPTS_DIR / alias
+    gen_path = resolve_prompt_path(cfg.phase2.generator.prompt, alias)
+    judge_path = resolve_prompt_path(cfg.phase2.judge.prompt, alias)
+    improver_path = _INIT_PROMPTS_DIR / cfg.phase2.improver.prompt
     gold_path = PROJECT_ROOT / "data" / "annotation" / "annotations.jsonl"
 
     summary_path = _write_improver_summary(iteration)
 
-    current_gen_v = _extract_version(cfg.prompts.generator)
+    current_gen_v = _extract_version(cfg.phase2.generator.prompt)
     next_v = current_gen_v + 1
 
     state_path = model_dir / "state.md"
@@ -307,7 +306,6 @@ def _stream_improver_output(proc: subprocess.Popen, log_path: Path) -> str:
             elif msg_type == "user":
                 for block in event.get("message", {}).get("content", []):
                     if block.get("type") == "tool_result":
-                        tool_id = block.get("tool_use_id", "?")
                         if block.get("is_error"):
                             content = block.get("content", "")
                             _log_line(log, f"[FAIL] {content[:300]}")
@@ -365,8 +363,8 @@ def _build_result_summary(loop_iter: int, pipeline_iter: int, items: list[dict])
     }
 
 
-def run_loop(n_iterations: int = 5, cfg: PipelineConfig | None = None) -> None:
-    """Main autonomous loop: generate+judge → improve → repeat.
+def run_loop(n_iterations: int = 5, cfg: AppConfig | None = None) -> None:
+    """Main autonomous loop: generate+judge -> improve -> repeat.
 
     Supports resuming after a crash: reads loop_status.json to determine
     which iterations already completed and skips them. If the crash happened
@@ -374,8 +372,8 @@ def run_loop(n_iterations: int = 5, cfg: PipelineConfig | None = None) -> None:
 
     Writes progress to loop_status.json for dashboard polling.
     """
-    from pipeline.run import run_iteration
-    from pipeline.storage import load_items_for_iteration, load_runs
+    from pipeline.phase2.run import run_iteration
+    from pipeline.phase2.storage import load_items_for_iteration, load_runs
 
     if cfg is None:
         cfg = load_config()
@@ -410,7 +408,7 @@ def run_loop(n_iterations: int = 5, cfg: PipelineConfig | None = None) -> None:
         # Sync config to match where we left off: detect highest prompt versions
         try:
             new_gen, new_judge = _detect_new_prompts(cfg)
-            if new_gen != cfg.prompts.generator or new_judge != cfg.prompts.judge:
+            if new_gen != cfg.phase2.generator.prompt or new_judge != cfg.phase2.judge.prompt:
                 cfg = _update_config(cfg, new_gen, new_judge)
                 print(f"  Synced config to latest prompts: {new_gen}, {new_judge}")
         except AssertionError:
@@ -493,7 +491,7 @@ def run_loop(n_iterations: int = 5, cfg: PipelineConfig | None = None) -> None:
 
                 new_gen, new_judge = _detect_new_prompts(cfg)
                 cfg = _update_config(cfg, new_gen, new_judge)
-                print(f"Loop {i}/{n_iterations}: updated prompts → {new_gen}, {new_judge}")
+                print(f"Loop {i}/{n_iterations}: updated prompts -> {new_gen}, {new_judge}")
 
             # Append or replace result for this loop iteration
             if i <= len(status["results"]):
@@ -526,12 +524,11 @@ def main():
     """CLI entry point for the autonomous loop."""
     overrides = sys.argv[1:] if len(sys.argv) > 1 else None
     cfg = load_config(overrides)
-    n = cfg.loop.n_iterations
+    n = cfg.phase2.loop.n_iterations
 
     print(f"Starting autonomous loop: {n} iterations")
-    print(f"Model: {cfg.model}")
-    print(f"Generator: {cfg.prompts.generator}")
-    print(f"Judge: {cfg.prompts.judge}")
+    print(f"Generator: {cfg.phase2.generator.model} (prompt: {cfg.phase2.generator.prompt})")
+    print(f"Judge: {cfg.phase2.judge.model} (prompt: {cfg.phase2.judge.prompt})")
 
     run_loop(n_iterations=n, cfg=cfg)
 

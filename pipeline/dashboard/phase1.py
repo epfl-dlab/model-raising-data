@@ -1,23 +1,25 @@
-"""Stage 1 annotation dashboard: humans write preflections and reflections on raw FineWeb text."""
+"""Phase 1 dashboard pages: /annotate and /overview routes."""
 
 import json as _json
 import random as _random
-import re
-import sys
 import threading
-from pathlib import Path
-import dotenv
-dotenv.load_dotenv()
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import os
 
 from nicegui import app, ui
 
-from annotation.config import CHARTER_ELEMENT_IDS, CHARTER_PATH, FINEWEB_SUBSETS, ITEMS_PER_SUBSET
-from annotation.sampling import sample_items
-from annotation.backup import force_upload, start_backup_loop
-from annotation.storage import (
+from pipeline.config import CHARTER_ELEMENT_IDS
+from pipeline.dashboard import render_header
+from pipeline.dashboard.shared import (
+    CHARTER_TEXT,
+    REFLECTION_MARKER_ID,
+    SAMPLE_ITEMS,
+    _COPY_JS_TEMPLATE,
+    ensure_sample_loaded,
+    extract_charter_elements,
+    highlight_charter_md,
+    render_source_text,
+)
+from pipeline.phase1.backup import force_upload
+from pipeline.phase1.storage import (
     load_annotator_ids,
     load_annotations_by_item,
     load_comments_by_annotation,
@@ -25,248 +27,6 @@ from annotation.storage import (
     save_annotation,
     save_comment,
 )
-
-REFLECTION_MARKER_ID = "reflection-marker"
-
-
-_COPY_JS_TEMPLATE = """(e) => {{
-    var text = window.{var_name} || "";
-    if (navigator.clipboard && window.isSecureContext) {{
-        navigator.clipboard.writeText(text);
-    }} else {{
-        var ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-    }}
-    emit(e);
-}}"""
-
-N_PHASES = 3
-_CHARTER_ID_SET = set(CHARTER_ELEMENT_IDS)
-
-
-def extract_charter_elements(text: str) -> list[str]:
-    """Extract charter element IDs ([X.Y] patterns) from text, preserving order."""
-    matches = re.findall(r"\[(\d+\.\d+)\]", text)
-    seen = set()
-    result = []
-    for m in matches:
-        if m in _CHARTER_ID_SET and m not in seen:
-            seen.add(m)
-            result.append(m)
-    return result
-
-
-PHASE_ROUTES = {1: "/annotate", 2: "/pipeline", 3: "/pipeline/review"}
-
-
-def render_phase_bar(active_phase: int = 1, right_slot=None):
-    """Render a stepper-style phase bar with clickable phase links.
-
-    Args:
-        active_phase: Currently active phase number (1-indexed).
-        right_slot: Optional callable rendered on the right side of the bar.
-    """
-    def _circle(n: int) -> str:
-        style = (
-            "background:#1976d2;border:2px solid #1976d2;color:white;"
-            if n <= active_phase
-            else "background:transparent;border:2px solid #555;color:#666;"
-        )
-        return (
-            f'<div style="width:26px;height:26px;border-radius:50%;{style}'
-            f'display:flex;align-items:center;justify-content:center;'
-            f'font-size:0.8em;font-weight:600;flex-shrink:0;">{n}</div>'
-        )
-
-    def _label(n: int) -> str:
-        color = "white" if n == active_phase else "#666"
-        weight = "600" if n == active_phase else "400"
-        return (
-            f'<span style="color:{color};font-size:0.8em;font-weight:{weight};'
-            f'white-space:nowrap;margin-left:6px;">Phase {n}</span>'
-        )
-
-    connector_color = lambda n: "#1976d2" if n < active_phase else "#444"
-    connector = lambda n: f'<div style="width:40px;height:2px;background:{connector_color(n)};margin:0 8px;flex-shrink:0;"></div>'
-
-    parts = []
-    for n in range(1, N_PHASES + 1):
-        if n > 1:
-            parts.append(connector(n - 1))
-        route = PHASE_ROUTES.get(n, "#")
-        parts.append(
-            f'<a href="{route}" style="text-decoration:none;display:flex;align-items:center;">'
-            + _circle(n) + _label(n)
-            + '</a>'
-        )
-
-    stepper_html = (
-        '<div style="display:flex;align-items:center;padding:6px 0;">'
-        + "".join(parts)
-        + "</div>"
-    )
-
-    with ui.row().classes("items-center justify-between w-full q-px-md").style(
-        "background:#252525;border-top:1px solid #333;min-height:44px;"
-    ):
-        ui.html(stepper_html)
-        if right_slot:
-            with ui.row().classes("items-center gap-2"):
-                right_slot()
-
-
-def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
-    """Render the shared page header: title bar + phase stepper.
-
-    Args:
-        annotator_id: Current user's name (empty string if not logged in).
-        active_phase: Currently active phase number, passed through to render_phase_bar.
-        right_slot: Optional callable for phase-bar right side (phase-specific actions).
-    """
-    with ui.header().classes("column items-stretch q-pa-none").style("background: #1d1d1d;"):
-        with ui.row().classes("items-center justify-between q-px-md q-py-xs w-full"):
-            ui.label("Model Raising Annotation Platform").classes("text-h6 text-white")
-            with ui.row().classes("items-center gap-4"):
-                if annotator_id:
-                    ui.label(f"Account: {annotator_id}").classes(
-                        "text-caption text-weight-medium"
-                    ).style("color:#aaa;")
-                ui.button("Logout", on_click=lambda: (
-                    app.storage.user.clear(),
-                    ui.navigate.to("/"),
-                )).classes("text-white").props("flat dense")
-        render_phase_bar(active_phase, right_slot=right_slot)
-
-
-def load_charter() -> str:
-    return CHARTER_PATH.read_text(encoding="utf-8")
-
-
-CHARTER_TEXT = load_charter()
-SAMPLE_ITEMS: list[dict] = []
-_sample_lock = threading.Lock()
-
-
-def ensure_sample_loaded():
-    """Lazy-load sample items via HF streaming (runs once, thread-safe)."""
-    global SAMPLE_ITEMS
-    if not SAMPLE_ITEMS:
-        with _sample_lock:
-            if not SAMPLE_ITEMS:
-                SAMPLE_ITEMS = sample_items(n_per_subset=ITEMS_PER_SUBSET)
-
-
-def highlight_charter_md(charter: str, query: str) -> str:
-    """Inject <mark> tags into charter markdown for search matches."""
-    if not query.strip():
-        return charter
-    escaped_query = re.escape(query)
-    return re.sub(
-        f"({escaped_query})",
-        r'<mark style="background:#ffe066;padding:1px 3px;border-radius:2px">\1</mark>',
-        charter,
-        flags=re.IGNORECASE,
-    )
-
-
-def render_source_text(text: str, reflection_point: int) -> str:
-    """Render source text HTML with a highlighted reflection insertion point."""
-    before = text[:reflection_point]
-    after = text[reflection_point:]
-    esc_before = before.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    esc_after = after.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    marker = (
-        f'<span id="{REFLECTION_MARKER_ID}" style="'
-        'background:#ff6b6b;color:white;padding:2px 8px;border-radius:3px;'
-        'font-weight:bold;font-size:0.85em;display:inline-block;margin:2px 0;'
-        '"> ◆ REFLECTION POINT ◆ </span>'
-    )
-    return f"{esc_before}{marker}{esc_after}"
-
-
-PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
-MAX_PASSWORD_ATTEMPTS = 10
-
-from fastapi.responses import RedirectResponse
-
-if PASSWORD:
-    from fastapi import Request
-    from starlette.middleware.base import BaseHTTPMiddleware
-
-    @app.add_middleware
-    class PasswordMiddleware(BaseHTTPMiddleware):
-        """Redirect all pages to /password if not yet authenticated."""
-
-        async def dispatch(self, request: Request, call_next):
-            if not app.storage.user.get("password_ok", False):
-                if not request.url.path.startswith("/_nicegui") and request.url.path != "/password":
-                    return RedirectResponse("/password")
-            return await call_next(request)
-
-
-@ui.page("/password")
-def password_page():
-    """Simple password gate, stored in user storage (cookie-persisted)."""
-    if not PASSWORD or app.storage.user.get("password_ok", False):
-        return RedirectResponse("/")
-
-    def try_password():
-        attempts = app.storage.user.get("password_attempts", 0)
-        if attempts >= MAX_PASSWORD_ATTEMPTS:
-            ui.notify("Too many failed attempts. Access locked.", color="negative")
-            return
-        if pw_input.value == PASSWORD:
-            app.storage.user["password_ok"] = True
-            app.storage.user["password_attempts"] = 0
-            ui.navigate.to("/")
-        else:
-            attempts += 1
-            app.storage.user["password_attempts"] = attempts
-            remaining = MAX_PASSWORD_ATTEMPTS - attempts
-            ui.notify(f"Wrong password. {remaining} attempt(s) remaining.", color="negative")
-            pw_input.set_value("")
-
-    with ui.column().classes("absolute-center items-center gap-4"):
-        ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
-        ui.label("Enter the password to continue.").classes("text-subtitle1 text-grey-7")
-        pw_input = ui.input("Password", password=True, password_toggle_button=True).on(
-            "keydown.enter", try_password
-        ).classes("w-64")
-        ui.button("Enter", on_click=try_password, color="primary").classes("w-64")
-    return None
-
-
-@ui.page("/")
-def login_page():
-    """Login page where annotator enters their name."""
-    existing_names = load_annotator_ids()
-
-    with ui.column().classes("absolute-center items-center gap-4"):
-        ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
-        ui.label("Enter your name to begin annotating.").classes("text-subtitle1 text-grey-7")
-
-        name_input = ui.input(
-            label="Annotator name",
-            placeholder="e.g. Alice",
-            autocomplete=existing_names,
-        ).classes("w-64")
-
-        def start():
-            val = name_input.value
-            if not val or not str(val).strip():
-                ui.notify("Please enter a name", type="warning")
-                return
-            app.storage.user["annotator_id"] = str(val).strip()
-            ui.navigate.to("/annotate")
-
-        name_input.on("keydown.enter", lambda _: start())
-        ui.button("Start annotating", on_click=start, color="primary").classes("w-64")
 
 
 @ui.page("/annotate")
@@ -565,6 +325,9 @@ def annotate_page():
 @ui.page("/overview")
 def overview_page():
     """Overview panel: annotation stats and side-by-side annotation viewer."""
+    from pipeline.config import load_config
+    cfg = load_config()
+
     annotations_by_item = load_annotations_by_item()
     items_by_id: dict[str, dict] = {}
     for item_id, records in annotations_by_item.items():
@@ -635,7 +398,7 @@ def overview_page():
         ).classes("w-48")
 
         source_filter = ui.select(
-            options=["All"] + FINEWEB_SUBSETS,
+            options=["All"] + list(cfg.phase1.subsets),
             value="All",
             label="Filter by score",
         ).classes("w-48")
@@ -768,9 +531,3 @@ def overview_page():
     annotator_filter.on("update:model-value", lambda _: render_annotations())
     source_filter.on("update:model-value", lambda _: render_annotations())
     render_annotations()
-
-
-import pipeline.dashboard  # noqa: F401 — registers /pipeline and /pipeline/review routes
-
-start_backup_loop()
-ui.run(title="Model Raising Annotation Platform", port=int(os.environ.get("DASHBOARD_PORT", 8600)), storage_secret="annotation-dashboard")

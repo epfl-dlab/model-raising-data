@@ -15,7 +15,7 @@ import json
 import statistics
 import sys
 
-from pipeline.storage import load_items_for_iteration
+from pipeline.phase2.storage import load_items_for_iteration
 
 
 def cmd_summary(iteration: int) -> None:

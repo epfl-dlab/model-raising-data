@@ -1,0 +1,47 @@
+charter_path: resources/SwissAICharter.md
+data_dir: data
+
+phase1:
+  dataset: locuslab/fineweb_annotated
+  subsets:
+  - score_0
+  - score_1
+  - score_2
+  - score_3
+  - score_4
+  - score_5
+  sample_size: 200
+
+phase2:
+  endpoint: https://api.swissai.cscs.ch/v1
+  models:
+  - alias: glm45
+    api_name: jminder/data-annotator-glm45
+    hf_slug: THUDM/glm-4-9b-chat
+  generator:
+    model: glm45
+    prompt: generator_v1.md
+  judge:
+    model: glm45
+    prompt: judge_v1.md
+  improver:
+    prompt: improver.md
+  scoring:
+    scale_min: 1
+    scale_max: 5
+    accept_threshold: 4
+    dimensions:
+    - relevance
+    - specificity
+    - charter_grounding
+    - voice_tone
+  iteration:
+    n_items: 20
+    n_gold: 10
+    max_concurrent: 20
+  loop:
+    n_iterations: 5
+    improver_timeout_s: 600
+
+dashboard:
+  port: 8600

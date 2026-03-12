@@ -1,29 +1,21 @@
-"""Annotation persistence via append-only JSONL files."""
+"""Phase 1 annotation persistence via append-only JSONL files."""
 
-import hashlib
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from annotation.config import DATA_DIR
+from pipeline.config import ANNOTATION_DATA_DIR
+from pipeline.storage import append_jsonl, load_jsonl
 
 
 def annotations_path() -> Path:
     """Return the JSONL file path for annotations."""
-    DATA_DIR.mkdir(exist_ok=True)
-    return DATA_DIR / "annotations.jsonl"
+    ANNOTATION_DATA_DIR.mkdir(exist_ok=True)
+    return ANNOTATION_DATA_DIR / "annotations.jsonl"
 
 
 def load_annotations() -> list[dict]:
     """Load all annotation records (no dedup)."""
-    path = annotations_path()
-    if not path.exists():
-        return []
-    records = []
-    for line in path.read_text().splitlines():
-        if line.strip():
-            records.append(json.loads(line))
-    return records
+    return load_jsonl(annotations_path())
 
 
 def load_latest_annotations() -> dict[tuple[str, str], dict]:
@@ -69,8 +61,7 @@ def save_annotation(
         "presentation_order": presentation_order,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    with open(annotations_path(), "a") as f:
-        f.write(json.dumps(record) + "\n")
+    append_jsonl(annotations_path(), record)
 
 
 def load_annotations_by_item() -> dict[str, list[dict]]:
@@ -82,29 +73,17 @@ def load_annotations_by_item() -> dict[str, list[dict]]:
     return by_item
 
 
-def compute_item_id(text: str) -> str:
-    """Compute a stable item ID from the text (first 200 chars)."""
-    return hashlib.sha256(text[:200].encode()).hexdigest()[:16]
-
-
 # --- Comments ---
 
 def comments_path() -> Path:
     """Return the JSONL file path for annotation comments."""
-    DATA_DIR.mkdir(exist_ok=True)
-    return DATA_DIR / "comments.jsonl"
+    ANNOTATION_DATA_DIR.mkdir(exist_ok=True)
+    return ANNOTATION_DATA_DIR / "comments.jsonl"
 
 
 def load_comments() -> list[dict]:
     """Load all comment records."""
-    path = comments_path()
-    if not path.exists():
-        return []
-    records = []
-    for line in path.read_text().splitlines():
-        if line.strip():
-            records.append(json.loads(line))
-    return records
+    return load_jsonl(comments_path())
 
 
 def load_comments_by_annotation() -> dict[tuple[str, str], list[dict]]:
@@ -132,5 +111,4 @@ def save_comment(
         "comment": comment,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    with open(comments_path(), "a") as f:
-        f.write(json.dumps(record) + "\n")
+    append_jsonl(comments_path(), record)

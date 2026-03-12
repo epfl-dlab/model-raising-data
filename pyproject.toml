@@ -20,6 +20,9 @@ dependencies = [
     "transformers>=5.3.0",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

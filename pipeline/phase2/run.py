@@ -1,8 +1,8 @@
 """Co-optimization pipeline: generate charter reflections, judge them, iterate.
 
 Usage:
-    uv run python -m pipeline.run
-    uv run python -m pipeline.run iteration.n_items=10 scoring.accept_threshold=3
+    uv run python -m pipeline.phase2.run
+    uv run python -m pipeline.phase2.run phase2.iteration.n_items=10 phase2.scoring.accept_threshold=3
 """
 
 from __future__ import annotations
@@ -25,16 +25,19 @@ from tqdm.asyncio import tqdm_asyncio
 from pipeline.config import (
     ANNOTATION_DATA_DIR,
     CHARTER_PATH,
-    PipelineConfig,
+    AppConfig,
+    generator_api_name,
+    judge_api_name,
     load_config,
     resolve_prompt_path,
 )
-from pipeline.storage import (
+from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_runs,
     save_item,
     save_run,
 )
+from pipeline.storage import compute_item_id
 
 MAX_RETRIES = 5
 RETRY_BACKOFF_BASE = 2.0
@@ -183,11 +186,8 @@ def _load_gold_items() -> list[dict]:
 
 def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str]) -> list[dict]:
     """Sample fresh random FineWeb items, excluding already-used IDs."""
-    from annotation.storage import compute_item_id
-
     rng = random.Random(seed)
     items = []
-    subset_cycle = itertools.cycle(FINEWEB_SUBSETS)
 
     from datasets import load_dataset
 
@@ -419,10 +419,10 @@ def judge_batch(
     return list(_gather(*coros, desc="Judging"))
 
 
-def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
-    """Run a single generate→judge iteration. Returns the run summary.
+def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
+    """Run a single generate->judge iteration. Returns the run summary.
 
-    Orchestrates: select items → generate → judge → save run record.
+    Orchestrates: select items -> generate -> judge -> save run record.
     phase_callback: optional callable(str) for granular progress reporting.
     """
     load_dotenv()
@@ -437,33 +437,38 @@ def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
     print(f"ITERATION {iteration}")
     print(f"{'='*60}")
 
-    client = openai.AsyncOpenAI(api_key=api_key, base_url=cfg.endpoint)
-    semaphore = asyncio.Semaphore(cfg.iteration.max_concurrent)
+    client = openai.AsyncOpenAI(api_key=api_key, base_url=cfg.phase2.endpoint)
+    semaphore = asyncio.Semaphore(cfg.phase2.iteration.max_concurrent)
+
+    gen_model = generator_api_name(cfg)
+    jdg_model = judge_api_name(cfg)
 
     print("Running health check...")
-    health_check(client, cfg.model)
+    health_check(client, gen_model)
+    if jdg_model != gen_model:
+        health_check(client, jdg_model)
 
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
 
     print("Selecting items...")
-    items = select_items(cfg.iteration.n_items, cfg.iteration.n_gold, seed)
+    items = select_items(cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold, seed)
 
-    gen_prompt = resolve_prompt_path(cfg.prompts.generator, model=cfg.model)
-    judge_prompt = resolve_prompt_path(cfg.prompts.judge, model=cfg.model)
+    gen_prompt = resolve_prompt_path(cfg.phase2.generator.prompt, alias=cfg.phase2.generator.model)
+    judge_prompt = resolve_prompt_path(cfg.phase2.judge.prompt, alias=cfg.phase2.judge.model)
 
     if phase_callback:
         phase_callback("generating")
     print(f"Generating with {gen_prompt.name}...")
     generated = generate_batch(
-        items, gen_prompt, charter_text, cfg.model, iteration, client, semaphore,
+        items, gen_prompt, charter_text, gen_model, iteration, client, semaphore,
     )
 
     if phase_callback:
         phase_callback("judging")
     print(f"Judging with {judge_prompt.name}...")
     judged = judge_batch(
-        generated, judge_prompt, cfg.model, iteration,
-        cfg.scoring.accept_threshold, client, semaphore,
+        generated, judge_prompt, jdg_model, iteration,
+        cfg.phase2.scoring.accept_threshold, client, semaphore,
     )
 
     n_accepted = sum(1 for item in judged if item["judgment"]["decision"] == "accept")
@@ -491,14 +496,15 @@ def run_iteration(cfg: PipelineConfig, phase_callback=None) -> dict:
 
     save_run(
         iteration=iteration,
-        gen_prompt=cfg.prompts.generator,
-        judge_prompt=cfg.prompts.judge,
-        model=cfg.model,
+        gen_prompt=cfg.phase2.generator.prompt,
+        judge_prompt=cfg.phase2.judge.prompt,
+        generator_model=cfg.phase2.generator.model,
+        judge_model=cfg.phase2.judge.model,
         n_items=len(judged),
         n_gold=sum(1 for item in judged if item.get("is_gold")),
         config={
-            "accept_threshold": cfg.scoring.accept_threshold,
-            "max_concurrent": cfg.iteration.max_concurrent,
+            "accept_threshold": cfg.phase2.scoring.accept_threshold,
+            "max_concurrent": cfg.phase2.iteration.max_concurrent,
         },
         analysis=summary,
     )
@@ -518,12 +524,13 @@ def main():
     overrides = sys.argv[1:] if len(sys.argv) > 1 else None
     cfg = load_config(overrides)
 
-    print(f"Model: {cfg.model}")
-    print(f"Endpoint: {cfg.endpoint}")
-    print(f"Items: {cfg.iteration.n_items} (gold: {cfg.iteration.n_gold})")
-    print(f"Generator: {cfg.prompts.generator}")
-    print(f"Judge: {cfg.prompts.judge}")
-    print(f"Threshold: {cfg.scoring.accept_threshold}")
+    print(f"Generator: {cfg.phase2.generator.model} ({generator_api_name(cfg)})")
+    print(f"Judge: {cfg.phase2.judge.model} ({judge_api_name(cfg)})")
+    print(f"Endpoint: {cfg.phase2.endpoint}")
+    print(f"Items: {cfg.phase2.iteration.n_items} (gold: {cfg.phase2.iteration.n_gold})")
+    print(f"Generator prompt: {cfg.phase2.generator.prompt}")
+    print(f"Judge prompt: {cfg.phase2.judge.prompt}")
+    print(f"Threshold: {cfg.phase2.scoring.accept_threshold}")
 
     result = run_iteration(cfg)
 

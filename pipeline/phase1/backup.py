@@ -19,10 +19,11 @@ from pathlib import Path
 from huggingface_hub import HfApi
 from huggingface_hub.errors import EntryNotFoundError, RepositoryNotFoundError
 
-from annotation.config import DATA_DIR
+from pipeline.config import ANNOTATION_DATA_DIR
 
 logger = logging.getLogger(__name__)
 
+DATA_DIR = ANNOTATION_DATA_DIR
 BACKUP_STATE_PATH = DATA_DIR / ".backup_state.json"
 DATA_FILES = ["annotations.jsonl", "comments.jsonl"]
 BATCH_THRESHOLD = 5
@@ -69,7 +70,7 @@ def _download(api: HfApi, repo: str) -> None:
             logger.info("Skipping download of %s (local file exists)", filename)
             continue
         try:
-            downloaded = api.hf_hub_download(
+            api.hf_hub_download(
                 repo_id=repo,
                 filename=filename,
                 repo_type="dataset",

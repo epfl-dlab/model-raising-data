@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pipeline.run import _parse_generation, _parse_judgment
+from pipeline.phase2.run import _parse_generation, _parse_judgment
 
 
 class TestParseGeneration:
@@ -147,8 +147,8 @@ class TestIntegration:
 
         semaphore = asyncio.Semaphore(10)
 
-        with patch("pipeline.storage.PIPELINE_DATA_DIR", self.data_dir):
-            from pipeline.run import generate_batch, judge_batch
+        with patch("pipeline.phase2.storage.PIPELINE_DATA_DIR", self.data_dir):
+            from pipeline.phase2.run import generate_batch, judge_batch
 
             generated = generate_batch(
                 items, gen_prompt, "charter text", "test-model",

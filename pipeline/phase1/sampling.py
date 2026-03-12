@@ -6,8 +6,8 @@ import random
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
-from annotation.config import FINEWEB_DATASET, FINEWEB_SUBSETS
-from annotation.storage import compute_item_id
+from pipeline.config import Phase1Config
+from pipeline.storage import compute_item_id
 
 TOKENIZER_NAME = "HuggingFaceTB/SmolLM2-1.7B-Instruct"
 _tokenizer = None
@@ -39,20 +39,24 @@ def _compute_reflection_point(text: str, rng: random.Random) -> int:
     return offsets[tok_idx][0]
 
 
-def sample_items(n_per_subset: int, seed: int = 42) -> list[dict]:
+def sample_items(n_per_subset: int, seed: int = 42, phase1_cfg: Phase1Config | None = None) -> list[dict]:
     """Sample n_per_subset items from each fineweb_annotated score subset.
 
     Uses streaming with a shuffled buffer for pseudo-random sampling without
     downloading the full dataset. Returns items with item_id, subset, text,
     and reflection_point.
     """
+    if phase1_cfg is None:
+        from pipeline.config import load_config
+        phase1_cfg = load_config().phase1
+
     rng = random.Random(seed)
     items = []
 
-    for subset in FINEWEB_SUBSETS:
+    for subset in phase1_cfg.subsets:
         print(f"[{subset}] Loading streaming dataset...", flush=True)
         ds = load_dataset(
-            FINEWEB_DATASET, subset, split="train", streaming=True,
+            phase1_cfg.dataset, subset, split="train", streaming=True,
         )
         ds = ds.shuffle(seed=seed, buffer_size=10_000)
         rows = list(itertools.islice(ds, n_per_subset))

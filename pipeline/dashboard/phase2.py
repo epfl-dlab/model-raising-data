@@ -1,4 +1,4 @@
-"""Stage 2 pipeline dashboard: monitoring iterations + human review of LLM output."""
+"""Phase 2 dashboard pages: /pipeline and /pipeline/review routes."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from pathlib import Path
 
 from nicegui import app, ui
 
-from annotation.config import CHARTER_PATH
-from annotation.dashboard import render_header, render_source_text
-from pipeline.config import PipelineConfig, load_config
-from pipeline.storage import (
+from pipeline.config import CHARTER_PATH, AppConfig, load_config
+from pipeline.dashboard import render_header
+from pipeline.dashboard.shared import render_source_text
+from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_latest_reviews,
     load_reviews,
@@ -29,8 +29,6 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
 
     Returns per-dimension correlations, aggregate correlation, and decision agreement.
     """
-    from annotation.config import load_charter_element_ids
-
     paired_scores: dict[str, list[tuple[float, float]]] = {}
     aggregate_pairs: list[tuple[float, float]] = []
     decision_pairs: list[tuple[str, str]] = []
@@ -219,6 +217,8 @@ def pipeline_monitoring_page():
             rows = [
                 {
                     **s,
+                    # Backward compat: old records have "model", new have "generator_model"
+                    "model": s.get("generator_model", s.get("model", "unknown")),
                     "timestamp": s["timestamp"][:19],
                     "accept_reject": f"{s['n_acc']}/{s['n_rej']}",
                     "mean_score": f"{s['mean_score']:.2f}",
@@ -256,14 +256,14 @@ def pipeline_monitoring_page():
             )
 
         def _tail_improver_log(n_lines: int = 50) -> str:
-            from pipeline.loop import IMPROVER_LOG_PATH
+            from pipeline.phase2.loop import IMPROVER_LOG_PATH
             if not IMPROVER_LOG_PATH.exists():
                 return ""
             lines = IMPROVER_LOG_PATH.read_text().splitlines()
             return "\n".join(lines[-n_lines:])
 
         def _poll_loop_status():
-            from pipeline.loop import read_status
+            from pipeline.phase2.loop import read_status
             st = read_status()
             if st is None:
                 return
@@ -311,21 +311,21 @@ def pipeline_monitoring_page():
 
             def _thread():
                 import asyncio as _asyncio
-                from pipeline.loop import run_loop
+                from pipeline.phase2.loop import run_loop
                 cfg = load_config()
-                _asyncio.run(run_loop(n_iterations=cfg.loop.n_iterations, cfg=cfg))
+                _asyncio.run(run_loop(n_iterations=cfg.phase2.loop.n_iterations, cfg=cfg))
 
             threading.Thread(target=_thread, daemon=True).start()
 
         cfg_for_label = load_config()
         loop_btn = ui.button(
-            f"Start Loop ({cfg_for_label.loop.n_iterations} iterations)",
+            f"Start Loop ({cfg_for_label.phase2.loop.n_iterations} iterations)",
             on_click=start_loop,
             color="primary",
         )
 
         # Check if a loop is already running
-        from pipeline.loop import read_status as _read_initial
+        from pipeline.phase2.loop import read_status as _read_initial
         _initial = _read_initial()
         if _initial and _initial.get("running"):
             loop_btn.disable()
@@ -345,7 +345,7 @@ def pipeline_monitoring_page():
 
             def _run():
                 import asyncio as _asyncio
-                from pipeline.run import run_iteration
+                from pipeline.phase2.run import run_iteration
 
                 cfg = load_config()
                 result = _asyncio.run(run_iteration(cfg))
@@ -393,7 +393,7 @@ def pipeline_review_page():
 
     charter_text = _load_charter()
     cfg = load_config()
-    dimensions = cfg.scoring.dimensions
+    dimensions = cfg.phase2.scoring.dimensions
 
     # State
     state = {"iteration": runs[-1]["iteration"], "pos": 0}
@@ -575,7 +575,7 @@ def pipeline_review_page():
 
     def _show_gold_annotation(item_id: str):
         """Display the human annotation for a gold item."""
-        from annotation.storage import load_latest_annotations
+        from pipeline.phase1.storage import load_latest_annotations
 
         annotations = load_latest_annotations()
         gold_records = [v for (iid, _), v in annotations.items() if iid == item_id]
