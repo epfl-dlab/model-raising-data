@@ -170,17 +170,9 @@ def cmd_scores(iteration: int) -> None:
 
 
 def _load_gold() -> list[dict]:
-    """Load gold annotations from the annotation file."""
-    from pipeline.config import PROJECT_ROOT
-
-    gold_path = PROJECT_ROOT / "data" / "annotation" / "annotations.jsonl"
-    assert gold_path.exists(), f"Gold annotations not found at {gold_path}"
-    items = []
-    with open(gold_path) as f:
-        for line in f:
-            if line.strip():
-                items.append(json.loads(line))
-    return items
+    """Load gold annotations from SQLite."""
+    from pipeline.phase1.storage import load_annotations
+    return load_annotations()
 
 
 def cmd_gold(limit: int = 5) -> None:
@@ -245,7 +237,7 @@ def _make_test_id(prefix: str) -> str:
 
 def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
                       n: int = 3, phase: str = "A") -> None:
-    """Generate with a prompt file without saving to main items.jsonl.
+    """Generate with a prompt file without saving to main items table.
 
     Loads items from the latest iteration, runs generate_batch(save=False),
     saves a test_results entry.
@@ -306,12 +298,12 @@ def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
     print(f"\nTest {test_id}: generated {len(generated)} items")
     for g in generated:
         print(f"  {g['item_id'][:12]}: pre={g.get('preflection', '')[:60]}...")
-    print(f"Saved to test_results.jsonl")
+    print("Saved to test_results")
 
 
 def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
                    iteration: int | None = None, n: int = 3, phase: str = "A") -> None:
-    """Judge items with a prompt file without saving to main items.jsonl.
+    """Judge items with a prompt file without saving to main items table.
 
     Loads generated items from specified iteration, runs judge_batch(save=False),
     saves a test_results entry.
@@ -380,13 +372,13 @@ def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
     for j in judged:
         jdg = j["judgment"]
         print(f"  {j['item_id'][:12]}: {jdg['decision']} ({jdg['aggregate']:.2f})")
-    print(f"Saved to test_results.jsonl")
+    print("Saved to test_results")
 
 
 def cmd_run_batch(phase: str = "A") -> None:
     """Run a full generate->judge iteration, auto-detecting latest prompts.
 
-    Saves to main items.jsonl + runs.jsonl AND to test_results.jsonl for tracking.
+    Saves to main items + runs tables AND to test_results for tracking.
     """
     from pipeline.config import load_config
     from pipeline.phase2.loop import _detect_new_prompts, _update_config

@@ -23,7 +23,6 @@ from dotenv import load_dotenv
 from tqdm.asyncio import tqdm_asyncio
 
 from pipeline.config import (
-    ANNOTATION_DATA_DIR,
     CHARTER_PATH,
     PIPELINE_DATA_DIR,
     AppConfig,
@@ -188,17 +187,13 @@ def _parse_judgment(raw: str) -> dict:
 
 
 def _load_gold_items() -> list[dict]:
-    """Load gold set items from annotation data."""
-    ann_path = ANNOTATION_DATA_DIR / "annotations.jsonl"
-    if not ann_path.exists():
-        return []
-    records = []
+    """Load gold set items from annotation data (SQLite)."""
+    from pipeline.phase1.storage import load_latest_annotations
+
+    annotations = load_latest_annotations()
     seen_ids: set[str] = set()
-    for line in ann_path.read_text().splitlines():
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        item_id = record["item_id"]
+    records = []
+    for (item_id, _), record in annotations.items():
         if item_id not in seen_ids:
             seen_ids.add(item_id)
             records.append({

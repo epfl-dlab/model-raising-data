@@ -501,7 +501,7 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
     """Two-phase improver loop: Phase A (judge) -> Phase B (generator).
 
     Writes progress to loop_status.json for dashboard polling.
-    Persists completed loop to loop_history.jsonl for post-mortem review.
+    Persists completed loop to loop_history table for post-mortem review.
     """
     if cfg is None:
         cfg = load_config()
@@ -603,7 +603,7 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
 
 
 def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) -> None:
-    """Persist a loop run to loop_history.jsonl with prompt snapshots and logs."""
+    """Persist a loop run to loop_history table with prompt snapshots and logs."""
     prompts_after = _snapshot_prompts(cfg)
 
     # Use log-extracted reasoning as fallback for empty reasoning
