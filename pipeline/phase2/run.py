@@ -199,7 +199,7 @@ def _load_gold_items(max_tokens: int) -> list[dict]:
 
 
 FINEWEB_CACHE_PATH = PIPELINE_DATA_DIR / "fineweb_cache.jsonl"
-FINEWEB_CACHE_SIZE = 500
+FINEWEB_CACHE_SIZE = 4096
 
 
 def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str], max_tokens: int) -> list[dict]:
