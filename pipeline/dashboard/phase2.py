@@ -695,8 +695,9 @@ def pipeline_monitoring_page():
                         ).classes("w-48")
 
     # --- Iteration Table ---
-    with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
-        ui.label("Iterations").classes("text-h6 text-weight-bold")
+    with ui.expansion(
+        f"Iterations ({len(runs)})", icon="format_list_numbered",
+    ).classes("w-full q-mx-md q-mt-md"):
         if not runs:
             ui.label("No iterations yet.").classes("text-grey-6")
         else:

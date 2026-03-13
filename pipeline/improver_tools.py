@@ -4,10 +4,11 @@ Usage (via Bash tool):
     python -m pipeline.improver_tools summary <iteration>
     python -m pipeline.improver_tools failures <iteration> [--limit N] [--reasoning-limit N]
     python -m pipeline.improver_tools show <item_id>[,id2,...] <iteration> [--brief]
+    python -m pipeline.improver_tools show --gold <iteration> [--brief]
     python -m pipeline.improver_tools item <item_id> <iteration>
     python -m pipeline.improver_tools diversity <iteration>
     python -m pipeline.improver_tools scores <iteration>
-    python -m pipeline.improver_tools gold [--limit N] [--offset N]
+    python -m pipeline.improver_tools gold [--limit N] [--offset N] [--verbose]
     python -m pipeline.improver_tools compare <item_id> <iteration>
     python -m pipeline.improver_tools reviews [<iteration>] [--limit N]
     python -m pipeline.improver_tools filter <iteration> --dim X --below N [--part preflection|reflection]
@@ -87,9 +88,22 @@ def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) ->
         print()
 
 
-def cmd_show(item_ids: list[str], iteration: int, brief: bool = False) -> None:
-    """Print source text, preflection, and reflection for item(s) — easy to read."""
+def cmd_show(item_ids: list[str], iteration: int, brief: bool = False,
+             gold_only: bool = False) -> None:
+    """Print source text, preflection, and reflection for item(s) — easy to read.
+
+    With --gold, shows all gold items for the iteration (ignores item_ids).
+    """
     items = load_items_for_iteration(iteration)
+
+    if gold_only:
+        gold_items = [i for i in items if i.get("is_gold")]
+        if not gold_items:
+            print(f"No gold items in iteration {iteration}")
+            return
+        for item in gold_items:
+            _print_item(item, brief)
+        return
 
     for item_id in item_ids:
         matches = [i for i in items if i["item_id"].startswith(item_id)]
@@ -98,22 +112,27 @@ def cmd_show(item_ids: list[str], iteration: int, brief: bool = False) -> None:
             continue
 
         for item in matches:
-            rp = item["reflection_point"]
-            j = item.get("judgment", {})
-            decision = j.get("decision", "?")
-            agg = j.get("aggregate", 0)
+            _print_item(item, brief)
 
-            print(f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n")
-            print(f"--- SOURCE TEXT ---")
-            if brief:
-                print(item["text"][:300] + "...")
-            else:
-                print(item["text"][:rp] + " [REFLECTION POINT] " + item["text"][rp:])
-            print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
-            print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
-            print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
-            print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
-            print()
+
+def _print_item(item: dict, brief: bool = False) -> None:
+    """Print a single item's details."""
+    rp = item["reflection_point"]
+    j = item.get("judgment", {})
+    decision = j.get("decision", "?")
+    agg = j.get("aggregate", 0)
+
+    print(f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n")
+    print("--- SOURCE TEXT ---")
+    if brief:
+        print(item["text"][:300] + "...")
+    else:
+        print(item["text"][:rp] + " [REFLECTION POINT] " + item["text"][rp:])
+    print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
+    print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
+    print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
+    print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
+    print()
 
 
 def cmd_item(item_id: str, iteration: int) -> None:
@@ -210,17 +229,22 @@ def _load_gold() -> list[dict]:
     return load_annotations()
 
 
-def cmd_gold(limit: int = 5, offset: int = 0) -> None:
-    """Print gold annotations for reference — shows what good output looks like."""
+def cmd_gold(limit: int = 5, offset: int = 0, verbose: bool = False) -> None:
+    """Print gold annotations for reference — shows what good output looks like.
+
+    Default output is concise (analysis + preflection + reflection, no source text).
+    Use --verbose to include full source text.
+    """
     items = _load_gold()
     sliced = items[offset:offset + limit]
     print(f"Gold annotations ({len(items)} total, showing {offset}–{offset + len(sliced)}):\n")
     for item in sliced:
         print(f"=== {item['item_id'][:16]} (subset={item['subset']}) ===")
-        rp = item["reflection_point"]
-        text = item["text"]
-        print(f"--- SOURCE TEXT ---")
-        print(text[:rp] + " [REFLECTION POINT] " + text[rp:])
+        if verbose:
+            rp = item["reflection_point"]
+            text = item["text"]
+            print(f"--- SOURCE TEXT ---")
+            print(text[:rp] + " [REFLECTION POINT] " + text[rp:])
         print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
         print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
         print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
@@ -747,10 +771,15 @@ def main():
                      reasoning_limit=_get_flag_int("--reasoning-limit", 200))
     elif cmd == "show":
         brief = "--brief" in args
+        gold_only = "--gold" in args
         positional = [a for a in args[1:] if not a.startswith("--")]
-        item_ids = positional[0].split(",")
-        iteration = int(positional[1])
-        cmd_show(item_ids, iteration, brief=brief)
+        if gold_only:
+            iteration = int(positional[0])
+            cmd_show([], iteration, brief=brief, gold_only=True)
+        else:
+            item_ids = positional[0].split(",")
+            iteration = int(positional[1])
+            cmd_show(item_ids, iteration, brief=brief)
     elif cmd == "item":
         cmd_item(args[1], int(args[2]))
     elif cmd == "diversity":
@@ -758,7 +787,8 @@ def main():
     elif cmd == "scores":
         cmd_scores(int(args[1]))
     elif cmd == "gold":
-        cmd_gold(limit=_get_flag_int("--limit", 5), offset=_get_flag_int("--offset", 0))
+        cmd_gold(limit=_get_flag_int("--limit", 5), offset=_get_flag_int("--offset", 0),
+                 verbose="--verbose" in args)
     elif cmd == "compare":
         cmd_compare(args[1], int(args[2]))
     elif cmd == "reviews":

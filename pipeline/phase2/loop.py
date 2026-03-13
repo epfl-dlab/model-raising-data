@@ -162,8 +162,10 @@ Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs for one item
   uv run python -m pipeline.improver_tools show <id1,id2,...> {latest_iter}  — batch show multiple items
   uv run python -m pipeline.improver_tools show <id> {latest_iter} --brief   — truncated source text
+  uv run python -m pipeline.improver_tools show --gold {latest_iter} [--brief] — all gold items for iteration
   uv run python -m pipeline.improver_tools item <id> {latest_iter}   — full details as JSON
-  uv run python -m pipeline.improver_tools gold                      — gold annotations (paginate with --offset/--limit)
+  uv run python -m pipeline.improver_tools gold                      — gold annotations (concise, no source text)
+  uv run python -m pipeline.improver_tools gold --verbose            — gold with full source text (large output!)
   uv run python -m pipeline.improver_tools compare <id> {latest_iter} — generated vs gold
   uv run python -m pipeline.improver_tools reviews [{latest_iter}]   — human reviews with judge comparison
   uv run python -m pipeline.improver_tools filter {latest_iter} --dim <dimension> --below <threshold> [--part preflection|reflection]
@@ -176,11 +178,13 @@ Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools run_batch --phase A      — full iteration with latest prompts
   uv run python -m pipeline.improver_tools test_results --phase A   — view test results
 
-## Scratch directory
+## Scratch directory (IMPORTANT: use this for temporary scripts)
 Write ad-hoc analysis scripts to: {AGENT_TMP_DIR}
 Run them with: uv run python {AGENT_TMP_DIR}/your_script.py
 Delete with: rm {AGENT_TMP_DIR}/your_script.py
 This folder is cleared at the start of each loop. Use it for any analysis the CLI tools don't cover.
+**You MUST write all temporary files here** — do NOT write scripts to the project root or elsewhere.
+The `rm` command only works inside {AGENT_TMP_DIR}/.
 
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
@@ -261,8 +265,10 @@ Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs for one item
   uv run python -m pipeline.improver_tools show <id1,id2,...> {latest_iter}  — batch show multiple items
   uv run python -m pipeline.improver_tools show <id> {latest_iter} --brief   — truncated source text
+  uv run python -m pipeline.improver_tools show --gold {latest_iter} [--brief] — all gold items for iteration
   uv run python -m pipeline.improver_tools item <id> {latest_iter}   — full details as JSON
-  uv run python -m pipeline.improver_tools gold                      — gold annotations (paginate with --offset/--limit)
+  uv run python -m pipeline.improver_tools gold                      — gold annotations (concise, no source text)
+  uv run python -m pipeline.improver_tools gold --verbose            — gold with full source text (large output!)
   uv run python -m pipeline.improver_tools compare <id> {latest_iter} — generated vs gold
   uv run python -m pipeline.improver_tools reviews [{latest_iter}]   — human reviews with judge comparison
   uv run python -m pipeline.improver_tools filter {latest_iter} --dim <dimension> --below <threshold> [--part preflection|reflection]
@@ -275,11 +281,13 @@ Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools run_batch --phase B      — full iteration with latest prompts
   uv run python -m pipeline.improver_tools test_results --phase B   — view test results
 
-## Scratch directory
+## Scratch directory (IMPORTANT: use this for temporary scripts)
 Write ad-hoc analysis scripts to: {AGENT_TMP_DIR}
 Run them with: uv run python {AGENT_TMP_DIR}/your_script.py
 Delete with: rm {AGENT_TMP_DIR}/your_script.py
 This folder is cleared at the start of each loop. Use it for any analysis the CLI tools don't cover.
+**You MUST write all temporary files here** — do NOT write scripts to the project root or elsewhere.
+The `rm` command only works inside {AGENT_TMP_DIR}/.
 
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
@@ -328,7 +336,7 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
     settings = json.dumps({
         "permissions": {
             "allow": allowed_tools,
-            "deny": ["Edit", "NotebookEdit"],
+            "deny": ["NotebookEdit"],
         }
     })
     cmd = [
@@ -383,7 +391,39 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
         raise RuntimeError(
             f"Claude agent failed (rc={proc.returncode}): {summary}"
         )
+
+    _validate_agent_output(output, log_path)
     return output
+
+
+_ERROR_PATTERNS = [
+    "authentication_error",
+    "OAuth token has expired",
+    "You've hit your limit",
+    "API Error: 4",
+    "API Error: 5",
+]
+
+
+def _validate_agent_output(output: str, log_path: Path) -> None:
+    """Check agent output for known error patterns that exit with rc=0.
+
+    Raises RuntimeError if the output looks like an error rather than
+    a successful completion.
+    """
+    for pattern in _ERROR_PATTERNS:
+        if pattern in output:
+            raise RuntimeError(
+                f"Agent exited with rc=0 but output contains error "
+                f"({pattern}): {output[:300]}"
+            )
+
+    if "## Final Summary" not in output:
+        logger.warning(
+            "Agent output missing '## Final Summary' — may not have completed "
+            "successfully. Output preview: {}",
+            output[:300],
+        )
 
 
 def _stream_improver_output(proc: subprocess.Popen, log_path: Path) -> str:
@@ -549,6 +589,23 @@ def _extract_latest_status_from_log(log_path: Path) -> str:
     return ""
 
 
+def _preflight_health_check(cfg: AppConfig) -> None:
+    """Ping the inference API before spawning agents. Fail fast if unreachable."""
+    from pipeline.phase2.run import health_check, make_api_client
+    from pipeline.config import generator_api_name, judge_api_name
+
+    client, _ = make_api_client(cfg)
+    gen_model = generator_api_name(cfg)
+    jdg_model = judge_api_name(cfg)
+
+    logger.info("Pre-flight health check: {}", gen_model)
+    health_check(client, gen_model)
+    if jdg_model != gen_model:
+        logger.info("Pre-flight health check: {}", jdg_model)
+        health_check(client, jdg_model)
+    logger.info("Pre-flight health check passed.")
+
+
 ALLOWED_TOOLS = [
     "Read", "Glob", "Grep",
     "Bash(uv run python:*)",
@@ -592,6 +649,9 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
     prompts_before = _snapshot_prompts(cfg)
 
     try:
+        # Pre-flight: verify inference API is reachable before burning agent tokens
+        _preflight_health_check(cfg)
+
         # --- Phase A: Judge Improvement ---
         logger.info("=" * 60)
         logger.info("PHASE A: Judge Improvement")
