@@ -68,7 +68,6 @@ Respond in JSON:
     "charter_grounding": 5,
     "voice_tone": 4
   }},
-  "decision": "accept",
   "reasoning": "Brief explanation of key strengths and weaknesses..."
 }}
 ```

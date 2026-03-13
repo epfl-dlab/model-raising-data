@@ -33,42 +33,38 @@ class TestParseJudgment:
     def test_basic_json(self):
         raw = json.dumps({
             "scores": {"relevance": 4, "depth": 3, "charter_grounding": 5, "clarity": 4},
-            "aggregate": 4.0,
-            "decision": "accept",
             "reasoning": "good work",
         })
         result = _parse_judgment(raw)
         assert result["aggregate"] == 4.0
-        assert result["decision"] == "accept"
 
-    def test_reject_decision(self):
+    def test_low_scores(self):
         raw = json.dumps({
             "scores": {"relevance": 2, "depth": 2, "charter_grounding": 2, "clarity": 2},
-            "aggregate": 2.0,
-            "decision": "reject",
             "reasoning": "poor quality",
         })
         result = _parse_judgment(raw)
-        assert result["decision"] == "reject"
-
-    def test_invalid_decision_raises(self):
-        raw = json.dumps({
-            "scores": {"relevance": 3}, "decision": "maybe", "reasoning": "idk",
-        })
-        with pytest.raises(AssertionError, match="Invalid decision"):
-            _parse_judgment(raw)
+        assert result["aggregate"] == 2.0
 
     def test_empty_scores_raises(self):
         raw = json.dumps({
-            "scores": {}, "decision": "accept", "reasoning": "ok",
+            "scores": {}, "reasoning": "ok",
         })
         with pytest.raises(AssertionError, match="scores must not be empty"):
             _parse_judgment(raw)
 
     def test_json_with_code_fence(self):
-        raw = '```json\n{"scores": {"r": 4}, "aggregate": 4.0, "decision": "accept", "reasoning": "ok"}\n```'
+        raw = '```json\n{"scores": {"r": 4}, "reasoning": "ok"}\n```'
         result = _parse_judgment(raw)
-        assert result["decision"] == "accept"
+        assert result["aggregate"] == 4.0
+
+    def test_decision_field_ignored_if_present(self):
+        """Backward compat: decision field in judge output is silently ignored."""
+        raw = json.dumps({
+            "scores": {"relevance": 4}, "decision": "accept", "reasoning": "ok",
+        })
+        result = _parse_judgment(raw)
+        assert result["aggregate"] == 4.0
 
 
 class TestMakeApiClient:
@@ -118,8 +114,6 @@ class TestIntegration:
         })
         judge_response = json.dumps({
             "scores": {"relevance": 4, "specificity": 3, "charter_grounding": 4, "voice_tone": 4},
-            "aggregate": 3.75,
-            "decision": "reject",
             "reasoning": "slightly below threshold",
         })
 
@@ -192,8 +186,7 @@ class TestIntegration:
             "analysis": "test", "preflection": "p", "reflection": "r per [1.1]",
         })
         judge_response = json.dumps({
-            "scores": {"relevance": 4}, "aggregate": 4.0,
-            "decision": "accept", "reasoning": "ok",
+            "scores": {"relevance": 4}, "reasoning": "ok",
         })
 
         import asyncio

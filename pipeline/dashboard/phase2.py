@@ -875,12 +875,6 @@ def pipeline_review_page():
                                     "margin-left: 160px; margin-top: -4px;"
                                 )
 
-                decision_select = ui.select(
-                    options=["accept", "reject"],
-                    value="accept",
-                    label="Decision",
-                ).classes("w-48")
-
                 notes_input = ui.textarea(
                     placeholder="Notes (optional)...",
                 ).classes("w-full").props("outlined")
@@ -992,13 +986,11 @@ def pipeline_review_page():
                 for part, dims in score_inputs.items():
                     for dim, slider in dims.items():
                         slider.set_value(ex_scores.get(dim, 3))
-            decision_select.set_value(existing["decision"])
             notes_input.set_value(existing.get("notes", ""))
         else:
             for dims in score_inputs.values():
                 for slider in dims.values():
                     slider.set_value(3)
-            decision_select.set_value("accept")
             notes_input.set_value("")
 
     def _show_gold_annotation(item_id: str):
@@ -1039,13 +1031,15 @@ def pipeline_review_page():
         }
         all_vals = [v for part in scores.values() for v in part.values()]
         aggregate = statistics.mean(all_vals)
+        has_floor = any(v <= 2 for v in all_vals)
+        decision = "reject" if has_floor or aggregate < cfg.phase2.scoring.accept_threshold else "accept"
         save_review(
             item_id=item["item_id"],
             iteration=state["iteration"],
             reviewer_id=viewer_id,
             scores=scores,
             aggregate=aggregate,
-            decision=decision_select.value,
+            decision=decision,
             notes=notes_input.value.strip(),
         )
         ui.notify("Review saved!", type="positive")

@@ -166,12 +166,11 @@ def _parse_judgment(raw: str) -> dict:
         text = "\n".join(lines)
 
     parsed = json.loads(text)
-    required = {"scores", "decision", "reasoning"}
+    required = {"scores", "reasoning"}
     missing = required - set(parsed.keys())
     assert not missing, f"Missing fields in judgment: {missing}"
     assert isinstance(parsed["scores"], dict), "scores must be a dict"
     assert len(parsed["scores"]) > 0, "scores must not be empty"
-    assert parsed["decision"] in ("accept", "reject"), f"Invalid decision: {parsed['decision']}"
     parsed["aggregate"] = sum(parsed["scores"].values()) / len(parsed["scores"])
     return parsed
 
