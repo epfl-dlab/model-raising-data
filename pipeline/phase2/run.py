@@ -587,27 +587,38 @@ def _run_one_pair_inner(
     }
 
 
-def run_judge_cross_iteration(
-    cfg: AppConfig, target_judge_alias: str, source: str = "improve_judge",
+def _run_cross_iteration(
+    cfg: AppConfig,
+    role: str,
+    target_alias: str,
+    source: str,
 ) -> list[dict]:
-    """Generate with ALL generators, judge all with target judge.
+    """Run cross-iteration for a given role and target model.
 
-    One iteration per generator model. Same source texts across generators (same seed).
-    All iterations share a group_id. Returns list of run summaries.
+    For judge role: generate with ALL generators, judge with target.
+    For generator role: generate with target, judge with ALL judges.
+
+    Items are selected once (fixed seed). All iterations share a group_id.
+    Returns list of run summaries.
     """
     from uuid import uuid4
 
-    client, semaphore = make_api_client(cfg)
-    judge_model_cfg = resolve_judge_model(cfg, target_judge_alias)
+    client, _semaphore = make_api_client(cfg)
 
-    # Health-check ALL generator models + target judge upfront
-    checked: set[str] = set()
-    for gen_cfg in cfg.phase2.generator_models:
-        if gen_cfg.api_name not in checked:
-            health_check(client, gen_cfg.api_name)
-            checked.add(gen_cfg.api_name)
-    if judge_model_cfg.api_name not in checked:
-        health_check(client, judge_model_cfg.api_name)
+    # Determine fixed vs. iterated models
+    if role == "judge":
+        fixed_alias = target_alias
+        resolve_judge_model(cfg, target_alias)  # validate alias
+        counterpart_models = cfg.phase2.generator_models
+        pairs = [(m.alias, target_alias) for m in counterpart_models]
+    else:
+        fixed_alias = target_alias
+        resolve_generator_model(cfg, target_alias)  # validate alias
+        counterpart_models = cfg.phase2.judge_models
+        pairs = [(target_alias, m.alias) for m in counterpart_models]
+
+    # Health-check all involved models upfront
+    _health_check_models(client, cfg, role, target_alias)
 
     # Select items once (fixed seed based on current max iteration)
     base_iter = next_iteration()
@@ -619,58 +630,52 @@ def run_judge_cross_iteration(
 
     group_id = str(uuid4())
     summaries = []
-    for gen_cfg in cfg.phase2.generator_models:
-        logger.info("Cross-iteration: gen={} judge={}", gen_cfg.alias, target_judge_alias)
+    for gen_alias, judge_alias in pairs:
+        logger.info("Cross-iteration: gen={} judge={}", gen_alias, judge_alias)
         result = _run_one_pair(
-            cfg, items, gen_cfg.alias, target_judge_alias,
+            cfg, items, gen_alias, judge_alias,
             source=source, group_id=group_id,
         )
         summaries.append(result)
 
     return summaries
+
+
+def _health_check_models(
+    client: openai.AsyncOpenAI, cfg: AppConfig, role: str, target_alias: str,
+) -> None:
+    """Health-check the target model and all counterpart models for a cross-iteration."""
+    checked: set[str] = set()
+    if role == "judge":
+        target_cfg = resolve_judge_model(cfg, target_alias)
+        health_check(client, target_cfg.api_name)
+        checked.add(target_cfg.api_name)
+        for m in cfg.phase2.generator_models:
+            if m.api_name not in checked:
+                health_check(client, m.api_name)
+                checked.add(m.api_name)
+    else:
+        target_cfg = resolve_generator_model(cfg, target_alias)
+        health_check(client, target_cfg.api_name)
+        checked.add(target_cfg.api_name)
+        for m in cfg.phase2.judge_models:
+            if m.api_name not in checked:
+                health_check(client, m.api_name)
+                checked.add(m.api_name)
+
+
+def run_judge_cross_iteration(
+    cfg: AppConfig, target_judge_alias: str, source: str = "improve_judge",
+) -> list[dict]:
+    """Generate with ALL generators, judge all with target judge."""
+    return _run_cross_iteration(cfg, "judge", target_judge_alias, source)
 
 
 def run_generator_cross_iteration(
     cfg: AppConfig, target_gen_alias: str, source: str = "improve_generator",
 ) -> list[dict]:
-    """Generate with target generator, judge with ALL judges.
-
-    Generates once per judge (same items, same seed). Each judge gets its own iteration.
-    All iterations share a group_id. Returns list of run summaries.
-    """
-    from uuid import uuid4
-
-    client, semaphore = make_api_client(cfg)
-    gen_model_cfg = resolve_generator_model(cfg, target_gen_alias)
-
-    # Health-check target generator + ALL judge models upfront
-    checked: set[str] = set()
-    health_check(client, gen_model_cfg.api_name)
-    checked.add(gen_model_cfg.api_name)
-    for jdg_cfg in cfg.phase2.judge_models:
-        if jdg_cfg.api_name not in checked:
-            health_check(client, jdg_cfg.api_name)
-            checked.add(jdg_cfg.api_name)
-
-    # Select items once (fixed seed)
-    base_iter = next_iteration()
-    seed = 42 + base_iter
-    items = select_items(
-        cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold,
-        seed, cfg.max_tokens,
-    )
-
-    group_id = str(uuid4())
-    summaries = []
-    for jdg_cfg in cfg.phase2.judge_models:
-        logger.info("Cross-iteration: gen={} judge={}", target_gen_alias, jdg_cfg.alias)
-        result = _run_one_pair(
-            cfg, items, target_gen_alias, jdg_cfg.alias,
-            source=source, group_id=group_id,
-        )
-        summaries.append(result)
-
-    return summaries
+    """Generate with target generator, judge with ALL judges."""
+    return _run_cross_iteration(cfg, "generator", target_gen_alias, source)
 
 
 def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:

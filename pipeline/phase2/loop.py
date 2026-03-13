@@ -490,29 +490,10 @@ def _extract_latest_status_from_log(log_path: Path) -> str:
 
 def _preflight_health_check(cfg: AppConfig, role: str, target_alias: str) -> None:
     """Ping the inference API before spawning agents. Fail fast if unreachable."""
-    from pipeline.phase2.run import health_check, make_api_client
-    from pipeline.config import resolve_generator_model, resolve_judge_model
+    from pipeline.phase2.run import _health_check_models, make_api_client
 
     client, _ = make_api_client(cfg)
-    checked: set[str] = set()
-
-    if role == "judge":
-        judge_cfg = resolve_judge_model(cfg, target_alias)
-        health_check(client, judge_cfg.api_name)
-        checked.add(judge_cfg.api_name)
-        for gen_cfg in cfg.phase2.generator_models:
-            if gen_cfg.api_name not in checked:
-                health_check(client, gen_cfg.api_name)
-                checked.add(gen_cfg.api_name)
-    else:
-        gen_cfg = resolve_generator_model(cfg, target_alias)
-        health_check(client, gen_cfg.api_name)
-        checked.add(gen_cfg.api_name)
-        for jdg_cfg in cfg.phase2.judge_models:
-            if jdg_cfg.api_name not in checked:
-                health_check(client, jdg_cfg.api_name)
-                checked.add(jdg_cfg.api_name)
-
+    _health_check_models(client, cfg, role, target_alias)
     logger.info("Pre-flight health check passed for {} / {}.", role, target_alias)
 
 
@@ -590,20 +571,20 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
         write_status(status)
 
 
-def run_judge_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> None:
-    """Run judge improvers sequentially. If aliases is None, run ALL judge models."""
+def _run_improvers(cfg: AppConfig, role: str, aliases: list[str] | None = None) -> None:
+    """Run improvers for a role sequentially. If aliases is None, run ALL models for that role."""
     if aliases is None:
-        aliases = [m.alias for m in cfg.phase2.judge_models]
+        model_list = cfg.phase2.judge_models if role == "judge" else cfg.phase2.generator_models
+        aliases = [m.alias for m in model_list]
 
     now = datetime.now(timezone.utc).isoformat()
     prompts_before = _snapshot_prompts(cfg)
 
-    # Initialize status with all selected aliases as pending
-    improvers = {f"judge_{a}": _make_improver_status("pending") for a in aliases}
+    improvers = {f"{role}_{a}": _make_improver_status("pending") for a in aliases}
     status = {
         "running": True,
         "started_at": now,
-        "role": "judge",
+        "role": role,
         "improvers": improvers,
         "current": None,
         "error": None,
@@ -612,18 +593,16 @@ def run_judge_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> Non
 
     try:
         for alias in aliases:
-            run_improver(cfg, "judge", alias)
-            # Re-read status (run_improver updates it)
+            run_improver(cfg, role, alias)
             status = read_status() or status
 
         status["running"] = False
         write_status(status)
-        logger.info("All judge improvers complete.")
+        logger.info("All {} improvers complete.", role)
 
     except (KeyboardInterrupt, Exception):
         status = read_status() or status
         status["running"] = False
-        # Mark remaining pending improvers as skipped
         for key, data in status.get("improvers", {}).items():
             if data["status"] == "pending":
                 data["status"] = "skipped"
@@ -637,52 +616,16 @@ def run_judge_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> Non
             logger.error("Failed to save loop history to DB: {}", e)
             fallback = PIPELINE_DATA_DIR / "loop_history_fallback.json"
             fallback.write_text(json.dumps(status, indent=2, default=str))
+
+
+def run_judge_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> None:
+    """Run judge improvers sequentially. If aliases is None, run ALL judge models."""
+    _run_improvers(cfg, "judge", aliases)
 
 
 def run_generator_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> None:
     """Run generator improvers sequentially. If aliases is None, run ALL generator models."""
-    if aliases is None:
-        aliases = [m.alias for m in cfg.phase2.generator_models]
-
-    now = datetime.now(timezone.utc).isoformat()
-    prompts_before = _snapshot_prompts(cfg)
-
-    improvers = {f"generator_{a}": _make_improver_status("pending") for a in aliases}
-    status = {
-        "running": True,
-        "started_at": now,
-        "role": "generator",
-        "improvers": improvers,
-        "current": None,
-        "error": None,
-    }
-    write_status(status)
-
-    try:
-        for alias in aliases:
-            run_improver(cfg, "generator", alias)
-            status = read_status() or status
-
-        status["running"] = False
-        write_status(status)
-        logger.info("All generator improvers complete.")
-
-    except (KeyboardInterrupt, Exception):
-        status = read_status() or status
-        status["running"] = False
-        for key, data in status.get("improvers", {}).items():
-            if data["status"] == "pending":
-                data["status"] = "skipped"
-        write_status(status)
-        raise
-
-    finally:
-        try:
-            _save_history(status, prompts_before, cfg)
-        except Exception as e:
-            logger.error("Failed to save loop history to DB: {}", e)
-            fallback = PIPELINE_DATA_DIR / "loop_history_fallback.json"
-            fallback.write_text(json.dumps(status, indent=2, default=str))
+    _run_improvers(cfg, "generator", aliases)
 
 
 def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) -> None:

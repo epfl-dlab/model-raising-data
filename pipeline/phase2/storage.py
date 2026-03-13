@@ -83,6 +83,19 @@ def load_items_for_iteration(iteration: int) -> list[dict]:
     return [_row_to_item(r) for r in rows]
 
 
+def load_item_across_iterations(item_id: str, iterations: list[int]) -> list[dict]:
+    """Load a specific item from multiple iterations in a single query."""
+    if not iterations:
+        return []
+    conn = _get_conn()
+    placeholders = ",".join("?" for _ in iterations)
+    rows = conn.execute(
+        f"SELECT * FROM items WHERE item_id = ? AND iteration IN ({placeholders})",
+        [item_id] + iterations,
+    ).fetchall()
+    return [_row_to_item(r) for r in rows]
+
+
 def save_item(record: dict) -> None:
     """Upsert a single item record (generation or generation+judgment)."""
     conn = _get_conn()

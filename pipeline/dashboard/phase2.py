@@ -15,6 +15,7 @@ from pipeline.dashboard.shared import CHARTER_TEXT, render_source_text
 from pipeline.phase2.storage import (
     delete_review,
     delete_review_comment,
+    load_item_across_iterations,
     load_items_for_iteration,
     load_judge_correlations,
     load_latest_reviews,
@@ -119,17 +120,11 @@ def _cohens_kappa(pairs: list[tuple[str, str]]) -> float | None:
     return (p_o - p_e) / (1 - p_e)
 
 
-def _compute_correlation_by_judge_version(
-    gen_filter: str | None = None,
-    iter_to_gen: dict[int, str] | None = None,
-) -> dict[tuple[str, str], dict]:
-    """Compute aggregate Pearson correlation and Cohen's kappa for each (judge_prompt, judge_model).
+def _load_correlation_pairs() -> list[dict]:
+    """Load and join correlations with human reviews. Returns paired records.
 
-    Uses judge_correlations table (re-judgments) paired with human reviews.
-    Returns {(judge_prompt, judge_model): {"pearson": float|None, "kappa": float|None}}.
-
-    If gen_filter is set, only include correlations from iterations whose generator model
-    matches gen_filter (looked up via iter_to_gen mapping).
+    Each record has: judge_prompt, judge_model, iteration, judge_agg, human_agg,
+    judge_dec, human_dec.
     """
     correlations = load_judge_correlations()
     reviews = load_latest_reviews()
@@ -140,30 +135,56 @@ def _compute_correlation_by_judge_version(
         if key not in review_by_item:
             review_by_item[key] = review
 
-    score_pairs: dict[tuple[str, str], list[tuple[float, float]]] = {}
-    decision_pairs: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    pairs = []
     for c in correlations:
-        if gen_filter and iter_to_gen:
-            if iter_to_gen.get(c["iteration"]) != gen_filter:
-                continue
-        key = (c["item_id"], c["iteration"])
-        review = review_by_item.get(key)
+        review = review_by_item.get((c["item_id"], c["iteration"]))
         if not review:
             continue
-        version_key = (c["judge_prompt"], c["judge_model"])
-        judge_agg = c["judgment"].get("aggregate", 0)
-        human_agg = review.get("aggregate", 0)
-        score_pairs.setdefault(version_key, []).append((judge_agg, human_agg))
-        judge_dec = c["judgment"].get("decision", "")
-        human_dec = review.get("decision", "")
-        decision_pairs.setdefault(version_key, []).append((judge_dec, human_dec))
+        pairs.append({
+            "judge_prompt": c["judge_prompt"],
+            "judge_model": c["judge_model"],
+            "iteration": c["iteration"],
+            "judge_agg": c["judgment"].get("aggregate", 0),
+            "human_agg": review.get("aggregate", 0),
+            "judge_dec": c["judgment"].get("decision", ""),
+            "human_dec": review.get("decision", ""),
+        })
+    return pairs
 
-    result = {}
-    for vk in score_pairs:
-        sp = score_pairs[vk]
-        dp = decision_pairs.get(vk, [])
-        result[vk] = {"pearson": _pearson(sp), "kappa": _cohens_kappa(dp)}
-    return result
+
+def _aggregate_correlation_pairs(
+    pairs: list[dict],
+) -> dict[tuple[str, str], dict]:
+    """Aggregate pre-loaded pairs into per-version correlation metrics."""
+    score_pairs: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    decision_pairs: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for p in pairs:
+        vk = (p["judge_prompt"], p["judge_model"])
+        score_pairs.setdefault(vk, []).append((p["judge_agg"], p["human_agg"]))
+        decision_pairs.setdefault(vk, []).append((p["judge_dec"], p["human_dec"]))
+
+    return {
+        vk: {"pearson": _pearson(score_pairs[vk]), "kappa": _cohens_kappa(decision_pairs.get(vk, []))}
+        for vk in score_pairs
+    }
+
+
+def _compute_correlation_by_judge_version(
+    gen_filter: str | None = None,
+    iter_to_gen: dict[int, str] | None = None,
+    _pairs: list[dict] | None = None,
+) -> dict[tuple[str, str], dict]:
+    """Compute aggregate Pearson correlation and Cohen's kappa for each (judge_prompt, judge_model).
+
+    Uses judge_correlations table (re-judgments) paired with human reviews.
+    Returns {(judge_prompt, judge_model): {"pearson": float|None, "kappa": float|None}}.
+
+    Pass _pairs (from _load_correlation_pairs) to avoid reloading from DB.
+    """
+    pairs = _pairs if _pairs is not None else _load_correlation_pairs()
+    if gen_filter and iter_to_gen:
+        pairs = [p for p in pairs if iter_to_gen.get(p["iteration"]) == gen_filter]
+    return _aggregate_correlation_pairs(pairs)
 
 
 def _compute_calibration_from_correlations(judge_prompt: str, judge_model: str) -> dict:
@@ -707,9 +728,10 @@ def pipeline_monitoring_page():
 
             with ui.card().classes("flex-1 q-pa-md"):
                 ui.label("Judge-Human Correlation by Judge Version").classes("text-subtitle2 text-weight-bold")
-                # Build iteration → generator_model mapping for filtering
+                # Load correlation data once, filter in memory on dropdown change
                 iter_to_gen = {r["iteration"]: r.get("generator_model", "unknown") for r in runs}
-                version_corrs = _compute_correlation_by_judge_version()
+                cached_corr_pairs = _load_correlation_pairs()
+                version_corrs = _aggregate_correlation_pairs(cached_corr_pairs)
                 if not version_corrs:
                     ui.label("No judge correlations yet.").classes("text-grey-6")
                 else:
@@ -731,6 +753,7 @@ def pipeline_monitoring_page():
                         gf = corr_state["gen_filter"]
                         vc = _compute_correlation_by_judge_version(
                             gen_filter=gf, iter_to_gen=iter_to_gen,
+                            _pairs=cached_corr_pairs,
                         ) if gf else version_corrs
                         sm = corr_state["judge_model"]
                         cur_models = sorted({m for _, m in vc}) if vc else []
@@ -1395,20 +1418,18 @@ def pipeline_review_page():
                 cur_judge = cur_run.get("judge_model", "")
                 judgments_to_show.append((cur_judge, judgment))
 
-            # Look for sibling iterations in the same group
+            # Look for sibling iterations in the same group (single query)
             cur_run = run_by_iter.get(state["iteration"], {})
             cur_gid = cur_run.get("group_id")
             if cur_gid and cur_gid in group_iters:
-                for sib_iter in group_iters[cur_gid]:
-                    if sib_iter == state["iteration"]:
-                        continue
-                    sib_items = load_items_for_iteration(sib_iter)
-                    sib_run = run_by_iter.get(sib_iter, {})
-                    sib_judge = sib_run.get("judge_model", "?")
+                sib_iters = [i for i in group_iters[cur_gid] if i != state["iteration"]]
+                if sib_iters:
+                    sib_items = load_item_across_iterations(item["item_id"], sib_iters)
                     for si in sib_items:
-                        if si["item_id"] == item["item_id"] and si.get("judgment"):
+                        if si.get("judgment"):
+                            sib_run = run_by_iter.get(si["iteration"], {})
+                            sib_judge = sib_run.get("judge_model", "?")
                             judgments_to_show.append((sib_judge, si["judgment"]))
-                            break
 
             if not judgments_to_show:
                 ui.label("No judge scores.").classes("text-grey-6")
