@@ -25,18 +25,22 @@ def save_run(
     n_gold: int,
     config: dict,
     analysis: str,
+    source: str = "manual",
 ) -> None:
-    """Append a completed iteration run record."""
+    """Append a completed iteration run record.
+
+    source: one of "manual", "phase_a", "phase_b".
+    """
     conn = _get_conn()
     conn.execute(
         """INSERT INTO runs
            (iteration, gen_prompt, judge_prompt, generator_model, judge_model,
-            n_items, n_gold, config, analysis, timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            n_items, n_gold, config, analysis, timestamp, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             iteration, gen_prompt, judge_prompt, generator_model, judge_model,
             n_items, n_gold, json.dumps(config), analysis,
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(timezone.utc).isoformat(), source,
         ),
     )
     conn.commit()
@@ -248,16 +252,17 @@ def save_judge_correlation(
     item_id: str,
     iteration: int,
     judge_prompt: str,
+    judge_model: str,
     judgment: dict,
 ) -> None:
     """Upsert a re-judgment record for judge-human correlation tracking."""
     conn = _get_conn()
     conn.execute(
         """INSERT OR REPLACE INTO judge_correlations
-           (item_id, iteration, judge_prompt, judgment, timestamp)
-           VALUES (?, ?, ?, ?, ?)""",
+           (item_id, iteration, judge_prompt, judge_model, judgment, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)""",
         (
-            item_id, iteration, judge_prompt,
+            item_id, iteration, judge_prompt, judge_model,
             json.dumps(judgment),
             datetime.now(timezone.utc).isoformat(),
         ),

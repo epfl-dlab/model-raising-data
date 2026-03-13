@@ -17,6 +17,7 @@ Usage (via Bash tool):
     python -m pipeline.improver_tools run_batch [--phase A|B]
     python -m pipeline.improver_tools test_results [--phase A|B] [--type generate|judge|batch]
     python -m pipeline.improver_tools correlations
+    python -m pipeline.improver_tools rejudge_all
 """
 
 import json
@@ -434,13 +435,14 @@ def cmd_correlations() -> None:
         if key not in review_by_item:
             review_by_item[key] = review
 
-    # Group correlations by judge_prompt
-    by_prompt: dict[str, list[dict]] = {}
+    # Group correlations by (judge_prompt, judge_model)
+    by_prompt: dict[tuple[str, str], list[dict]] = {}
     for c in correlations:
-        by_prompt.setdefault(c["judge_prompt"], []).append(c)
+        key = (c["judge_prompt"], c.get("judge_model", "unknown"))
+        by_prompt.setdefault(key, []).append(c)
 
-    for prompt_name in sorted(by_prompt):
-        entries = by_prompt[prompt_name]
+    for (prompt_name, model_name) in sorted(by_prompt):
+        entries = by_prompt[(prompt_name, model_name)]
         decision_matches = 0
         score_diffs = []
         dim_diffs: dict[str, list[float]] = {}
@@ -479,13 +481,13 @@ def cmd_correlations() -> None:
                         )
 
         if matched == 0:
-            print(f"\n{prompt_name}: {len(entries)} correlations, 0 matched to reviews")
+            print(f"\n{prompt_name} / {model_name}: {len(entries)} correlations, 0 matched to reviews")
             continue
 
         agreement = decision_matches / matched * 100
         mean_diff = statistics.mean(score_diffs) if score_diffs else 0
 
-        print(f"\n{prompt_name} ({matched} items matched to reviews):")
+        print(f"\n{prompt_name} / {model_name} ({matched} items matched to reviews):")
         print(f"  Decision agreement: {agreement:.0f}% ({decision_matches}/{matched})")
         print(f"  Mean |score diff|:  {mean_diff:.2f}")
 
@@ -493,6 +495,17 @@ def cmd_correlations() -> None:
             print("  Per-dimension mean |diff|:")
             for dim_key in sorted(dim_diffs):
                 print(f"    {dim_key}: {statistics.mean(dim_diffs[dim_key]):.2f}")
+
+
+def cmd_rejudge_all() -> None:
+    """Re-judge all human-reviewed items with ALL judge prompts × ALL judge models."""
+    from pipeline.config import load_config
+    from pipeline.phase2.run import rejudge_all_prompts_and_models
+
+    cfg = load_config()
+    print("Re-judging all reviewed items across all judge prompts and models...")
+    total = rejudge_all_prompts_and_models(cfg)
+    print(f"Done. {total} new correlations saved.")
 
 
 def _make_test_id(prefix: str) -> str:
@@ -662,7 +675,7 @@ def cmd_run_batch(phase: str = "A") -> None:
         cfg = _update_config(cfg, new_gen, new_judge)
         print(f"Updated config: gen={new_gen}, judge={new_judge}")
 
-    result = run_iteration(cfg)
+    result = run_iteration(cfg, source=f"phase_{phase.lower()}")
 
     scores = [it["judgment"]["aggregate"] for it in result["items"] if it.get("judgment")]
     mean_score = statistics.mean(scores) if scores else 0.0
@@ -784,6 +797,8 @@ def main():
         )
     elif cmd == "correlations":
         cmd_correlations()
+    elif cmd == "rejudge_all":
+        cmd_rejudge_all()
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

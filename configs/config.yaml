@@ -13,7 +13,11 @@ phase1:
   sample_size: 200
 phase2:
   endpoint: https://api.swissai.cscs.ch/v1
-  models:
+  judge_models:
+  - alias: glm45
+    api_name: jminder/data-annotator-glm45
+    hf_slug: zai-org/GLM-4.5-Air-FP8
+  generator_models:
   - alias: glm45
     api_name: jminder/data-annotator-glm45
     hf_slug: zai-org/GLM-4.5-Air-FP8

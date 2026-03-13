@@ -98,7 +98,8 @@ class Phase1Config:
 @dataclass
 class Phase2Config:
     endpoint: str = ""
-    models: list[ModelConfig] = field(default_factory=list)
+    judge_models: list[ModelConfig] = field(default_factory=list)
+    generator_models: list[ModelConfig] = field(default_factory=list)
     generator: RoleConfig = field(default_factory=RoleConfig)
     judge: RoleConfig = field(default_factory=RoleConfig)
     improver: ImproverConfig = field(default_factory=ImproverConfig)
@@ -125,21 +126,40 @@ class AppConfig:
 # --- Helper functions ---
 
 def resolve_model(cfg: AppConfig, alias: str) -> ModelConfig:
-    """Find a model config by alias (linear scan)."""
-    for m in cfg.phase2.models:
+    """Find a model config by alias, searching both judge and generator model lists."""
+    for m in cfg.phase2.judge_models + cfg.phase2.generator_models:
         if m.alias == alias:
             return m
-    raise ValueError(f"No model with alias '{alias}' in config. Available: {[m.alias for m in cfg.phase2.models]}")
+    all_aliases = [m.alias for m in cfg.phase2.judge_models + cfg.phase2.generator_models]
+    raise ValueError(f"No model with alias '{alias}' in config. Available: {all_aliases}")
+
+
+def resolve_judge_model(cfg: AppConfig, alias: str) -> ModelConfig:
+    """Find a judge model config by alias."""
+    for m in cfg.phase2.judge_models:
+        if m.alias == alias:
+            return m
+    raise ValueError(f"No judge model with alias '{alias}'. Available: {[m.alias for m in cfg.phase2.judge_models]}")
+
+
+def resolve_generator_model(cfg: AppConfig, alias: str) -> ModelConfig:
+    """Find a generator model config by alias."""
+    for m in cfg.phase2.generator_models:
+        if m.alias == alias:
+            return m
+    raise ValueError(
+        f"No generator model with alias '{alias}'. Available: {[m.alias for m in cfg.phase2.generator_models]}"
+    )
 
 
 def generator_api_name(cfg: AppConfig) -> str:
     """Shortcut: resolve the generator model's API name."""
-    return resolve_model(cfg, cfg.phase2.generator.model).api_name
+    return resolve_generator_model(cfg, cfg.phase2.generator.model).api_name
 
 
 def judge_api_name(cfg: AppConfig) -> str:
     """Shortcut: resolve the judge model's API name."""
-    return resolve_model(cfg, cfg.phase2.judge.model).api_name
+    return resolve_judge_model(cfg, cfg.phase2.judge.model).api_name
 
 
 def load_config(overrides: list[str] | None = None) -> AppConfig:

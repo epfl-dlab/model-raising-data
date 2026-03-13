@@ -459,11 +459,12 @@ def judge_batch(
     return list(_gather(*coros, desc="Judging"))
 
 
-def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
+def run_iteration(cfg: AppConfig, phase_callback=None, source: str = "manual") -> dict:
     """Run a single generate->judge iteration. Returns the run summary.
 
     Orchestrates: select items -> generate -> judge -> save run record.
     phase_callback: optional callable(str) for granular progress reporting.
+    source: one of "manual", "phase_a", "phase_b" — recorded in the runs table.
     """
     runs = load_runs()
     iteration = len(runs) + 1
@@ -542,6 +543,7 @@ def run_iteration(cfg: AppConfig, phase_callback=None) -> dict:
             "max_concurrent": cfg.phase2.iteration.max_concurrent,
         },
         analysis=summary,
+        source=source,
     )
 
     # Re-judge reviewed items for correlation tracking
@@ -561,7 +563,7 @@ def rejudge_for_correlations(cfg: AppConfig) -> int:
     """Re-judge all human-reviewed items with the current judge prompt for correlation tracking.
 
     Saves results to the judge_correlations table (not items), so original
-    judgments are preserved. Skips (item_id, iteration, judge_prompt) combos
+    judgments are preserved. Skips (item_id, iteration, judge_prompt, judge_model) combos
     that already exist — idempotent.
 
     Returns the count of newly judged items.
@@ -577,31 +579,26 @@ def rejudge_for_correlations(cfg: AppConfig) -> int:
         logger.info("No reviewed items to re-judge for correlations.")
         return 0
 
-    runs = load_runs()
-    iteration = len(runs)
-
     judge_prompt = resolve_prompt_path(cfg.phase2.judge.prompt, alias=cfg.phase2.judge.model)
     judge_prompt_name = judge_prompt.name
+    judge_model_alias = cfg.phase2.judge.model
 
-    # Find which (item_id, iteration) pairs already have correlations for this judge
     existing = load_judge_correlations()
     existing_keys = {
-        (c["item_id"], c["iteration"], c["judge_prompt"])
+        (c["item_id"], c["iteration"], c["judge_prompt"], c["judge_model"])
         for c in existing
     }
 
-    # Collect unique (item_id, iteration) pairs from reviews, skip already-done
     reviewed_keys = set()
     for (item_id, rev_iter, _reviewer) in reviews:
-        key = (item_id, rev_iter, judge_prompt_name)
+        key = (item_id, rev_iter, judge_prompt_name, judge_model_alias)
         if key not in existing_keys:
             reviewed_keys.add((item_id, rev_iter))
 
     if not reviewed_keys:
-        logger.info("All reviewed items already have correlations for {}.", judge_prompt_name)
+        logger.info("All reviewed items already have correlations for {} / {}.", judge_prompt_name, judge_model_alias)
         return 0
 
-    # Load actual item records
     latest_items = load_latest_items()
     items_to_rejudge = [
         latest_items[key] for key in reviewed_keys if key in latest_items
@@ -615,15 +612,15 @@ def rejudge_for_correlations(cfg: AppConfig) -> int:
     model = judge_api_name(cfg)
 
     logger.info(
-        "Re-judging {} reviewed items with {} for correlation tracking...",
-        len(items_to_rejudge), judge_prompt_name,
+        "Re-judging {} reviewed items with {} ({}) for correlation tracking...",
+        len(items_to_rejudge), judge_prompt_name, judge_model_alias,
     )
 
     judged = judge_batch(
         items=items_to_rejudge,
         prompt_path=judge_prompt,
         model=model,
-        iteration=iteration,
+        iteration=items_to_rejudge[0]["iteration"],
         accept_threshold=cfg.phase2.scoring.accept_threshold,
         client=client,
         semaphore=semaphore,
@@ -635,11 +632,105 @@ def rejudge_for_correlations(cfg: AppConfig) -> int:
             item_id=item["item_id"],
             iteration=item["iteration"],
             judge_prompt=judge_prompt_name,
+            judge_model=judge_model_alias,
             judgment=item["judgment"],
         )
 
-    logger.info("Saved {} judge correlations for {}.", len(judged), judge_prompt_name)
+    logger.info("Saved {} judge correlations for {} / {}.", len(judged), judge_prompt_name, judge_model_alias)
     return len(judged)
+
+
+def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
+    """Re-judge all human-reviewed items with ALL judge prompts × ALL judge models.
+
+    Discovers all judge_v*.md files in each judge model's prompt directory,
+    then for each (judge_prompt, judge_model) combination, re-judges any
+    reviewed items that don't already have correlations. Idempotent.
+
+    Returns total count of newly judged items.
+    """
+    import re as re_mod
+
+    from pipeline.config import PROMPTS_DIR, resolve_judge_model
+    from pipeline.phase2.storage import (
+        load_judge_correlations,
+        load_latest_reviews,
+        save_judge_correlation,
+    )
+
+    reviews = load_latest_reviews()
+    if not reviews:
+        logger.info("No reviewed items to re-judge for correlations.")
+        return 0
+
+    reviewed_item_keys: set[tuple[str, int]] = set()
+    for (item_id, rev_iter, _reviewer) in reviews:
+        reviewed_item_keys.add((item_id, rev_iter))
+
+    existing = load_judge_correlations()
+    existing_keys = {
+        (c["item_id"], c["iteration"], c["judge_prompt"], c["judge_model"])
+        for c in existing
+    }
+
+    latest_items = load_latest_items()
+
+    total_new = 0
+    for model_cfg in cfg.phase2.judge_models:
+        alias = model_cfg.alias
+        model_dir = PROMPTS_DIR / alias
+        if not model_dir.exists():
+            continue
+
+        judge_files = sorted(
+            p for p in model_dir.iterdir()
+            if re_mod.match(r"^judge_v\d+\.md$", p.name)
+        )
+
+        for judge_file in judge_files:
+            prompt_name = judge_file.name
+            needs_judging = [
+                latest_items[k] for k in reviewed_item_keys
+                if k in latest_items and (k[0], k[1], prompt_name, alias) not in existing_keys
+            ]
+
+            if not needs_judging:
+                logger.info("All reviewed items already done for {} / {}.", prompt_name, alias)
+                continue
+
+            client, semaphore = make_api_client(cfg)
+            api_name = model_cfg.api_name
+
+            logger.info(
+                "Re-judging {} items with {} ({})...",
+                len(needs_judging), prompt_name, alias,
+            )
+
+            judged = judge_batch(
+                items=needs_judging,
+                prompt_path=judge_file,
+                model=api_name,
+                iteration=needs_judging[0]["iteration"],
+                accept_threshold=cfg.phase2.scoring.accept_threshold,
+                client=client,
+                semaphore=semaphore,
+                save=False,
+            )
+
+            for item in judged:
+                save_judge_correlation(
+                    item_id=item["item_id"],
+                    iteration=item["iteration"],
+                    judge_prompt=prompt_name,
+                    judge_model=alias,
+                    judgment=item["judgment"],
+                )
+
+            total_new += len(judged)
+            logger.info("Saved {} correlations for {} / {}.", len(judged), prompt_name, alias)
+
+    logger.info("Total new correlations: {}", total_new)
+    return total_new
 
 
 def main():

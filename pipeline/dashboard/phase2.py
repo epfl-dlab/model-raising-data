@@ -16,6 +16,7 @@ from pipeline.phase2.storage import (
     delete_review,
     delete_review_comment,
     load_items_for_iteration,
+    load_judge_correlations,
     load_latest_reviews,
     load_loop_history,
     load_review_comments,
@@ -60,20 +61,6 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
         aggregate_pairs.append((judgment["aggregate"], review["aggregate"]))
         decision_pairs.append((judgment["decision"], review["decision"]))
 
-    def _pearson(pairs: list[tuple[float, float]]) -> float | None:
-        if len(pairs) < 3:
-            return None
-        x = [p[0] for p in pairs]
-        y = [p[1] for p in pairs]
-        mx = statistics.mean(x)
-        my = statistics.mean(y)
-        cov = sum((xi - mx) * (yi - my) for xi, yi in zip(x, y))
-        sx = (sum((xi - mx) ** 2 for xi in x)) ** 0.5
-        sy = (sum((yi - my) ** 2 for yi in y)) ** 0.5
-        if sx == 0 or sy == 0:
-            return None
-        return cov / (sx * sy)
-
     dim_corr = {dim: _pearson(pairs) for dim, pairs in paired_scores.items()}
     agg_corr = _pearson(aggregate_pairs)
     agreement = (
@@ -89,6 +76,152 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
         "n_reviews": len(reviews),
         "n_paired": len(aggregate_pairs),
     }
+
+
+def _pearson(pairs: list[tuple[float, float]]) -> float | None:
+    """Compute Pearson correlation coefficient from (x, y) pairs."""
+    if len(pairs) < 3:
+        return None
+    x = [p[0] for p in pairs]
+    y = [p[1] for p in pairs]
+    mx = statistics.mean(x)
+    my = statistics.mean(y)
+    cov = sum((xi - mx) * (yi - my) for xi, yi in zip(x, y))
+    sx = (sum((xi - mx) ** 2 for xi in x)) ** 0.5
+    sy = (sum((yi - my) ** 2 for yi in y)) ** 0.5
+    if sx == 0 or sy == 0:
+        return None
+    return cov / (sx * sy)
+
+
+def _cohens_kappa(pairs: list[tuple[str, str]]) -> float | None:
+    """Compute Cohen's kappa for binary decision agreement.
+
+    pairs: list of (rater_a, rater_b) label strings.
+    Returns kappa in [-1, 1], or None if fewer than 2 pairs or zero variance.
+    """
+    if len(pairs) < 2:
+        return None
+    n = len(pairs)
+    labels = sorted({l for p in pairs for l in p})
+    if len(labels) < 2:
+        return None
+    counts = {(a, b): 0 for a in labels for b in labels}
+    for a, b in pairs:
+        counts[(a, b)] += 1
+    p_o = sum(counts[(l, l)] for l in labels) / n
+    p_e = sum(
+        sum(counts[(l, b)] for b in labels) * sum(counts[(a, l)] for a in labels)
+        for l in labels
+    ) / (n * n)
+    if p_e == 1.0:
+        return None
+    return (p_o - p_e) / (1 - p_e)
+
+
+def _compute_correlation_by_judge_version() -> dict[tuple[str, str], dict]:
+    """Compute aggregate Pearson correlation and Cohen's kappa for each (judge_prompt, judge_model).
+
+    Uses judge_correlations table (re-judgments) paired with human reviews.
+    Returns {(judge_prompt, judge_model): {"pearson": float|None, "kappa": float|None}}.
+    """
+    correlations = load_judge_correlations()
+    reviews = load_latest_reviews()
+
+    review_by_item: dict[tuple[str, int], dict] = {}
+    for (item_id, iteration, _reviewer), review in reviews.items():
+        key = (item_id, iteration)
+        if key not in review_by_item:
+            review_by_item[key] = review
+
+    score_pairs: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    decision_pairs: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for c in correlations:
+        key = (c["item_id"], c["iteration"])
+        review = review_by_item.get(key)
+        if not review:
+            continue
+        version_key = (c["judge_prompt"], c["judge_model"])
+        judge_agg = c["judgment"].get("aggregate", 0)
+        human_agg = review.get("aggregate", 0)
+        score_pairs.setdefault(version_key, []).append((judge_agg, human_agg))
+        judge_dec = c["judgment"].get("decision", "")
+        human_dec = review.get("decision", "")
+        decision_pairs.setdefault(version_key, []).append((judge_dec, human_dec))
+
+    result = {}
+    for vk in score_pairs:
+        sp = score_pairs[vk]
+        dp = decision_pairs.get(vk, [])
+        result[vk] = {"pearson": _pearson(sp), "kappa": _cohens_kappa(dp)}
+    return result
+
+
+def _compute_calibration_from_correlations(judge_prompt: str, judge_model: str) -> dict:
+    """Compute per-dimension Pearson correlations from judge_correlations data for a specific version.
+
+    Returns same shape as _compute_calibration: {dimension_correlations, n_paired}.
+    """
+    correlations = load_judge_correlations()
+    reviews = load_latest_reviews()
+
+    review_by_item: dict[tuple[str, int], dict] = {}
+    for (item_id, iteration, _reviewer), review in reviews.items():
+        key = (item_id, iteration)
+        if key not in review_by_item:
+            review_by_item[key] = review
+
+    paired_scores: dict[str, list[tuple[float, float]]] = {}
+    n_paired = 0
+    for c in correlations:
+        if c["judge_prompt"] != judge_prompt or c["judge_model"] != judge_model:
+            continue
+        key = (c["item_id"], c["iteration"])
+        review = review_by_item.get(key)
+        if not review:
+            continue
+        n_paired += 1
+        j = c["judgment"]
+        review_scores = review.get("scores", {})
+        is_per_part = review_scores and isinstance(next(iter(review_scores.values()), None), dict)
+        for part in ("preflection", "reflection"):
+            j_scores = j.get(part, {}).get("scores", {})
+            h_scores = review_scores.get(part, {}) if is_per_part else review_scores
+            for dim, h_val in h_scores.items():
+                if dim in j_scores:
+                    paired_scores.setdefault(f"{part}_{dim}", []).append((j_scores[dim], h_val))
+
+    return {
+        "dimension_correlations": {dim: _pearson(pairs) for dim, pairs in paired_scores.items()},
+        "n_paired": n_paired,
+    }
+
+
+def _render_calibration_from_items(cal: dict) -> None:
+    """Render calibration panel content from _compute_calibration result (fallback when no correlations)."""
+    with ui.row().classes("gap-8"):
+        with ui.column():
+            ui.label(f"Paired reviews: {cal['n_paired']}").classes("text-body2")
+            agg = cal["aggregate_correlation"]
+            ui.label(
+                f"Aggregate correlation: {agg:.3f}" if agg is not None else "Aggregate correlation: N/A"
+            ).classes("text-body2")
+            agr = cal["decision_agreement"]
+            ui.label(
+                f"Decision agreement: {agr:.1%}" if agr is not None else "Decision agreement: N/A"
+            ).classes("text-body2")
+
+        dim_corrs = cal["dimension_correlations"]
+        for part in ("preflection", "reflection"):
+            part_dims = {k: v for k, v in dim_corrs.items() if k.startswith(f"{part}_")}
+            if not part_dims:
+                continue
+            with ui.column():
+                ui.label(f"{part.title()} correlations:").classes("text-body2 text-weight-bold")
+                for dim, corr in part_dims.items():
+                    short = dim.replace(f"{part}_", "")
+                    val = f"{corr:.3f}" if corr is not None else "N/A"
+                    ui.label(f"  {short}: {val}").classes("text-body2")
 
 
 def _phase_badge(status: str) -> tuple[str, str]:
@@ -409,28 +542,45 @@ def pipeline_monitoring_page():
             "calibration": cal_iter,
         })
 
-    # --- Judge Calibration Panel ---
+    # --- Judge Calibration Panel (uses latest judge correlations) ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
         ui.label("Judge Calibration").classes("text-h6 text-weight-bold")
-        cal = _compute_calibration(all_reviews, items_by_key)
-        if cal["n_paired"] == 0:
-            ui.label("No human reviews yet — submit reviews to see calibration metrics.").classes(
-                "text-grey-6"
-            )
+        version_corrs_panel = _compute_correlation_by_judge_version()
+        if not version_corrs_panel:
+            cal = _compute_calibration(all_reviews, items_by_key)
+            if cal["n_paired"] == 0:
+                ui.label("No human reviews yet — submit reviews to see calibration metrics.").classes(
+                    "text-grey-6"
+                )
+            else:
+                _render_calibration_from_items(cal)
         else:
+            import re as _re_panel
+            latest_key = max(
+                version_corrs_panel.keys(),
+                key=lambda k: int(m.group(1)) if (m := _re_panel.search(r"_v(\d+)", k[0])) else 0,
+            )
+            latest = version_corrs_panel[latest_key]
+            latest_prompt, latest_model = latest_key
+
+            # Also compute per-dimension calibration from correlations data
+            cal_from_corr = _compute_calibration_from_correlations(latest_prompt, latest_model)
+
             with ui.row().classes("gap-8"):
                 with ui.column():
-                    ui.label(f"Paired reviews: {cal['n_paired']}").classes("text-body2")
-                    agg = cal["aggregate_correlation"]
+                    ui.label(f"Judge: {latest_prompt} / {latest_model}").classes("text-body2 text-weight-bold")
+                    n_paired = cal_from_corr["n_paired"]
+                    ui.label(f"Paired reviews: {n_paired}").classes("text-body2")
+                    pr = latest["pearson"]
                     ui.label(
-                        f"Aggregate correlation: {agg:.3f}" if agg is not None else "Aggregate correlation: N/A"
+                        f"Score Pearson r: {pr:.3f}" if pr is not None else "Score Pearson r: N/A"
                     ).classes("text-body2")
-                    agr = cal["decision_agreement"]
+                    kp = latest["kappa"]
                     ui.label(
-                        f"Decision agreement: {agr:.1%}" if agr is not None else "Decision agreement: N/A"
+                        f"Decision Cohen's κ: {kp:.3f}" if kp is not None else "Decision Cohen's κ: N/A"
                     ).classes("text-body2")
 
-                dim_corrs = cal["dimension_correlations"]
+                dim_corrs = cal_from_corr.get("dimension_correlations", {})
                 for part in ("preflection", "reflection"):
                     part_dims = {k: v for k, v in dim_corrs.items() if k.startswith(f"{part}_")}
                     if not part_dims:
@@ -443,15 +593,31 @@ def pipeline_monitoring_page():
                             ui.label(f"  {short}: {val}").classes("text-body2")
 
     # --- Trend Charts ---
+    _SOURCE_SUFFIX = {"phase_a": " (A)", "phase_b": " (B)"}
+    _SOURCE_COLORS = {"phase_a": "#e91e63", "phase_b": "#3f51b5", "manual": "#9e9e9e"}
+
     if len(iter_stats) >= 2:
-        iter_labels = [f"Iter {s['iteration']}" for s in iter_stats]
+        iter_labels = [
+            f"Iter {s['iteration']}{_SOURCE_SUFFIX.get(s.get('source', 'manual'), '')}"
+            for s in iter_stats
+        ]
         accept_rates = [s["accept_rate"] for s in iter_stats]
         mean_scores = [round(s["mean_score"], 2) for s in iter_stats]
-        calibration_corrs = [s["calibration"]["aggregate_correlation"] for s in iter_stats]
-
         with ui.row().classes("w-full q-mx-md q-mt-md gap-4"):
             with ui.card().classes("flex-1 q-pa-md"):
                 ui.label("Acceptance Rate & Mean Score").classes("text-subtitle2 text-weight-bold")
+                _point_colors = [
+                    _SOURCE_COLORS.get(s.get("source", "manual"), "#9e9e9e")
+                    for s in iter_stats
+                ]
+                accept_data = [
+                    {"value": ar, "itemStyle": {"color": c}}
+                    for ar, c in zip(accept_rates, _point_colors)
+                ]
+                score_data = [
+                    {"value": ms, "itemStyle": {"color": c}}
+                    for ms, c in zip(mean_scores, _point_colors)
+                ]
                 ui.echart({
                     "xAxis": {"type": "category", "data": iter_labels},
                     "yAxis": [
@@ -459,32 +625,74 @@ def pipeline_monitoring_page():
                         {"type": "value", "name": "Mean Score", "min": 1, "max": 5, "position": "right"},
                     ],
                     "series": [
-                        {"name": "Accept %", "type": "line", "data": accept_rates, "yAxisIndex": 0,
-                         "itemStyle": {"color": "#4caf50"}},
-                        {"name": "Mean Score", "type": "line", "data": mean_scores, "yAxisIndex": 1,
-                         "itemStyle": {"color": "#2196f3"}},
+                        {"name": "Accept %", "type": "line", "data": accept_data, "yAxisIndex": 0,
+                         "lineStyle": {"color": "#4caf50"}, "itemStyle": {"color": "#4caf50"}},
+                        {"name": "Mean Score", "type": "line", "data": score_data, "yAxisIndex": 1,
+                         "lineStyle": {"color": "#2196f3"}, "itemStyle": {"color": "#2196f3"}},
                     ],
                     "tooltip": {"trigger": "axis"},
                     "legend": {"bottom": 0},
                 }).classes("w-full").style("height: 250px;")
 
             with ui.card().classes("flex-1 q-pa-md"):
-                ui.label("Judge-Human Correlation").classes("text-subtitle2 text-weight-bold")
-                has_any = any(c is not None for c in calibration_corrs)
-                if not has_any:
-                    ui.label("No human reviews yet.").classes("text-grey-6")
+                ui.label("Judge-Human Correlation by Judge Version").classes("text-subtitle2 text-weight-bold")
+                version_corrs = _compute_correlation_by_judge_version()
+                if not version_corrs:
+                    ui.label("No judge correlations yet.").classes("text-grey-6")
                 else:
-                    corr_data = [round(c, 3) if c is not None else None for c in calibration_corrs]
-                    ui.echart({
-                        "xAxis": {"type": "category", "data": iter_labels},
-                        "yAxis": {"type": "value", "name": "Pearson r", "min": -1, "max": 1},
-                        "series": [
-                            {"name": "Aggregate Correlation", "type": "line", "data": corr_data,
-                             "itemStyle": {"color": "#ff9800"},
-                             "connectNulls": True},
-                        ],
-                        "tooltip": {"trigger": "axis"},
-                    }).classes("w-full").style("height: 250px;")
+                    all_models = sorted({m for _, m in version_corrs})
+                    model_options = all_models + (["All (mean)", "All (min)"] if len(all_models) > 1 else [])
+                    default_model = all_models[0] if len(all_models) == 1 else "All (mean)"
+
+                    import re as _re
+                    all_prompts = sorted(
+                        {p for p, _ in version_corrs},
+                        key=lambda p: int(m.group(1)) if (m := _re.search(r"_v(\d+)", p)) else 0,
+                    )
+
+                    def _aggregate_metric(prompt, selected_model, metric):
+                        if selected_model.startswith("All"):
+                            vals = [
+                                version_corrs.get((prompt, m), {}).get(metric)
+                                for m in all_models
+                            ]
+                            vals = [v for v in vals if v is not None]
+                            if not vals:
+                                return None
+                            if "mean" in selected_model.lower():
+                                return round(statistics.mean(vals), 3)
+                            return round(min(vals), 3)
+                        entry = version_corrs.get((prompt, selected_model), {})
+                        v = entry.get(metric)
+                        return round(v, 3) if v is not None else None
+
+                    def _build_corr_chart(selected_model: str) -> dict:
+                        corr_data = [_aggregate_metric(p, selected_model, "pearson") for p in all_prompts]
+                        kappa_data = [_aggregate_metric(p, selected_model, "kappa") for p in all_prompts]
+                        return {
+                            "xAxis": {"type": "category", "data": all_prompts},
+                            "yAxis": {"type": "value", "name": "Correlation", "min": -1, "max": 1},
+                            "series": [
+                                {"name": "Score Pearson r", "type": "line", "data": corr_data,
+                                 "itemStyle": {"color": "#ff9800"}, "connectNulls": True},
+                                {"name": "Decision Cohen's κ", "type": "line", "data": kappa_data,
+                                 "lineStyle": {"color": "#4caf50"}, "itemStyle": {"color": "#4caf50"},
+                                 "connectNulls": True},
+                            ],
+                            "tooltip": {"trigger": "axis"},
+                            "legend": {"bottom": 0},
+                        }
+
+                    chart = ui.echart(_build_corr_chart(default_model)).classes("w-full").style("height: 250px;")
+
+                    if len(model_options) > 1:
+                        def _on_model_change(e):
+                            chart.options = _build_corr_chart(e.value)
+                            chart.update()
+                        ui.select(
+                            model_options, value=default_model, label="Judge Model",
+                            on_change=_on_model_change,
+                        ).classes("w-48")
 
     # --- Iteration Table ---
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
@@ -492,8 +700,10 @@ def pipeline_monitoring_page():
         if not runs:
             ui.label("No iterations yet.").classes("text-grey-6")
         else:
+            _SOURCE_LABEL = {"phase_a": "A", "phase_b": "B", "manual": "\u2014"}
             columns = [
                 {"name": "iteration", "label": "#", "field": "iteration", "sortable": True},
+                {"name": "source", "label": "Source", "field": "source_label"},
                 {"name": "model", "label": "Model", "field": "model"},
                 {"name": "gen_prompt", "label": "Gen Prompt", "field": "gen_prompt"},
                 {"name": "judge_prompt", "label": "Judge Prompt", "field": "judge_prompt"},
@@ -504,6 +714,7 @@ def pipeline_monitoring_page():
             rows = [
                 {
                     **s,
+                    "source_label": _SOURCE_LABEL.get(s.get("source", "manual"), "\u2014"),
                     "model": s.get("generator_model", s.get("model", "unknown")),
                     "timestamp": s["timestamp"][:19],
                     "accept_reject": f"{s['n_acc']}/{s['n_rej']}",
@@ -856,7 +1067,9 @@ def pipeline_review_page():
                 ui.separator()
 
                 # Review form
-                ui.label("Your Review").classes("text-subtitle2 text-weight-bold")
+                with ui.row().classes("items-center gap-2"):
+                    ui.label("Your Review").classes("text-subtitle2 text-weight-bold")
+                    review_existing_badge = ui.badge("").props("outline")
 
                 DIM_HINTS = {
                     "relevance": "Does it identify what matters?",
@@ -911,7 +1124,7 @@ def pipeline_review_page():
                 ).classes("w-full").props("outlined")
 
                 with ui.row().classes("w-full justify-end"):
-                    ui.button("Submit Review", on_click=lambda: submit_review(), color="primary")
+                    submit_btn = ui.button("Submit Review", on_click=lambda: submit_review(), color="primary")
 
     def get_sorted_items() -> list[dict]:
         items = load_items_for_iteration(state["iteration"])
@@ -1018,11 +1231,17 @@ def pipeline_review_page():
                     for dim, slider in dims.items():
                         slider.set_value(ex_scores.get(dim, 3))
             notes_input.set_value(existing.get("notes", ""))
+            review_existing_badge.set_text("Editing existing review")
+            review_existing_badge.props("color=orange")
+            submit_btn.set_text("Update Review")
         else:
             for dims in score_inputs.values():
                 for slider in dims.values():
                     slider.set_value(3)
             notes_input.set_value("")
+            review_existing_badge.set_text("New review")
+            review_existing_badge.props("color=green")
+            submit_btn.set_text("Submit Review")
         _update_review_status()
 
     def _show_gold_annotation(item_id: str):
@@ -1078,7 +1297,7 @@ def pipeline_review_page():
         navigate(1)
 
     def on_iteration_change(e):
-        state["iteration"] = e.args
+        state["iteration"] = int(e.value)
         items = current_items_list()
         state["pos"] = _first_unreviewed_pos(items) if items else 0
         update_display()
@@ -1087,8 +1306,8 @@ def pipeline_review_page():
         state["pos"] = 0
         update_display()
 
-    iter_select.on("update:model-value", on_iteration_change)
-    sort_select.on("update:model-value", on_sort_change)
+    iter_select.on_value_change(on_iteration_change)
+    sort_select.on_value_change(on_sort_change)
     # Start at first unreviewed item
     items = current_items_list()
     state["pos"] = _first_unreviewed_pos(items) if items else 0

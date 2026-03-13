@@ -99,7 +99,8 @@ CREATE TABLE IF NOT EXISTS runs (
     n_gold INTEGER NOT NULL,
     config TEXT NOT NULL,
     analysis TEXT NOT NULL,
-    timestamp TEXT NOT NULL
+    timestamp TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'manual'
 );
 
 CREATE TABLE IF NOT EXISTS test_results (
@@ -118,16 +119,49 @@ CREATE TABLE IF NOT EXISTS judge_correlations (
     item_id TEXT NOT NULL,
     iteration INTEGER NOT NULL,
     judge_prompt TEXT NOT NULL,
+    judge_model TEXT NOT NULL,
     judgment TEXT NOT NULL,
     timestamp TEXT NOT NULL,
-    PRIMARY KEY (item_id, iteration, judge_prompt)
+    PRIMARY KEY (item_id, iteration, judge_prompt, judge_model)
 );
 """
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
-    """Run CREATE TABLE IF NOT EXISTS for all tables."""
+    """Run CREATE TABLE IF NOT EXISTS for all tables, then apply migrations."""
     conn.executescript(_SCHEMA)
+    _migrate(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Apply incremental migrations for columns added after initial schema."""
+    # Add source column to runs (added 2026-03-13)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+    if "source" not in cols:
+        conn.execute("ALTER TABLE runs ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+
+    # Add judge_model column to judge_correlations and update PK (added 2026-03-13)
+    jc_cols = {row[1] for row in conn.execute("PRAGMA table_info(judge_correlations)").fetchall()}
+    if "judge_model" not in jc_cols:
+        conn.execute("ALTER TABLE judge_correlations RENAME TO judge_correlations_old")
+        conn.execute("""
+            CREATE TABLE judge_correlations (
+                item_id TEXT NOT NULL,
+                iteration INTEGER NOT NULL,
+                judge_prompt TEXT NOT NULL,
+                judge_model TEXT NOT NULL,
+                judgment TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                PRIMARY KEY (item_id, iteration, judge_prompt, judge_model)
+            )
+        """)
+        conn.execute("""
+            INSERT INTO judge_correlations (item_id, iteration, judge_prompt, judge_model, judgment, timestamp)
+            SELECT item_id, iteration, judge_prompt, 'unknown', judgment, timestamp
+            FROM judge_correlations_old
+        """)
+        conn.execute("DROP TABLE judge_correlations_old")
+        conn.commit()
 
 
 def _get_conn() -> sqlite3.Connection:

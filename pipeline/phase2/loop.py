@@ -612,6 +612,11 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
             cfg = _update_config(cfg, new_gen, new_judge)
             logger.info("Phase A done: updated judge -> {}", new_judge)
 
+        # Re-judge all reviewed items with all judge prompts × models for correlation tracking
+        from pipeline.phase2.run import rejudge_all_prompts_and_models
+        logger.info("Running rejudge_all_prompts_and_models after Phase A...")
+        rejudge_all_prompts_and_models(cfg)
+
         now_a = datetime.now(timezone.utc).isoformat()
         status["phase_a"]["status"] = "done"
         status["phase_a"]["reasoning"] = _extract_reasoning_from_log(IMPROVER_LOG_A_PATH)
