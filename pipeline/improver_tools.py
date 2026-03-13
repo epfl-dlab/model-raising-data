@@ -759,6 +759,13 @@ def main():
         print(__doc__)
         sys.exit(0)
 
+    positional = [a for a in args[1:] if not a.startswith("--")]
+
+    def _require_positional(n: int, usage: str):
+        if len(positional) < n:
+            print(f"Usage: python -m pipeline.improver_tools {usage}")
+            sys.exit(1)
+
     def _get_flag(flag: str, default: str | None = None) -> str | None:
         if flag in args:
             return args[args.index(flag) + 1]
@@ -769,54 +776,61 @@ def main():
         return int(val) if val is not None else default
 
     if cmd == "summary":
-        cmd_summary(int(args[1]))
+        _require_positional(1, "summary <iteration>")
+        cmd_summary(int(positional[0]))
     elif cmd == "failures":
-        cmd_failures(int(args[1]), limit=_get_flag_int("--limit", 10),
+        _require_positional(1, "failures <iteration> [--limit N] [--reasoning-limit N]")
+        cmd_failures(int(positional[0]), limit=_get_flag_int("--limit", 10),
                      reasoning_limit=_get_flag_int("--reasoning-limit", 200))
     elif cmd == "show":
         brief = "--brief" in args
         gold_only = "--gold" in args
-        positional = [a for a in args[1:] if not a.startswith("--")]
         if gold_only:
-            iteration = int(positional[0])
-            cmd_show([], iteration, brief=brief, gold_only=True)
+            _require_positional(1, "show --gold <iteration> [--brief]")
+            cmd_show([], int(positional[0]), brief=brief, gold_only=True)
         else:
-            item_ids = positional[0].split(",")
-            iteration = int(positional[1])
-            cmd_show(item_ids, iteration, brief=brief)
+            _require_positional(2, "show <item_id>[,id2,...] <iteration> [--brief]")
+            cmd_show(positional[0].split(","), int(positional[1]), brief=brief)
     elif cmd == "item":
-        cmd_item(args[1], int(args[2]))
+        _require_positional(2, "item <item_id> <iteration>")
+        cmd_item(positional[0], int(positional[1]))
     elif cmd == "diversity":
-        cmd_diversity(int(args[1]))
+        _require_positional(1, "diversity <iteration>")
+        cmd_diversity(int(positional[0]))
     elif cmd == "scores":
-        cmd_scores(int(args[1]))
+        _require_positional(1, "scores <iteration>")
+        cmd_scores(int(positional[0]))
     elif cmd == "gold":
         cmd_gold(limit=_get_flag_int("--limit", 5), offset=_get_flag_int("--offset", 0),
                  verbose="--verbose" in args)
     elif cmd == "compare":
-        cmd_compare(args[1], int(args[2]))
+        _require_positional(2, "compare <item_id> <iteration>")
+        cmd_compare(positional[0], int(positional[1]))
     elif cmd == "reviews":
-        iteration = int(args[1]) if len(args) > 1 and not args[1].startswith("-") else None
+        iteration = int(positional[0]) if positional else None
         cmd_reviews(iteration=iteration, limit=_get_flag_int("--limit", 20))
     elif cmd == "filter":
-        cmd_filter(int(args[1]), dim=_get_flag("--dim"), below=float(_get_flag("--below")),
+        _require_positional(1, "filter <iteration> --dim X --below N [--part preflection|reflection]")
+        cmd_filter(int(positional[0]), dim=_get_flag("--dim"), below=float(_get_flag("--below")),
                    part=_get_flag("--part"))
     elif cmd == "trend":
         cmd_trend()
     elif cmd == "test_generate":
+        _require_positional(1, "test_generate <prompt_path> [--items id1,id2,...] [--n N] [--phase A|B]")
         item_ids_str = _get_flag("--items")
         item_ids = item_ids_str.split(",") if item_ids_str else None
         cmd_test_generate(
-            args[1],
+            positional[0],
             item_ids=item_ids,
             n=_get_flag_int("--n", 3),
             phase=_get_flag("--phase", "A"),
         )
     elif cmd == "test_judge":
+        _require_positional(1, "test_judge <prompt_path> [--items id1,id2,...] [--iteration N] [--phase A|B]")
         item_ids_str = _get_flag("--items")
         item_ids = item_ids_str.split(",") if item_ids_str else None
         cmd_test_judge(
-            args[1],
+            positional[0],
             item_ids=item_ids,
             iteration=_get_flag_int("--iteration"),
             n=_get_flag_int("--n", 3),
