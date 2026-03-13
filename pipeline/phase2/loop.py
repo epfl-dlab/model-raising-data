@@ -355,13 +355,10 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
     output = final_text_holder[0] if final_text_holder else ""
 
     if proc.returncode != 0:
-        if output:
-            # Agent produced output but exited with non-zero/None code — warn, don't crash
-            logger.warning("Claude agent exited with rc={} but produced output. Continuing.", proc.returncode)
-        else:
-            raise RuntimeError(
-                f"Claude agent failed (rc={proc.returncode}) with no output. See {log_path}"
-            )
+        summary = output[:500] if output else f"No output. See {log_path}"
+        raise RuntimeError(
+            f"Claude agent failed (rc={proc.returncode}): {summary}"
+        )
     return output
 
 
