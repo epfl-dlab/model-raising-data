@@ -2,24 +2,28 @@
 
 Usage (via Bash tool):
     python -m pipeline.improver_tools summary <iteration>
-    python -m pipeline.improver_tools failures <iteration> [--limit N]
-    python -m pipeline.improver_tools show <item_id> <iteration>
+    python -m pipeline.improver_tools failures <iteration> [--limit N] [--reasoning-limit N]
+    python -m pipeline.improver_tools show <item_id>[,id2,...] <iteration> [--brief]
     python -m pipeline.improver_tools item <item_id> <iteration>
     python -m pipeline.improver_tools diversity <iteration>
     python -m pipeline.improver_tools scores <iteration>
-    python -m pipeline.improver_tools gold [--limit N]
+    python -m pipeline.improver_tools gold [--limit N] [--offset N]
     python -m pipeline.improver_tools compare <item_id> <iteration>
     python -m pipeline.improver_tools reviews [<iteration>] [--limit N]
+    python -m pipeline.improver_tools filter <iteration> --dim X --below N [--part preflection|reflection]
+    python -m pipeline.improver_tools trend
     python -m pipeline.improver_tools test_generate <prompt_path> [--items id1,id2,...] [--n N] [--phase A|B]
     python -m pipeline.improver_tools test_judge <prompt_path> [--items id1,id2,...] [--iteration N] [--phase A|B]
     python -m pipeline.improver_tools run_batch [--phase A|B]
     python -m pipeline.improver_tools test_results [--phase A|B] [--type generate|judge|batch]
+    python -m pipeline.improver_tools correlations
 """
 
 import json
 import random
 import statistics
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -58,7 +62,7 @@ def cmd_summary(iteration: int) -> None:
         print(f"    {dim}: {statistics.mean(vals):.2f}")
 
 
-def cmd_failures(iteration: int, limit: int = 10) -> None:
+def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) -> None:
     """Print rejected items with judge reasoning."""
     items = load_items_for_iteration(iteration)
     rejected = [
@@ -78,32 +82,37 @@ def cmd_failures(iteration: int, limit: int = 10) -> None:
         for part in ("preflection", "reflection"):
             pj = j.get(part, {})
             print(f"  {part} scores: {pj.get('scores', {})}")
-            print(f"  {part} reasoning: {pj.get('reasoning', '')[:200]}")
+            print(f"  {part} reasoning: {pj.get('reasoning', '')[:reasoning_limit]}")
         print()
 
 
-def cmd_show(item_id: str, iteration: int) -> None:
-    """Print source text, preflection, and reflection for an item — easy to read."""
+def cmd_show(item_ids: list[str], iteration: int, brief: bool = False) -> None:
+    """Print source text, preflection, and reflection for item(s) — easy to read."""
     items = load_items_for_iteration(iteration)
-    matches = [i for i in items if i["item_id"].startswith(item_id)]
-    if not matches:
-        print(f"No item matching '{item_id}' in iteration {iteration}")
-        return
 
-    for item in matches:
-        rp = item["reflection_point"]
-        j = item.get("judgment", {})
-        decision = j.get("decision", "?")
-        agg = j.get("aggregate", 0)
+    for item_id in item_ids:
+        matches = [i for i in items if i["item_id"].startswith(item_id)]
+        if not matches:
+            print(f"No item matching '{item_id}' in iteration {iteration}")
+            continue
 
-        print(f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n")
-        print(f"--- SOURCE TEXT ---")
-        print(item["text"][:rp] + " [REFLECTION POINT] " + item["text"][rp:])
-        print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
-        print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
-        print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
-        print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
-        print()
+        for item in matches:
+            rp = item["reflection_point"]
+            j = item.get("judgment", {})
+            decision = j.get("decision", "?")
+            agg = j.get("aggregate", 0)
+
+            print(f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n")
+            print(f"--- SOURCE TEXT ---")
+            if brief:
+                print(item["text"][:300] + "...")
+            else:
+                print(item["text"][:rp] + " [REFLECTION POINT] " + item["text"][rp:])
+            print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
+            print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
+            print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
+            print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
+            print()
 
 
 def cmd_item(item_id: str, iteration: int) -> None:
@@ -129,26 +138,50 @@ def cmd_item(item_id: str, iteration: int) -> None:
         }, indent=2))
 
 
+def _field_diversity(items, field_name):
+    """Print diversity stats for a single text field across items."""
+    texts = [i.get(field_name, "") or "" for i in items]
+    texts = [t for t in texts if t]
+    if not texts:
+        print(f"  (no {field_name} data)")
+        return
+
+    # First-word frequency
+    first_words = Counter(t.split()[0] if t.split() else "" for t in texts)
+    print(f"  First-word freq: {dict(first_words.most_common(10))}")
+
+    # 5-word opener frequency (only duplicates)
+    openers = Counter(" ".join(t.split()[:5]) for t in texts)
+    dupes = {k: v for k, v in openers.items() if v > 1}
+    if dupes:
+        print(f"  Duplicate 5-word openers: {dict(sorted(dupes.items(), key=lambda x: -x[1]))}")
+
+    # Formulaic closing patterns (last sentence, only duplicates)
+    closings = Counter()
+    for t in texts:
+        sentences = [s.strip() for s in t.rstrip().rsplit(".", 1)]
+        last = sentences[-1] if sentences else ""
+        if last:
+            closings[last[:80]] += 1
+    closing_dupes = {k: v for k, v in closings.items() if v > 1}
+    if closing_dupes:
+        print(f"  Duplicate closings: {dict(sorted(closing_dupes.items(), key=lambda x: -x[1]))}")
+
+    # Uniqueness
+    unique_pct = len(set(texts)) / len(texts) * 100
+    print(f"  Uniqueness: {unique_pct:.0f}% ({len(set(texts))}/{len(texts)})")
+
+
 def cmd_diversity(iteration: int) -> None:
-    """Show opening phrases of reflections and preflections for diversity check."""
+    """Show frequency-based diversity statistics for reflections, preflections, and analysis."""
     items = load_items_for_iteration(iteration)
     judged = [i for i in items if i.get("judgment")]
 
     print(f"Diversity check for iteration {iteration} ({len(judged)} items):\n")
-    print("=== Reflection openings ===")
-    for item in judged[:15]:
-        refl = item.get("reflection", "")
-        print(f"  {refl[:80]}...")
-
-    print("\n=== Preflection openings ===")
-    for item in judged[:15]:
-        pre = item.get("preflection", "")
-        print(f"  {pre[:80]}...")
-
-    print("\n=== Analysis openings ===")
-    for item in judged[:15]:
-        ana = item.get("analysis", "")
-        print(f"  {ana[:80]}...")
+    for field in ("reflection", "preflection", "analysis"):
+        print(f"=== {field} ===")
+        _field_diversity(judged, field)
+        print()
 
 
 def cmd_scores(iteration: int) -> None:
@@ -176,11 +209,12 @@ def _load_gold() -> list[dict]:
     return load_annotations()
 
 
-def cmd_gold(limit: int = 5) -> None:
+def cmd_gold(limit: int = 5, offset: int = 0) -> None:
     """Print gold annotations for reference — shows what good output looks like."""
     items = _load_gold()
-    print(f"Gold annotations ({len(items)} total, showing {min(limit, len(items))}):\n")
-    for item in items[:limit]:
+    sliced = items[offset:offset + limit]
+    print(f"Gold annotations ({len(items)} total, showing {offset}–{offset + len(sliced)}):\n")
+    for item in sliced:
         print(f"=== {item['item_id'][:16]} (subset={item['subset']}) ===")
         rp = item["reflection_point"]
         text = item["text"]
@@ -302,6 +336,163 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
             for c in comments:
                 print(f"    {c['commenter_id']} ({c['timestamp'][:19]}): {c['comment']}")
         print()
+
+
+def cmd_filter(iteration: int, dim: str, below: float, part: str | None = None) -> None:
+    """Filter items by score threshold on a specific dimension."""
+    assert dim, "--dim is required"
+    items = load_items_for_iteration(iteration)
+    judged = [i for i in items if i.get("judgment")]
+
+    parts = [part] if part else ["preflection", "reflection"]
+    hits = []
+    for item in judged:
+        j = item["judgment"]
+        for p in parts:
+            score = j.get(p, {}).get("scores", {}).get(dim)
+            if score is not None and score < below:
+                text = item.get(p, "") or ""
+                hits.append((item["item_id"], j["decision"], j["aggregate"], p, score, text[:80]))
+
+    hits.sort(key=lambda x: x[4])
+    print(f"Items with {dim} < {below} in iteration {iteration} ({len(hits)} hits):\n")
+    for iid, dec, agg, p, sc, preview in hits:
+        print(f"  {iid[:16]} {dec:>3} agg={agg:.1f} {p[:3]}_{dim[:3]}={sc} | {preview}...")
+
+
+def cmd_trend() -> None:
+    """Print per-iteration trend table: accept rate, mean score, per-dimension means."""
+    from pipeline.phase2.storage import load_runs
+
+    runs = load_runs()
+    assert runs, "No runs found"
+
+    # Collect dimension names from first iteration with data
+    all_dim_keys = []
+    for run in runs:
+        items = load_items_for_iteration(run["iteration"])
+        judged = [i for i in items if i.get("judgment")]
+        if not judged:
+            continue
+        for part in ("preflection", "reflection"):
+            for dim in judged[0]["judgment"].get(part, {}).get("scores", {}):
+                key = f"{part[:3]}_{dim[:3]}"
+                if key not in all_dim_keys:
+                    all_dim_keys.append(key)
+        break
+
+    # Header
+    dim_header = " ".join(f"{k:>7}" for k in all_dim_keys)
+    print(f"{'iter':>4} {'acc%':>5} {'mean':>5} {dim_header}  gen_prompt / judge_prompt")
+
+    for run in runs:
+        it = run["iteration"]
+        items = load_items_for_iteration(it)
+        judged = [i for i in items if i.get("judgment")]
+        if not judged:
+            print(f"{it:>4}  (no judged items)")
+            continue
+
+        scores = [i["judgment"]["aggregate"] for i in judged]
+        n_acc = sum(1 for i in judged if i["judgment"]["decision"] == "accept")
+        acc_pct = n_acc / len(judged) * 100
+        mean = statistics.mean(scores)
+
+        dim_means: dict[str, float] = {}
+        for item in judged:
+            for part in ("preflection", "reflection"):
+                for dim, sc in item["judgment"].get(part, {}).get("scores", {}).items():
+                    key = f"{part[:3]}_{dim[:3]}"
+                    dim_means.setdefault(key, []).append(sc)
+        dim_str = " ".join(f"{statistics.mean(dim_means.get(k, [0])):7.2f}" for k in all_dim_keys)
+
+        gen_p = run.get("gen_prompt", "?")
+        judge_p = run.get("judge_prompt", "?")
+        print(f"{it:>4} {acc_pct:5.0f} {mean:5.2f} {dim_str}  {gen_p} / {judge_p}")
+
+
+def cmd_correlations() -> None:
+    """Print judge-human correlation stats grouped by judge prompt version.
+
+    For each judge version that has re-judgment data, computes:
+    - Decision agreement rate (accept/reject match %)
+    - Mean absolute score difference (judge aggregate vs human aggregate)
+    - Per-dimension score diffs where both human and judge scored the same dims
+    """
+    from pipeline.phase2.storage import load_judge_correlations, load_latest_reviews
+
+    correlations = load_judge_correlations()
+    if not correlations:
+        print("No judge correlations yet. Correlations are recorded after each iteration when reviewed items exist.")
+        return
+
+    reviews = load_latest_reviews()
+    # Build lookup: (item_id, iteration) -> review (use first reviewer found)
+    review_by_item: dict[tuple[str, int], dict] = {}
+    for (item_id, iteration, _reviewer), review in reviews.items():
+        key = (item_id, iteration)
+        if key not in review_by_item:
+            review_by_item[key] = review
+
+    # Group correlations by judge_prompt
+    by_prompt: dict[str, list[dict]] = {}
+    for c in correlations:
+        by_prompt.setdefault(c["judge_prompt"], []).append(c)
+
+    for prompt_name in sorted(by_prompt):
+        entries = by_prompt[prompt_name]
+        decision_matches = 0
+        score_diffs = []
+        dim_diffs: dict[str, list[float]] = {}
+        matched = 0
+
+        for c in entries:
+            key = (c["item_id"], c["iteration"])
+            review = review_by_item.get(key)
+            if not review:
+                continue
+            matched += 1
+
+            j = c["judgment"]
+            # Decision agreement
+            judge_decision = j.get("decision", "")
+            human_decision = review.get("decision", "")
+            if judge_decision == human_decision:
+                decision_matches += 1
+
+            # Score diff
+            judge_agg = j.get("aggregate", 0)
+            human_agg = review.get("aggregate", 0)
+            score_diffs.append(abs(judge_agg - human_agg))
+
+            # Per-dimension diffs
+            human_scores = review.get("scores", {})
+            is_per_part = human_scores and isinstance(next(iter(human_scores.values()), None), dict)
+            if is_per_part:
+                for part in ("preflection", "reflection"):
+                    h_part = human_scores.get(part, {})
+                    j_part = j.get(part, {}).get("scores", {})
+                    for dim in set(h_part) & set(j_part):
+                        dim_key = f"{part[:3]}_{dim[:3]}"
+                        dim_diffs.setdefault(dim_key, []).append(
+                            abs(j_part[dim] - h_part[dim])
+                        )
+
+        if matched == 0:
+            print(f"\n{prompt_name}: {len(entries)} correlations, 0 matched to reviews")
+            continue
+
+        agreement = decision_matches / matched * 100
+        mean_diff = statistics.mean(score_diffs) if score_diffs else 0
+
+        print(f"\n{prompt_name} ({matched} items matched to reviews):")
+        print(f"  Decision agreement: {agreement:.0f}% ({decision_matches}/{matched})")
+        print(f"  Mean |score diff|:  {mean_diff:.2f}")
+
+        if dim_diffs:
+            print("  Per-dimension mean |diff|:")
+            for dim_key in sorted(dim_diffs):
+                print(f"    {dim_key}: {statistics.mean(dim_diffs[dim_key]):.2f}")
 
 
 def _make_test_id(prefix: str) -> str:
@@ -539,9 +730,14 @@ def main():
     if cmd == "summary":
         cmd_summary(int(args[1]))
     elif cmd == "failures":
-        cmd_failures(int(args[1]), limit=_get_flag_int("--limit", 10))
+        cmd_failures(int(args[1]), limit=_get_flag_int("--limit", 10),
+                     reasoning_limit=_get_flag_int("--reasoning-limit", 200))
     elif cmd == "show":
-        cmd_show(args[1], int(args[2]))
+        brief = "--brief" in args
+        positional = [a for a in args[1:] if not a.startswith("--")]
+        item_ids = positional[0].split(",")
+        iteration = int(positional[1])
+        cmd_show(item_ids, iteration, brief=brief)
     elif cmd == "item":
         cmd_item(args[1], int(args[2]))
     elif cmd == "diversity":
@@ -549,12 +745,17 @@ def main():
     elif cmd == "scores":
         cmd_scores(int(args[1]))
     elif cmd == "gold":
-        cmd_gold(limit=_get_flag_int("--limit", 5))
+        cmd_gold(limit=_get_flag_int("--limit", 5), offset=_get_flag_int("--offset", 0))
     elif cmd == "compare":
         cmd_compare(args[1], int(args[2]))
     elif cmd == "reviews":
         iteration = int(args[1]) if len(args) > 1 and not args[1].startswith("-") else None
         cmd_reviews(iteration=iteration, limit=_get_flag_int("--limit", 20))
+    elif cmd == "filter":
+        cmd_filter(int(args[1]), dim=_get_flag("--dim"), below=float(_get_flag("--below")),
+                   part=_get_flag("--part"))
+    elif cmd == "trend":
+        cmd_trend()
     elif cmd == "test_generate":
         item_ids_str = _get_flag("--items")
         item_ids = item_ids_str.split(",") if item_ids_str else None
@@ -581,6 +782,8 @@ def main():
             phase=_get_flag("--phase"),
             type_filter=_get_flag("--type"),
         )
+    elif cmd == "correlations":
+        cmd_correlations()
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

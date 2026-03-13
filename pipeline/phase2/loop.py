@@ -14,6 +14,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -35,6 +36,7 @@ from pipeline.phase2.storage import save_loop_run
 STATUS_PATH = PIPELINE_DATA_DIR / "loop_status.json"
 IMPROVER_LOG_A_PATH = PIPELINE_DATA_DIR / "improver_log_A.txt"
 IMPROVER_LOG_B_PATH = PIPELINE_DATA_DIR / "improver_log_B.txt"
+AGENT_TMP_DIR = PIPELINE_DATA_DIR / "tmp"
 
 # Keep backward-compat alias for dashboard polling
 IMPROVER_LOG_PATH = IMPROVER_LOG_A_PATH
@@ -154,20 +156,31 @@ def _build_phase_a_prompt(cfg: AppConfig) -> str:
 Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools summary {latest_iter}     — aggregate stats
   uv run python -m pipeline.improver_tools failures {latest_iter}    — rejected items with reasoning
-  uv run python -m pipeline.improver_tools diversity {latest_iter}   — diversity check
+  uv run python -m pipeline.improver_tools failures {latest_iter} --reasoning-limit 500  — full reasoning
+  uv run python -m pipeline.improver_tools diversity {latest_iter}   — frequency-based diversity analysis
   uv run python -m pipeline.improver_tools scores {latest_iter}      — compact scores table
-  uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs
+  uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs for one item
+  uv run python -m pipeline.improver_tools show <id1,id2,...> {latest_iter}  — batch show multiple items
+  uv run python -m pipeline.improver_tools show <id> {latest_iter} --brief   — truncated source text
   uv run python -m pipeline.improver_tools item <id> {latest_iter}   — full details as JSON
-  uv run python -m pipeline.improver_tools gold                      — gold (human) annotations
+  uv run python -m pipeline.improver_tools gold                      — gold annotations (paginate with --offset/--limit)
   uv run python -m pipeline.improver_tools compare <id> {latest_iter} — generated vs gold
-  uv run python -m pipeline.improver_tools reviews {latest_iter}     — human reviews with judge comparison
-  uv run python -m pipeline.improver_tools reviews                   — all human reviews
+  uv run python -m pipeline.improver_tools reviews [{latest_iter}]   — human reviews with judge comparison
+  uv run python -m pipeline.improver_tools filter {latest_iter} --dim <dimension> --below <threshold> [--part preflection|reflection]
+  uv run python -m pipeline.improver_tools trend                     — cross-iteration comparison table
+  uv run python -m pipeline.improver_tools correlations              — judge-human correlation by judge version
 
 ## Test tools (run experiments WITHOUT modifying main data)
   uv run python -m pipeline.improver_tools test_judge <prompt_path> [--items id1,id2] [--n N] [--phase A]
   uv run python -m pipeline.improver_tools test_generate <prompt_path> [--items id1,id2] [--n N] [--phase A]
   uv run python -m pipeline.improver_tools run_batch --phase A      — full iteration with latest prompts
   uv run python -m pipeline.improver_tools test_results --phase A   — view test results
+
+## Scratch directory
+Write ad-hoc analysis scripts to: {AGENT_TMP_DIR}
+Run them with: uv run python {AGENT_TMP_DIR}/your_script.py
+Delete with: rm {AGENT_TMP_DIR}/your_script.py
+This folder is cleared at the start of each loop. Use it for any analysis the CLI tools don't cover.
 
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
@@ -201,7 +214,7 @@ Then synthesize their findings to write improved prompts.
 IMPORTANT:
 - Use `uv run python -m pipeline.improver_tools ...` for data access — NOT raw file reads.
 - Do NOT pipe commands together. Run them as separate Bash calls.
-- You can ONLY write files inside {model_dir}/. Do NOT modify any other files.
+- You can ONLY write files inside {model_dir}/ and {AGENT_TMP_DIR}/. Do NOT modify any other files.
 - Focus on judge calibration: are scores aligned with human reviews? Is the rubric clear?
 - Do NOT overfit to individual examples. Focus on systematic patterns.
 - The judge prompt must NOT hardcode specific charter/constitution content.
@@ -242,20 +255,31 @@ def _build_phase_b_prompt(cfg: AppConfig) -> str:
 Run these via Bash (prefix with `uv run`):
   uv run python -m pipeline.improver_tools summary {latest_iter}     — aggregate stats
   uv run python -m pipeline.improver_tools failures {latest_iter}    — rejected items with reasoning
-  uv run python -m pipeline.improver_tools diversity {latest_iter}   — diversity check
+  uv run python -m pipeline.improver_tools failures {latest_iter} --reasoning-limit 500  — full reasoning
+  uv run python -m pipeline.improver_tools diversity {latest_iter}   — frequency-based diversity analysis
   uv run python -m pipeline.improver_tools scores {latest_iter}      — compact scores table
-  uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs
+  uv run python -m pipeline.improver_tools show <id> {latest_iter}   — full text + outputs for one item
+  uv run python -m pipeline.improver_tools show <id1,id2,...> {latest_iter}  — batch show multiple items
+  uv run python -m pipeline.improver_tools show <id> {latest_iter} --brief   — truncated source text
   uv run python -m pipeline.improver_tools item <id> {latest_iter}   — full details as JSON
-  uv run python -m pipeline.improver_tools gold                      — gold (human) annotations
+  uv run python -m pipeline.improver_tools gold                      — gold annotations (paginate with --offset/--limit)
   uv run python -m pipeline.improver_tools compare <id> {latest_iter} — generated vs gold
-  uv run python -m pipeline.improver_tools reviews {latest_iter}     — human reviews with judge comparison
-  uv run python -m pipeline.improver_tools reviews                   — all human reviews
+  uv run python -m pipeline.improver_tools reviews [{latest_iter}]   — human reviews with judge comparison
+  uv run python -m pipeline.improver_tools filter {latest_iter} --dim <dimension> --below <threshold> [--part preflection|reflection]
+  uv run python -m pipeline.improver_tools trend                     — cross-iteration comparison table
+  uv run python -m pipeline.improver_tools correlations              — judge-human correlation by judge version
 
 ## Test tools (run experiments WITHOUT modifying main data)
   uv run python -m pipeline.improver_tools test_generate <prompt_path> [--items id1,id2] [--n N] [--phase B]
   uv run python -m pipeline.improver_tools test_judge <prompt_path> [--items id1,id2] [--n N] [--phase B]
   uv run python -m pipeline.improver_tools run_batch --phase B      — full iteration with latest prompts
   uv run python -m pipeline.improver_tools test_results --phase B   — view test results
+
+## Scratch directory
+Write ad-hoc analysis scripts to: {AGENT_TMP_DIR}
+Run them with: uv run python {AGENT_TMP_DIR}/your_script.py
+Delete with: rm {AGENT_TMP_DIR}/your_script.py
+This folder is cleared at the start of each loop. Use it for any analysis the CLI tools don't cover.
 
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
@@ -290,7 +314,7 @@ Then synthesize their findings to write improved prompts.
 IMPORTANT:
 - Use `uv run python -m pipeline.improver_tools ...` for data access — NOT raw file reads.
 - Do NOT pipe commands together. Run them as separate Bash calls.
-- You can ONLY write files inside {model_dir}/. Do NOT modify any other files.
+- You can ONLY write files inside {model_dir}/ and {AGENT_TMP_DIR}/. Do NOT modify any other files.
 - Do NOT overfit to individual examples. Focus on systematic patterns.
 - The generator prompt must NOT hardcode specific charter/constitution content.
 """
@@ -526,7 +550,11 @@ def _extract_latest_status_from_log(log_path: Path) -> str:
 
 
 ALLOWED_TOOLS = [
-    "Read", "Glob", "Grep", "Bash(uv run python:*)",
+    "Read", "Glob", "Grep",
+    "Bash(uv run python:*)",
+    f"Bash(rm -f {AGENT_TMP_DIR}/:*)",
+    f"Bash(rm {AGENT_TMP_DIR}/:*)",
+    f"Bash(ls {AGENT_TMP_DIR}:*)",
     "Agent", "TaskCreate", "TaskUpdate", "TaskList",
     "Write",
 ]
@@ -568,6 +596,11 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
         logger.info("=" * 60)
         logger.info("PHASE A: Judge Improvement")
         logger.info("=" * 60)
+
+        # Clear scratch directory for agent scripts
+        if AGENT_TMP_DIR.exists():
+            shutil.rmtree(AGENT_TMP_DIR)
+        AGENT_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
         prompt_a = _build_phase_a_prompt(cfg)
         analysis_a = _spawn_agent(prompt_a, IMPROVER_LOG_A_PATH, ALLOWED_TOOLS)

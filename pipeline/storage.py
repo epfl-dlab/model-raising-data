@@ -113,6 +113,15 @@ CREATE TABLE IF NOT EXISTS loop_history (
     data TEXT NOT NULL,
     timestamp TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS judge_correlations (
+    item_id TEXT NOT NULL,
+    iteration INTEGER NOT NULL,
+    judge_prompt TEXT NOT NULL,
+    judgment TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    PRIMARY KEY (item_id, iteration, judge_prompt)
+);
 """
 
 

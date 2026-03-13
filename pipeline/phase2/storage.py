@@ -242,6 +242,43 @@ def load_loop_history() -> list[dict]:
     return [json.loads(r["data"]) for r in rows]
 
 
+# --- Judge Correlations ---
+
+def save_judge_correlation(
+    item_id: str,
+    iteration: int,
+    judge_prompt: str,
+    judgment: dict,
+) -> None:
+    """Upsert a re-judgment record for judge-human correlation tracking."""
+    conn = _get_conn()
+    conn.execute(
+        """INSERT OR REPLACE INTO judge_correlations
+           (item_id, iteration, judge_prompt, judgment, timestamp)
+           VALUES (?, ?, ?, ?, ?)""",
+        (
+            item_id, iteration, judge_prompt,
+            json.dumps(judgment),
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    conn.commit()
+
+
+def load_judge_correlations() -> list[dict]:
+    """Load all judge correlation entries."""
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM judge_correlations ORDER BY timestamp"
+    ).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["judgment"] = json.loads(d["judgment"])
+        result.append(d)
+    return result
+
+
 # --- Row converters ---
 
 def _row_to_run(row) -> dict:
