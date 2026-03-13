@@ -13,13 +13,17 @@ from pipeline.config import AppConfig, load_config, resolve_prompt_path
 from pipeline.dashboard import render_header
 from pipeline.dashboard.shared import CHARTER_TEXT, render_source_text
 from pipeline.phase2.storage import (
+    delete_review,
+    delete_review_comment,
     load_items_for_iteration,
     load_latest_reviews,
     load_loop_history,
+    load_review_comments,
     load_reviews,
     load_runs,
     load_test_results,
     save_review,
+    save_review_comment,
 )
 
 
@@ -366,6 +370,9 @@ def pipeline_monitoring_page():
     def pipeline_actions():
         ui.button("Review", icon="rate_review",
                   on_click=lambda: ui.navigate.to("/pipeline/review"),
+                  ).classes("text-white").props("flat dense")
+        ui.button("All Reviews", icon="reviews",
+                  on_click=lambda: ui.navigate.to("/pipeline/reviews"),
                   ).classes("text-white").props("flat dense")
 
     render_header(viewer_id, active_phase=2, right_slot=pipeline_actions)
@@ -1085,3 +1092,189 @@ def pipeline_review_page():
     items = current_items_list()
     state["pos"] = _first_unreviewed_pos(items) if items else 0
     update_display()
+
+
+@ui.page("/pipeline/reviews")
+def pipeline_reviews_page():
+    """Review overview: browse all reviews, comment on them, delete them."""
+    viewer_id = app.storage.user.get("annotator_id", "")
+
+    def reviews_actions():
+        ui.button("Dashboard", icon="dashboard",
+                  on_click=lambda: ui.navigate.to("/pipeline"),
+                  ).classes("text-white").props("flat dense")
+        ui.button("Review", icon="rate_review",
+                  on_click=lambda: ui.navigate.to("/pipeline/review"),
+                  ).classes("text-white").props("flat dense")
+
+    render_header(viewer_id, active_phase=2, right_slot=reviews_actions)
+
+    all_reviews = load_reviews()
+    review_comments = load_review_comments()
+
+    # Build items index for all reviewed iterations
+    items_by_key: dict[tuple[str, int], dict] = {}
+    seen_iters: set[int] = set()
+    for r in all_reviews:
+        if r["iteration"] not in seen_iters:
+            seen_iters.add(r["iteration"])
+            for item in load_items_for_iteration(r["iteration"]):
+                items_by_key[(item["item_id"], item["iteration"])] = item
+
+    if not all_reviews:
+        with ui.column().classes("absolute-center items-center"):
+            ui.label("No reviews yet.").classes("text-h6 text-grey-6")
+        return
+
+    @ui.refreshable
+    def render_reviews():
+        nonlocal all_reviews, review_comments
+        all_reviews = load_reviews()
+        review_comments = load_review_comments()
+
+        # Group by iteration
+        by_iter: dict[int, list[dict]] = {}
+        for r in all_reviews:
+            by_iter.setdefault(r["iteration"], []).append(r)
+
+        for iteration in sorted(by_iter.keys(), reverse=True):
+            reviews = by_iter[iteration]
+            with ui.expansion(
+                f"Iteration {iteration} ({len(reviews)} reviews)",
+                icon="rate_review",
+            ).classes("w-full q-mx-md q-mt-sm").props("default-opened" if iteration == max(by_iter) else ""):
+                for r in sorted(reviews, key=lambda x: x["timestamp"], reverse=True):
+                    item = items_by_key.get((r["item_id"], r["iteration"]))
+                    review_key = (r["item_id"], r["iteration"], r["reviewer_id"])
+
+                    with ui.card().classes("w-full q-pa-sm q-mb-sm"):
+                        # Header: reviewer, decision, score, timestamp
+                        with ui.row().classes("items-center gap-2 w-full"):
+                            ui.badge(r["reviewer_id"], color="blue-grey").props("outline")
+                            decision_color = "green" if r["decision"] == "accept" else "red"
+                            ui.badge(r["decision"].upper(), color=decision_color)
+                            ui.badge(f"Score: {r['aggregate']:.2f}", color=decision_color).props("outline")
+                            ui.label(r["timestamp"][:19]).classes("text-caption text-grey-6")
+                            ui.label(f"{r['item_id'][:12]}").classes("text-caption text-grey-5")
+                            ui.space()
+
+                            # Delete button
+                            def make_delete(iid=r["item_id"], it=r["iteration"], rid=r["reviewer_id"]):
+                                def do_delete():
+                                    delete_review(iid, it, rid)
+                                    ui.notify("Review deleted", type="info")
+                                    render_reviews.refresh()
+                                return do_delete
+
+                            ui.button(
+                                icon="delete", on_click=make_delete(),
+                            ).props("flat dense size=xs color=negative")
+
+                        # Per-part scores
+                        scores = r["scores"]
+                        is_per_part = scores and isinstance(next(iter(scores.values())), dict)
+                        if is_per_part:
+                            with ui.row().classes("gap-4 q-mt-xs"):
+                                for part in ("preflection", "reflection"):
+                                    part_scores = scores.get(part, {})
+                                    if part_scores:
+                                        score_str = " ".join(
+                                            f"{dim[:3]}={val}" for dim, val in part_scores.items()
+                                        )
+                                        ui.label(f"{part}: {score_str}").classes("text-caption")
+                        else:
+                            score_str = " ".join(f"{d[:3]}={v}" for d, v in scores.items())
+                            ui.label(f"Scores: {score_str}").classes("text-caption")
+
+                        # Notes
+                        if r.get("notes"):
+                            ui.label(r["notes"]).classes("text-body2 q-mt-xs").style(
+                                "white-space: pre-wrap; padding-left: 8px; "
+                                "border-left: 2px solid #555;"
+                            )
+
+                        # Source text dropdown
+                        if item:
+                            with ui.expansion(
+                                "Source Text", icon="article",
+                            ).classes("w-full q-mt-xs"):
+                                ui.html(render_source_text(
+                                    item["text"], item["reflection_point"],
+                                )).style(
+                                    "line-height: 1.6; font-family: Georgia, serif; "
+                                    "white-space: pre-wrap; font-size: 0.95em; padding: 8px;"
+                                )
+
+                            # Generation dropdown
+                            with ui.expansion(
+                                "LLM Generation", icon="smart_toy",
+                            ).classes("w-full q-mt-xs"):
+                                ui.label("Analysis").classes("text-overline text-grey-7")
+                                ui.label(item.get("analysis", "")).classes("text-body2").style(
+                                    "white-space: pre-wrap;"
+                                )
+                                ui.label("Preflection").classes("text-overline text-grey-7 q-mt-sm")
+                                ui.label(item.get("preflection", "")).classes("text-body2").style(
+                                    "white-space: pre-wrap;"
+                                )
+                                ui.label("Reflection").classes("text-overline text-grey-7 q-mt-sm")
+                                ui.label(item.get("reflection", "")).classes("text-body2").style(
+                                    "white-space: pre-wrap;"
+                                )
+                                elements = item.get("charter_elements", [])
+                                if elements:
+                                    ui.label("Charter Elements").classes("text-overline text-grey-7 q-mt-sm")
+                                    with ui.row().classes("gap-1"):
+                                        for eid in elements:
+                                            ui.badge(eid, color="blue-grey-3").props("outline")
+
+                        # Comment thread
+                        comments = review_comments.get(review_key, [])
+                        with ui.expansion(
+                            f"Comments ({len(comments)})",
+                            icon="chat_bubble_outline",
+                        ).classes("w-full q-mt-xs"):
+                            for c in comments:
+                                with ui.row().classes("items-start gap-2 q-mb-xs"):
+                                    ui.label(c["commenter_id"]).classes(
+                                        "text-caption text-weight-bold"
+                                    )
+                                    ui.label(c["timestamp"][:16]).classes(
+                                        "text-caption text-grey-5"
+                                    )
+
+                                    def make_delete_comment(cid=c["id"]):
+                                        def do_delete():
+                                            delete_review_comment(cid)
+                                            ui.notify("Comment deleted", type="info")
+                                            render_reviews.refresh()
+                                        return do_delete
+
+                                    ui.button(
+                                        icon="delete", on_click=make_delete_comment(),
+                                    ).props("flat dense size=xs color=negative")
+                                ui.label(c["comment"]).classes("text-body2 q-mb-sm").style(
+                                    "white-space: pre-wrap; padding-left: 8px;"
+                                )
+
+                            if viewer_id:
+                                comment_input = ui.input(
+                                    placeholder="Add a comment...",
+                                ).classes("w-full").props("dense outlined")
+
+                                def make_submit(
+                                    iid=r["item_id"], it=r["iteration"],
+                                    rid=r["reviewer_id"], inp=comment_input,
+                                ):
+                                    def do_submit():
+                                        assert inp.value and inp.value.strip(), "Comment cannot be empty"
+                                        save_review_comment(iid, it, rid, viewer_id, inp.value.strip())
+                                        ui.notify("Comment added", type="positive")
+                                        render_reviews.refresh()
+                                    return do_submit
+
+                                ui.button(
+                                    "Post", on_click=make_submit(), color="primary",
+                                ).props("flat dense size=sm")
+
+    render_reviews()

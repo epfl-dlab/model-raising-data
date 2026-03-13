@@ -236,9 +236,10 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
     Shows reviewer scores, decision, and notes alongside the judge's scores
     for calibration comparison.
     """
-    from pipeline.phase2.storage import load_latest_reviews
+    from pipeline.phase2.storage import load_latest_reviews, load_review_comments
 
     reviews = load_latest_reviews()
+    all_comments = load_review_comments()
     if not reviews:
         print("No human reviews yet.")
         return
@@ -293,6 +294,13 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
 
         if r.get("notes"):
             print(f"  Notes: {r['notes']}")
+
+        review_key = (r["item_id"], r["iteration"], r["reviewer_id"])
+        comments = all_comments.get(review_key, [])
+        if comments:
+            print("  Comments:")
+            for c in comments:
+                print(f"    {c['commenter_id']} ({c['timestamp'][:19]}): {c['comment']}")
         print()
 
 

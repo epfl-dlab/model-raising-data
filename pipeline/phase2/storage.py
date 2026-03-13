@@ -141,6 +141,64 @@ def save_review(
     conn.commit()
 
 
+# --- Review Comments ---
+
+def load_review_comments() -> dict[tuple[str, int, str], list[dict]]:
+    """Load review comments grouped by (item_id, iteration, reviewer_id), sorted by timestamp."""
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM review_comments ORDER BY timestamp"
+    ).fetchall()
+    by_review: dict[tuple[str, int, str], list[dict]] = {}
+    for r in rows:
+        key = (r["item_id"], r["iteration"], r["reviewer_id"])
+        by_review.setdefault(key, []).append(dict(r))
+    return by_review
+
+
+def save_review_comment(
+    item_id: str,
+    iteration: int,
+    reviewer_id: str,
+    commenter_id: str,
+    comment: str,
+) -> None:
+    """Insert a comment on a review."""
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO review_comments
+           (item_id, iteration, reviewer_id, commenter_id, comment, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            item_id, iteration, reviewer_id,
+            commenter_id, comment,
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    conn.commit()
+
+
+def delete_review_comment(comment_id: int) -> None:
+    """Hard-delete a review comment by its row id."""
+    conn = _get_conn()
+    conn.execute("DELETE FROM review_comments WHERE id = ?", (comment_id,))
+    conn.commit()
+
+
+def delete_review(item_id: str, iteration: int, reviewer_id: str) -> None:
+    """Delete a review and all its comments in one transaction."""
+    conn = _get_conn()
+    conn.execute(
+        "DELETE FROM review_comments WHERE item_id = ? AND iteration = ? AND reviewer_id = ?",
+        (item_id, iteration, reviewer_id),
+    )
+    conn.execute(
+        "DELETE FROM reviews WHERE item_id = ? AND iteration = ? AND reviewer_id = ?",
+        (item_id, iteration, reviewer_id),
+    )
+    conn.commit()
+
+
 # --- Test Results ---
 
 def save_test_result(record: dict) -> None:

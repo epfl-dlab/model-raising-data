@@ -76,6 +76,18 @@ CREATE TABLE IF NOT EXISTS reviews (
     PRIMARY KEY (item_id, iteration, reviewer_id)
 );
 
+CREATE TABLE IF NOT EXISTS review_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL,
+    iteration INTEGER NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    commenter_id TEXT NOT NULL,
+    comment TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_review_comments_review
+    ON review_comments(item_id, iteration, reviewer_id);
+
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     iteration INTEGER NOT NULL,
