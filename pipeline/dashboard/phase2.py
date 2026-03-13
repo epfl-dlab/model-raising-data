@@ -293,15 +293,16 @@ def _render_loop_history():
             started = run.get("started_at", "?")[:19]
             finished = run.get("finished_at", "?")[:19]
             error = run.get("error")
-            status_label = "ERROR" if error else "DONE"
-            status_color = "red" if error else "green"
+            failed = bool(error)
+            status_tag = " — FAILED" if failed else ""
+            border_style = "border-left: 3px solid #f44336;" if failed else ""
 
             with ui.expansion(
-                f"Loop #{run_idx} — {started}",
-                icon="history",
-            ).classes("w-full"):
+                f"Loop #{run_idx} — {started}{status_tag}",
+                icon="error" if failed else "history",
+            ).classes("w-full").style(border_style):
                 with ui.row().classes("items-center gap-2"):
-                    ui.badge(status_label, color=status_color)
+                    ui.badge("FAILED" if failed else "DONE", color="red" if failed else "green")
                     ui.label(f"{started} → {finished}").classes("text-caption text-grey-6")
                     if run.get("model_alias"):
                         ui.badge(run["model_alias"], color="blue-grey").props("outline")
