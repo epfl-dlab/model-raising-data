@@ -191,7 +191,8 @@ Then synthesize their findings to write improved prompts.
 7. Write improved judge to {model_dir}/judge_v{next_v}.md
 8. You may run up to {max_batches} `run_batch` calls to test your changes
 9. Update {state_path} with: what you changed, why, key metrics, and what to try next
-10. Print a **single final summary** as your last message. This summary is displayed in the dashboard. Structure it as:
+10. Print a **single final summary** as your VERY LAST message. This summary is parsed and displayed in the dashboard.
+    It MUST start with exactly `## Final Summary` on its own line, followed by:
     - **What changed**: which prompt file, key modifications
     - **Why**: what problems you identified, with evidence (scores, examples)
     - **Results**: before/after metrics if you ran test batches
@@ -279,7 +280,8 @@ Then synthesize their findings to write improved prompts.
 8. You CAN also fix the judge if you spot issues, but primarily focus on the generator
 9. You may run up to {max_batches} `run_batch` calls to test your changes
 10. Update {state_path} with: what you changed, why, key metrics, and what to try next
-11. Print a **single final summary** as your last message. This summary is displayed in the dashboard. Structure it as:
+11. Print a **single final summary** as your VERY LAST message. This summary is parsed and displayed in the dashboard.
+    It MUST start with exactly `## Final Summary` on its own line, followed by:
     - **What changed**: which prompt file, key modifications
     - **Why**: what problems you identified, with evidence (scores, examples)
     - **Results**: before/after metrics if you ran test batches
@@ -463,15 +465,25 @@ def _snapshot_prompts(cfg: AppConfig) -> dict[str, str]:
 
 
 def _extract_reasoning_from_log(log_path: Path) -> str:
-    """Extract the last consecutive [text] block from a log file as reasoning fallback.
+    """Extract the ``## Final Summary`` section from an improver log file.
 
-    Log format: ``[text] first line`` followed by plain continuation lines until the
-    next tagged line (``[tool]``, ``[ok]``, ``[done]``, etc). Walking backward from the
-    end we collect continuation lines first, then the ``[text]`` header.
+    First looks for a ``## Final Summary`` heading in [text] blocks.
+    Falls back to the last consecutive [text] block if no heading found.
     """
     if not log_path.exists():
         return ""
-    lines = log_path.read_text().splitlines()
+    raw = log_path.read_text()
+
+    # --- Primary: find "## Final Summary" in [text] blocks ---
+    text_lines = _collect_text_lines(raw)
+    full_text = "\n".join(text_lines)
+    marker = "## Final Summary"
+    idx = full_text.find(marker)
+    if idx != -1:
+        return full_text[idx:].strip()
+
+    # --- Fallback: last consecutive [text] block ---
+    lines = raw.splitlines()
     result: list[str] = []
     collecting = False
     for line in reversed(lines):
@@ -481,13 +493,26 @@ def _extract_reasoning_from_log(log_path: Path) -> str:
             continue
         if line.startswith("[text] "):
             result.append(line[7:])
-            # Found the block header — we're done
             break
-        # Plain continuation line (part of the text block)
         collecting = True
         result.append(line)
     result.reverse()
     return "\n".join(result).strip()[:2000]
+
+
+def _collect_text_lines(raw_log: str) -> list[str]:
+    """Collect all [text] content lines from a raw log, in order."""
+    result: list[str] = []
+    in_text_block = False
+    for line in raw_log.splitlines():
+        if line.startswith("[text] "):
+            result.append(line[7:])
+            in_text_block = True
+        elif line.startswith(("[tool]", "[ok]", "[FAIL]", "[done]")):
+            in_text_block = False
+        elif in_text_block:
+            result.append(line)
+    return result
 
 
 def _extract_latest_status_from_log(log_path: Path) -> str:
@@ -612,7 +637,14 @@ def run_improver_loop(cfg: AppConfig | None = None) -> None:
         raise
     finally:
         # Persist loop history (even on error/interrupt)
-        _save_history(status, prompts_before, cfg)
+        try:
+            _save_history(status, prompts_before, cfg)
+        except Exception as e:
+            logger.error("Failed to save loop history to DB: {}", e)
+            # Dump to JSON as fallback so the data isn't lost
+            fallback = PIPELINE_DATA_DIR / "loop_history_fallback.json"
+            fallback.write_text(json.dumps(status, indent=2, default=str))
+            logger.error("Loop status dumped to {}", fallback)
 
 
 def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) -> None:
