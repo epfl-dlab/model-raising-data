@@ -12,6 +12,7 @@ import itertools
 import json
 import os
 import random
+import signal
 import sys
 import time
 from pathlib import Path
@@ -465,7 +466,36 @@ def run_iteration(cfg: AppConfig, phase_callback=None, source: str = "manual") -
     Orchestrates: select items -> generate -> judge -> save run record.
     phase_callback: optional callable(str) for granular progress reporting.
     source: one of "manual", "phase_a", "phase_b" — recorded in the runs table.
+
+    Installs signal handlers for SIGTERM/SIGINT so that in-flight DB writes
+    are committed before exit, preventing WAL corruption.
     """
+    from pipeline.storage import _get_conn, checkpoint
+
+    prev_sigterm = signal.getsignal(signal.SIGTERM)
+    prev_sigint = signal.getsignal(signal.SIGINT)
+
+    def _graceful_shutdown(signum, frame):
+        logger.warning("Received signal {} during iteration — checkpointing DB before exit", signum)
+        try:
+            _get_conn().commit()
+            checkpoint()
+        except Exception:
+            pass
+        sys.exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _graceful_shutdown)
+    signal.signal(signal.SIGINT, _graceful_shutdown)
+
+    try:
+        return _run_iteration_inner(cfg, phase_callback, source)
+    finally:
+        signal.signal(signal.SIGTERM, prev_sigterm)
+        signal.signal(signal.SIGINT, prev_sigint)
+
+
+def _run_iteration_inner(cfg: AppConfig, phase_callback, source: str) -> dict:
+    """Inner implementation of run_iteration (split out for signal safety)."""
     runs = load_runs()
     iteration = len(runs) + 1
     seed = 42 + iteration
