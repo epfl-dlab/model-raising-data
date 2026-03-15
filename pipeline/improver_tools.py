@@ -31,7 +31,11 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pipeline.phase2.storage import load_items_for_iteration, load_test_results, save_test_result
+from pipeline.phase2.storage import (
+    load_items_for_iteration,
+    load_test_results,
+    save_test_result,
+)
 
 
 def cmd_summary(iteration: int) -> None:
@@ -70,15 +74,18 @@ def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) ->
     """Print rejected items with judge reasoning."""
     items = load_items_for_iteration(iteration)
     rejected = [
-        i for i in items
-        if i.get("judgment") and i["judgment"]["decision"] == "reject"
+        i for i in items if i.get("judgment") and i["judgment"]["decision"] == "reject"
     ]
     rejected.sort(key=lambda i: i["judgment"]["aggregate"])
 
-    print(f"Rejected items ({len(rejected)} total, showing {min(limit, len(rejected))}):\n")
+    print(
+        f"Rejected items ({len(rejected)} total, showing {min(limit, len(rejected))}):\n"
+    )
     for item in rejected[:limit]:
         j = item["judgment"]
-        print(f"--- {item['item_id'][:16]} (score={j['aggregate']:.2f}, gold={item.get('is_gold', False)}) ---")
+        print(
+            f"--- {item['item_id'][:16]} (score={j['aggregate']:.2f}, gold={item.get('is_gold', False)}) ---"
+        )
         print(f"  Text preview: {item['text'][:150]}...")
         print(f"  Preflection: {item.get('preflection', '')[:150]}...")
         print(f"  Reflection: {item.get('reflection', '')[:150]}...")
@@ -90,8 +97,9 @@ def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) ->
         print()
 
 
-def cmd_show(item_ids: list[str], iteration: int, brief: bool = False,
-             gold_only: bool = False) -> None:
+def cmd_show(
+    item_ids: list[str], iteration: int, brief: bool = False, gold_only: bool = False
+) -> None:
     """Print source text, preflection, and reflection for item(s) — easy to read.
 
     With --gold, shows all gold items for the iteration (ignores item_ids).
@@ -124,7 +132,9 @@ def _print_item(item: dict, brief: bool = False) -> None:
     decision = j.get("decision", "?")
     agg = j.get("aggregate", 0)
 
-    print(f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n")
+    print(
+        f"=== {item['item_id'][:16]} ({decision}, score={agg:.1f}, gold={item.get('is_gold', False)}) ===\n"
+    )
     print("--- SOURCE TEXT ---")
     if brief:
         print(item["text"][:300] + "...")
@@ -146,18 +156,23 @@ def cmd_item(item_id: str, iteration: int) -> None:
         return
 
     for item in matches:
-        print(json.dumps({
-            "item_id": item["item_id"],
-            "is_gold": item.get("is_gold"),
-            "subset": item["subset"],
-            "text_preview": item["text"][:500],
-            "reflection_point": item["reflection_point"],
-            "analysis": item.get("analysis"),
-            "preflection": item.get("preflection"),
-            "reflection": item.get("reflection"),
-            "charter_elements": item.get("charter_elements"),
-            "judgment": item.get("judgment"),
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "item_id": item["item_id"],
+                    "is_gold": item.get("is_gold"),
+                    "subset": item["subset"],
+                    "text_preview": item["text"][:500],
+                    "reflection_point": item["reflection_point"],
+                    "analysis": item.get("analysis"),
+                    "preflection": item.get("preflection"),
+                    "reflection": item.get("reflection"),
+                    "charter_elements": item.get("charter_elements"),
+                    "judgment": item.get("judgment"),
+                },
+                indent=2,
+            )
+        )
 
 
 def _field_diversity(items, field_name):
@@ -176,7 +191,9 @@ def _field_diversity(items, field_name):
     openers = Counter(" ".join(t.split()[:5]) for t in texts)
     dupes = {k: v for k, v in openers.items() if v > 1}
     if dupes:
-        print(f"  Duplicate 5-word openers: {dict(sorted(dupes.items(), key=lambda x: -x[1]))}")
+        print(
+            f"  Duplicate 5-word openers: {dict(sorted(dupes.items(), key=lambda x: -x[1]))}"
+        )
 
     # Formulaic closing patterns (last sentence, only duplicates)
     closings = Counter()
@@ -187,7 +204,9 @@ def _field_diversity(items, field_name):
             closings[last[:80]] += 1
     closing_dupes = {k: v for k, v in closings.items() if v > 1}
     if closing_dupes:
-        print(f"  Duplicate closings: {dict(sorted(closing_dupes.items(), key=lambda x: -x[1]))}")
+        print(
+            f"  Duplicate closings: {dict(sorted(closing_dupes.items(), key=lambda x: -x[1]))}"
+        )
 
     # Uniqueness
     unique_pct = len(set(texts)) / len(texts) * 100
@@ -228,6 +247,7 @@ def cmd_scores(iteration: int) -> None:
 def _load_gold() -> list[dict]:
     """Load gold annotations from SQLite."""
     from pipeline.phase1.storage import load_annotations
+
     return load_annotations()
 
 
@@ -238,8 +258,10 @@ def cmd_gold(limit: int = 5, offset: int = 0, verbose: bool = False) -> None:
     Use --verbose to include full source text.
     """
     items = _load_gold()
-    sliced = items[offset:offset + limit]
-    print(f"Gold annotations ({len(items)} total, showing {offset}–{offset + len(sliced)}):\n")
+    sliced = items[offset : offset + limit]
+    print(
+        f"Gold annotations ({len(items)} total, showing {offset}–{offset + len(sliced)}):\n"
+    )
     for item in sliced:
         print(f"=== {item['item_id'][:16]} (subset={item['subset']}) ===")
         if verbose:
@@ -321,7 +343,9 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
 
     items_by_key = {(i["item_id"], i["iteration"]): i for i in items}
 
-    print(f"Human reviews ({len(filtered)} total, showing {min(limit, len(filtered))}):\n")
+    print(
+        f"Human reviews ({len(filtered)} total, showing {min(limit, len(filtered))}):\n"
+    )
     for r in filtered[:limit]:
         item = items_by_key.get((r["item_id"], r["iteration"]))
         judge_agg = ""
@@ -331,7 +355,9 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
             judge_agg = f"{j['aggregate']:.2f}"
             judge_decision = j["decision"]
 
-        print(f"--- {r['item_id'][:16]} iter={r['iteration']} reviewer={r['reviewer_id']} ---")
+        print(
+            f"--- {r['item_id'][:16]} iter={r['iteration']} reviewer={r['reviewer_id']} ---"
+        )
         print(f"  Human:  decision={r['decision']}  aggregate={r['aggregate']:.2f}")
         if judge_agg:
             print(f"  Judge:  decision={judge_decision}  aggregate={judge_agg}")
@@ -346,8 +372,7 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
                     judge_s = item["judgment"].get(part, {}).get("scores", {})
                 dims = sorted(set(human_s) | set(judge_s))
                 pairs = " ".join(
-                    f"{d[:3]}={human_s.get(d, '?')}/{judge_s.get(d, '?')}"
-                    for d in dims
+                    f"{d[:3]}={human_s.get(d, '?')}/{judge_s.get(d, '?')}" for d in dims
                 )
                 print(f"  {part}: {pairs}  (human/judge)")
         else:
@@ -361,7 +386,9 @@ def cmd_reviews(iteration: int | None = None, limit: int = 20) -> None:
         if comments:
             print("  Comments:")
             for c in comments:
-                print(f"    {c['commenter_id']} ({c['timestamp'][:19]}): {c['comment']}")
+                print(
+                    f"    {c['commenter_id']} ({c['timestamp'][:19]}): {c['comment']}"
+                )
         print()
 
 
@@ -379,12 +406,23 @@ def cmd_filter(iteration: int, dim: str, below: float, part: str | None = None) 
             score = j.get(p, {}).get("scores", {}).get(dim)
             if score is not None and score < below:
                 text = item.get(p, "") or ""
-                hits.append((item["item_id"], j["decision"], j["aggregate"], p, score, text[:80]))
+                hits.append(
+                    (
+                        item["item_id"],
+                        j["decision"],
+                        j["aggregate"],
+                        p,
+                        score,
+                        text[:80],
+                    )
+                )
 
     hits.sort(key=lambda x: x[4])
     print(f"Items with {dim} < {below} in iteration {iteration} ({len(hits)} hits):\n")
     for iid, dec, agg, p, sc, preview in hits:
-        print(f"  {iid[:16]} {dec:>3} agg={agg:.1f} {p[:3]}_{dim[:3]}={sc} | {preview}...")
+        print(
+            f"  {iid[:16]} {dec:>3} agg={agg:.1f} {p[:3]}_{dim[:3]}={sc} | {preview}..."
+        )
 
 
 def cmd_trend() -> None:
@@ -410,7 +448,9 @@ def cmd_trend() -> None:
 
     # Header
     dim_header = " ".join(f"{k:>7}" for k in all_dim_keys)
-    print(f"{'iter':>4} {'acc%':>5} {'mean':>5} {dim_header}  gen_prompt / judge_prompt")
+    print(
+        f"{'iter':>4} {'acc%':>5} {'mean':>5} {dim_header}  gen_prompt / judge_prompt"
+    )
 
     for run in runs:
         it = run["iteration"]
@@ -431,7 +471,9 @@ def cmd_trend() -> None:
                 for dim, sc in item["judgment"].get(part, {}).get("scores", {}).items():
                     key = f"{part[:3]}_{dim[:3]}"
                     dim_means.setdefault(key, []).append(sc)
-        dim_str = " ".join(f"{statistics.mean(dim_means.get(k, [0])):7.2f}" for k in all_dim_keys)
+        dim_str = " ".join(
+            f"{statistics.mean(dim_means.get(k, [0])):7.2f}" for k in all_dim_keys
+        )
 
         gen_p = run.get("gen_prompt", "?")
         judge_p = run.get("judge_prompt", "?")
@@ -450,7 +492,9 @@ def cmd_correlations() -> None:
 
     correlations = load_judge_correlations()
     if not correlations:
-        print("No judge correlations yet. Correlations are recorded after each iteration when reviewed items exist.")
+        print(
+            "No judge correlations yet. Correlations are recorded after each iteration when reviewed items exist."
+        )
         return
 
     reviews = load_latest_reviews()
@@ -467,7 +511,7 @@ def cmd_correlations() -> None:
         key = (c["judge_prompt"], c.get("judge_model", "unknown"))
         by_prompt.setdefault(key, []).append(c)
 
-    for (prompt_name, model_name) in sorted(by_prompt):
+    for prompt_name, model_name in sorted(by_prompt):
         entries = by_prompt[(prompt_name, model_name)]
         decision_matches = 0
         score_diffs = []
@@ -495,7 +539,9 @@ def cmd_correlations() -> None:
 
             # Per-dimension diffs
             human_scores = review.get("scores", {})
-            is_per_part = human_scores and isinstance(next(iter(human_scores.values()), None), dict)
+            is_per_part = human_scores and isinstance(
+                next(iter(human_scores.values()), None), dict
+            )
             if is_per_part:
                 for part in ("preflection", "reflection"):
                     h_part = human_scores.get(part, {})
@@ -507,7 +553,9 @@ def cmd_correlations() -> None:
                         )
 
         if matched == 0:
-            print(f"\n{prompt_name} / {model_name}: {len(entries)} correlations, 0 matched to reviews")
+            print(
+                f"\n{prompt_name} / {model_name}: {len(entries)} correlations, 0 matched to reviews"
+            )
             continue
 
         agreement = decision_matches / matched * 100
@@ -540,9 +588,13 @@ def _make_test_id(prefix: str) -> str:
     return f"{prefix}_{ts}"
 
 
-def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
-                      n: int = 3, role: str = "judge",
-                      model_alias: str | None = None) -> None:
+def cmd_test_generate(
+    prompt_path: str,
+    item_ids: list[str] | None = None,
+    n: int = 3,
+    role: str = "judge",
+    model_alias: str | None = None,
+) -> None:
     """Generate with a prompt file without saving to main items table.
 
     Loads items from the latest iteration, runs generate_batch(save=False),
@@ -566,7 +618,11 @@ def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
     assert all_items, f"No items found for iteration {latest_iter}"
 
     if item_ids:
-        items = [i for i in all_items if any(i["item_id"].startswith(iid) for iid in item_ids)]
+        items = [
+            i
+            for i in all_items
+            if any(i["item_id"].startswith(iid) for iid in item_ids)
+        ]
         assert items, f"No items matching {item_ids} in iteration {latest_iter}"
     else:
         items = random.sample(all_items, min(n, len(all_items)))
@@ -576,19 +632,27 @@ def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
 
     print(f"Test generating {len(items)} items with {prompt.name} (model={alias})...")
     generated = generate_batch(
-        items, prompt, charter_text, gen_model_cfg.api_name,
-        iteration=latest_iter, client=client, semaphore=semaphore, save=False,
+        items,
+        prompt,
+        charter_text,
+        gen_model_cfg.api_name,
+        iteration=latest_iter,
+        client=client,
+        semaphore=semaphore,
+        save=False,
     )
 
     test_id = _make_test_id("tg")
     result_items = []
     for g in generated:
-        result_items.append({
-            "item_id": g["item_id"],
-            "preflection": g.get("preflection", "")[:200],
-            "reflection": g.get("reflection", "")[:200],
-            "charter_elements": g.get("charter_elements", []),
-        })
+        result_items.append(
+            {
+                "item_id": g["item_id"],
+                "preflection": g.get("preflection", "")[:200],
+                "reflection": g.get("reflection", "")[:200],
+                "charter_elements": g.get("charter_elements", []),
+            }
+        )
 
     record = {
         "test_id": test_id,
@@ -608,9 +672,14 @@ def cmd_test_generate(prompt_path: str, item_ids: list[str] | None = None,
     print("Saved to test_results")
 
 
-def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
-                   iteration: int | None = None, n: int = 3, role: str = "judge",
-                   model_alias: str | None = None) -> None:
+def cmd_test_judge(
+    prompt_path: str,
+    item_ids: list[str] | None = None,
+    iteration: int | None = None,
+    n: int = 3,
+    role: str = "judge",
+    model_alias: str | None = None,
+) -> None:
     """Judge items with a prompt file without saving to main items table.
 
     Loads generated items from specified iteration, runs judge_batch(save=False),
@@ -634,7 +703,11 @@ def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
     assert generated, f"No generated items in iteration {iter_num}"
 
     if item_ids:
-        items = [i for i in generated if any(i["item_id"].startswith(iid) for iid in item_ids)]
+        items = [
+            i
+            for i in generated
+            if any(i["item_id"].startswith(iid) for iid in item_ids)
+        ]
         assert items, f"No items matching {item_ids} in iteration {iter_num}"
     else:
         items = random.sample(generated, min(n, len(generated)))
@@ -644,9 +717,14 @@ def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
 
     print(f"Test judging {len(items)} items with {prompt.name} (model={alias})...")
     judged = judge_batch(
-        items, prompt, jdg_model_cfg.api_name, iteration=iter_num,
+        items,
+        prompt,
+        jdg_model_cfg.api_name,
+        iteration=iter_num,
         accept_threshold=cfg.phase2.scoring.accept_threshold,
-        client=client, semaphore=semaphore, save=False,
+        client=client,
+        semaphore=semaphore,
+        save=False,
     )
 
     scores = [j["judgment"]["aggregate"] for j in judged]
@@ -657,13 +735,15 @@ def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
     result_items = []
     for j in judged:
         jdg = j["judgment"]
-        result_items.append({
-            "item_id": j["item_id"],
-            "aggregate": jdg["aggregate"],
-            "decision": jdg["decision"],
-            "preflection_scores": jdg["preflection"]["scores"],
-            "reflection_scores": jdg["reflection"]["scores"],
-        })
+        result_items.append(
+            {
+                "item_id": j["item_id"],
+                "aggregate": jdg["aggregate"],
+                "decision": jdg["decision"],
+                "preflection_scores": jdg["preflection"]["scores"],
+                "reflection_scores": jdg["reflection"]["scores"],
+            }
+        )
 
     record = {
         "test_id": test_id,
@@ -672,12 +752,18 @@ def cmd_test_judge(prompt_path: str, item_ids: list[str] | None = None,
         "prompt": prompt.name,
         "model_alias": alias,
         "items": result_items,
-        "summary": {"n_items": len(judged), "mean_score": round(mean_score, 3), "n_accepted": n_acc},
+        "summary": {
+            "n_items": len(judged),
+            "mean_score": round(mean_score, 3),
+            "n_accepted": n_acc,
+        },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     save_test_result(record)
 
-    print(f"\nTest {test_id}: judged {len(judged)} items (mean={mean_score:.2f}, accepted={n_acc})")
+    print(
+        f"\nTest {test_id}: judged {len(judged)} items (mean={mean_score:.2f}, accepted={n_acc})"
+    )
     for j in judged:
         jdg = j["judgment"]
         print(f"  {j['item_id'][:12]}: {jdg['decision']} ({jdg['aggregate']:.2f})")
@@ -690,7 +776,10 @@ def cmd_run_batch(role: str = "judge") -> None:
     Saves to main items + runs tables AND to test_results for tracking.
     """
     from pipeline.config import load_config
-    from pipeline.phase2.run import run_judge_cross_iteration, run_generator_cross_iteration
+    from pipeline.phase2.run import (
+        run_judge_cross_iteration,
+        run_generator_cross_iteration,
+    )
 
     cfg = load_config()
 
@@ -723,8 +812,10 @@ def cmd_run_batch(role: str = "judge") -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         save_test_result(record)
-        print(f"  {result['generator_model']}/{result['judge_model']}: "
-              f"{result['n_accepted']}/{result['n_items']} accepted, mean={mean_score:.2f}")
+        print(
+            f"  {result['generator_model']}/{result['judge_model']}: "
+            f"{result['n_accepted']}/{result['n_items']} accepted, mean={mean_score:.2f}"
+        )
 
     print(f"\nBatch {test_id} complete. group_id={results[0]['group_id']}")
 
@@ -736,7 +827,10 @@ def cmd_run_cross_batch(role: str, target: str) -> None:
     Generator cross-iteration: generate with target, judge with ALL judges.
     """
     from pipeline.config import load_config
-    from pipeline.phase2.run import run_judge_cross_iteration, run_generator_cross_iteration
+    from pipeline.phase2.run import (
+        run_judge_cross_iteration,
+        run_generator_cross_iteration,
+    )
 
     cfg = load_config()
 
@@ -748,9 +842,14 @@ def cmd_run_cross_batch(role: str, target: str) -> None:
     group_id = results[0]["group_id"] if results else "none"
     print(f"\nCross-iteration complete (group_id={group_id}):")
     for r in results:
-        print(f"  gen={r['generator_model']} judge={r['judge_model']}: "
-              f"{r['n_accepted']}/{r['n_items']} accepted, mean={r['mean_score']:.2f}")
+        print(
+            f"  iter={r['iteration']} gen={r['generator_model']} judge={r['judge_model']}: "
+            f"{r['n_accepted']}/{r['n_items']} accepted, mean={r['mean_score']:.2f}"
+        )
     print(f"\nUse `cross_summary {group_id}` for aggregated stats.")
+    print(
+        "Use `failures <iteration>` or `scores <iteration>` to drill into a specific pair."
+    )
 
 
 def cmd_cross_summary(group_id: str) -> None:
@@ -758,7 +857,9 @@ def cmd_cross_summary(group_id: str) -> None:
     from pipeline.phase2.storage import load_runs
 
     runs = load_runs()
-    group_runs = [r for r in runs if r.get("group_id") and r["group_id"].startswith(group_id)]
+    group_runs = [
+        r for r in runs if r.get("group_id") and r["group_id"].startswith(group_id)
+    ]
 
     if not group_runs:
         print(f"No runs found with group_id starting with '{group_id}'")
@@ -774,8 +875,10 @@ def cmd_cross_summary(group_id: str) -> None:
     total_accepted = 0
     all_scores = []
 
-    print(f"{'Generator':>20} {'Judge':>20} {'Items':>6} {'Accept%':>8} {'Mean':>6}")
-    print("-" * 70)
+    print(
+        f"{'Iter':>6} {'Generator':>20} {'Judge':>20} {'Items':>6} {'Accept%':>8} {'Mean':>6}"
+    )
+    print("-" * 76)
     for r in group_runs:
         items = load_items_for_iteration(r["iteration"])
         judged = [i for i in items if i.get("judgment")]
@@ -788,18 +891,23 @@ def cmd_cross_summary(group_id: str) -> None:
         total_accepted += n_acc
         all_scores.extend(scores)
 
-        print(f"{r['generator_model']:>20} {r['judge_model']:>20} "
-              f"{len(judged):>6} {acc_pct:>7.1f}% {mean_s:>6.2f}")
+        print(
+            f"{r['iteration']:>6} {r['generator_model']:>20} {r['judge_model']:>20} "
+            f"{len(judged):>6} {acc_pct:>7.1f}% {mean_s:>6.2f}"
+        )
 
     if all_scores:
-        print("-" * 70)
+        print("-" * 76)
         overall_acc = total_accepted / total_items * 100 if total_items else 0
         overall_mean = statistics.mean(all_scores)
-        print(f"{'TOTAL':>20} {'':>20} {total_items:>6} {overall_acc:>7.1f}% {overall_mean:>6.2f}")
+        print(
+            f"{'':>6} {'TOTAL':>20} {'':>20} {total_items:>6} {overall_acc:>7.1f}% {overall_mean:>6.2f}"
+        )
 
 
-def cmd_test_results(phase: str | None = None, type_filter: str | None = None,
-                     role: str | None = None) -> None:
+def cmd_test_results(
+    phase: str | None = None, type_filter: str | None = None, role: str | None = None
+) -> None:
     """List test results, optionally filtered by phase/role and/or type."""
     results = load_test_results(phase=phase, role=role)
     if type_filter:
@@ -817,9 +925,11 @@ def cmd_test_results(phase: str | None = None, type_filter: str | None = None,
         acc = summary.get("n_accepted", "")
         mean_str = f" mean={mean:.2f}" if isinstance(mean, (int, float)) else ""
         acc_str = f" acc={acc}" if acc != "" else ""
-        print(f"  {r['test_id']}  {r['type']:>8}  phase={r.get('phase', '?')}  "
-              f"prompt={r.get('prompt', '?')}  n={n}{mean_str}{acc_str}  "
-              f"{r.get('timestamp', '')[:19]}")
+        print(
+            f"  {r['test_id']}  {r['type']:>8}  phase={r.get('phase', '?')}  "
+            f"prompt={r.get('prompt', '?')}  n={n}{mean_str}{acc_str}  "
+            f"{r.get('timestamp', '')[:19]}"
+        )
 
 
 def main():
@@ -855,8 +965,11 @@ def main():
         cmd_summary(int(positional[0]))
     elif cmd == "failures":
         _require_positional(1, "failures <iteration> [--limit N] [--reasoning-limit N]")
-        cmd_failures(int(positional[0]), limit=_get_flag_int("--limit", 10),
-                     reasoning_limit=_get_flag_int("--reasoning-limit", 200))
+        cmd_failures(
+            int(positional[0]),
+            limit=_get_flag_int("--limit", 10),
+            reasoning_limit=_get_flag_int("--reasoning-limit", 200),
+        )
     elif cmd == "show":
         brief = "--brief" in args
         gold_only = "--gold" in args
@@ -876,8 +989,11 @@ def main():
         _require_positional(1, "scores <iteration>")
         cmd_scores(int(positional[0]))
     elif cmd == "gold":
-        cmd_gold(limit=_get_flag_int("--limit", 5), offset=_get_flag_int("--offset", 0),
-                 verbose="--verbose" in args)
+        cmd_gold(
+            limit=_get_flag_int("--limit", 5),
+            offset=_get_flag_int("--offset", 0),
+            verbose="--verbose" in args,
+        )
     elif cmd == "compare":
         _require_positional(2, "compare <item_id> <iteration>")
         cmd_compare(positional[0], int(positional[1]))
@@ -885,13 +1001,22 @@ def main():
         iteration = int(positional[0]) if positional else None
         cmd_reviews(iteration=iteration, limit=_get_flag_int("--limit", 20))
     elif cmd == "filter":
-        _require_positional(1, "filter <iteration> --dim X --below N [--part preflection|reflection]")
-        cmd_filter(int(positional[0]), dim=_get_flag("--dim"), below=float(_get_flag("--below")),
-                   part=_get_flag("--part"))
+        _require_positional(
+            1, "filter <iteration> --dim X --below N [--part preflection|reflection]"
+        )
+        cmd_filter(
+            int(positional[0]),
+            dim=_get_flag("--dim"),
+            below=float(_get_flag("--below")),
+            part=_get_flag("--part"),
+        )
     elif cmd == "trend":
         cmd_trend()
     elif cmd == "test_generate":
-        _require_positional(1, "test_generate <prompt_path> [--items id1,id2,...] [--n N] [--role judge|generator] [--model ALIAS]")
+        _require_positional(
+            1,
+            "test_generate <prompt_path> [--items id1,id2,...] [--n N] [--role judge|generator] [--model ALIAS]",
+        )
         item_ids_str = _get_flag("--items")
         item_ids = item_ids_str.split(",") if item_ids_str else None
         cmd_test_generate(
@@ -902,7 +1027,10 @@ def main():
             model_alias=_get_flag("--model"),
         )
     elif cmd == "test_judge":
-        _require_positional(1, "test_judge <prompt_path> [--items id1,id2,...] [--iteration N] [--role judge|generator] [--model ALIAS]")
+        _require_positional(
+            1,
+            "test_judge <prompt_path> [--items id1,id2,...] [--iteration N] [--role judge|generator] [--model ALIAS]",
+        )
         item_ids_str = _get_flag("--items")
         item_ids = item_ids_str.split(",") if item_ids_str else None
         cmd_test_judge(

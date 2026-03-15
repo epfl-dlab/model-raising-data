@@ -16,6 +16,7 @@ import sys
 import time
 from pathlib import Path
 import dotenv
+
 dotenv.load_dotenv()
 
 import openai
@@ -56,6 +57,7 @@ def make_api_client(cfg: AppConfig) -> tuple[openai.AsyncOpenAI, asyncio.Semapho
     semaphore = asyncio.Semaphore(cfg.phase2.iteration.max_concurrent)
     return client, semaphore
 
+
 FINEWEB_DATASET = "locuslab/fineweb_annotated"
 FINEWEB_SUBSETS = [f"score_{i}" for i in range(6)]
 
@@ -89,7 +91,8 @@ async def _api_call(
         try:
             async with semaphore:
                 response = await client.chat.completions.create(
-                    model=model, messages=messages,
+                    model=model,
+                    messages=messages,
                     extra_body={
                         "separate_reasoning": True,
                         "chat_template_kwargs": {"enable_thinking": True},
@@ -105,16 +108,20 @@ async def _api_call(
             openai.APIConnectionError,
             openai.RateLimitError,
             openai.InternalServerError,
+            AssertionError,
         ) as e:
             last_error = f"{type(e).__name__}: {e}"
         if attempt < MAX_RETRIES - 1:
-            logger.warning("Retry {}/{} due to: {}", attempt + 2, MAX_RETRIES, last_error)
-            await asyncio.sleep(RETRY_BACKOFF_BASE ** attempt)
+            logger.warning(
+                "Retry {}/{} due to: {}", attempt + 2, MAX_RETRIES, last_error
+            )
+            await asyncio.sleep(RETRY_BACKOFF_BASE**attempt)
     raise RuntimeError(f"Failed after {MAX_RETRIES} retries: {last_error}")
 
 
 def health_check(client: openai.AsyncOpenAI, model: str) -> None:
     """Ping the API with a lightweight request. Fail fast if model unavailable."""
+
     async def _check():
         response = await client.chat.completions.create(
             model=model,
@@ -188,13 +195,15 @@ def _load_gold_items(max_tokens: int) -> list[dict]:
             seen_ids.add(item_id)
             text = truncate_to_max_tokens(record["text"], max_tokens)
             rp = min(record["reflection_point"], len(text))
-            records.append({
-                "item_id": item_id,
-                "subset": record["subset"],
-                "text": text,
-                "reflection_point": rp,
-                "is_gold": True,
-            })
+            records.append(
+                {
+                    "item_id": item_id,
+                    "subset": record["subset"],
+                    "text": text,
+                    "reflection_point": rp,
+                    "is_gold": True,
+                }
+            )
     return records
 
 
@@ -202,7 +211,9 @@ FINEWEB_CACHE_PATH = PIPELINE_DATA_DIR / "fineweb_cache.jsonl"
 FINEWEB_CACHE_SIZE = 4096
 
 
-def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str], max_tokens: int) -> list[dict]:
+def _sample_fresh_items(
+    n: int, seed: int, exclude_ids: set[str], max_tokens: int
+) -> list[dict]:
     """Sample fresh FineWeb items, stratified equally across subsets.
 
     Each text is truncated to max_tokens before computing the reflection point.
@@ -240,20 +251,24 @@ def _sample_fresh_items(n: int, seed: int, exclude_ids: set[str], max_tokens: in
                 item_id = compute_item_id(text)
                 if item_id in exclude_ids:
                     continue
-                items.append({
-                    "item_id": item_id,
-                    "subset": subset,
-                    "text": text,
-                    "reflection_point": compute_reflection_point(text, rng),
-                    "is_gold": False,
-                })
+                items.append(
+                    {
+                        "item_id": item_id,
+                        "subset": subset,
+                        "text": text,
+                        "reflection_point": compute_reflection_point(text, rng),
+                        "is_gold": False,
+                    }
+                )
                 exclude_ids.add(item_id)
                 made_progress = True
                 break
         if not made_progress:
             break
 
-    assert len(items) >= n, f"Could only sample {len(items)}/{n} fresh items (cache has {len(cache)})"
+    assert (
+        len(items) >= n
+    ), f"Could only sample {len(items)}/{n} fresh items (cache has {len(cache)})"
     return items[:n]
 
 
@@ -276,7 +291,12 @@ def select_items(n_total: int, n_gold: int, seed: int, max_tokens: int) -> list[
         fresh = []
 
     items = selected_gold + fresh
-    logger.info("Selected {} gold + {} fresh = {} items", len(selected_gold), len(fresh), len(items))
+    logger.info(
+        "Selected {} gold + {} fresh = {} items",
+        len(selected_gold),
+        len(fresh),
+        len(items),
+    )
     return items
 
 
@@ -337,9 +357,9 @@ def generate_batch(
             "raw_response": raw,
             "reasoning": reasoning,
             "latency_ms": latency_ms,
-            "timestamp": __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            "timestamp": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
             "judgment": None,
         }
         if save:
@@ -366,16 +386,14 @@ async def _judge_one_part(
 
     Returns (parsed_judgment, raw_response, reasoning_content).
     """
-    system_prompt = (
-        prompt_template
-        .replace("{part_type}", part_type)
-        .replace("{accept_threshold}", str(accept_threshold))
+    system_prompt = prompt_template.replace("{part_type}", part_type).replace(
+        "{accept_threshold}", str(accept_threshold)
     )
 
     if part_type == "preflection":
         source_text = item["text"]
     else:
-        source_text = item["text"][:item["reflection_point"]]
+        source_text = item["text"][: item["reflection_point"]]
 
     content = item[part_type]
 
@@ -416,19 +434,35 @@ def judge_batch(
 
     async def judge_one(item: dict) -> dict:
         pre_parsed, pre_raw, pre_reasoning = await _judge_one_part(
-            item, "preflection", prompt_template, accept_threshold,
-            model, client, semaphore,
+            item,
+            "preflection",
+            prompt_template,
+            accept_threshold,
+            model,
+            client,
+            semaphore,
         )
         ref_parsed, ref_raw, ref_reasoning = await _judge_one_part(
-            item, "reflection", prompt_template, accept_threshold,
-            model, client, semaphore,
+            item,
+            "reflection",
+            prompt_template,
+            accept_threshold,
+            model,
+            client,
+            semaphore,
         )
 
-        all_scores = list(pre_parsed["scores"].values()) + list(ref_parsed["scores"].values())
+        all_scores = list(pre_parsed["scores"].values()) + list(
+            ref_parsed["scores"].values()
+        )
         aggregate = sum(all_scores) / len(all_scores)
         # Floor rule: any dimension <= 2 forces reject, matching judge prompt
         has_floor_violation = any(s <= 2 for s in all_scores)
-        decision = "reject" if has_floor_violation or aggregate < accept_threshold else "accept"
+        decision = (
+            "reject"
+            if has_floor_violation or aggregate < accept_threshold
+            else "accept"
+        )
 
         judgment = {
             "preflection": {
@@ -447,9 +481,9 @@ def judge_batch(
             "decision": decision,
             "judge_prompt": prompt_filename,
             "raw_responses": {"preflection": pre_raw, "reflection": ref_raw},
-            "timestamp": __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            "timestamp": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
         }
         judged = {**item, "judgment": judgment}
         if save:
@@ -502,7 +536,9 @@ def _run_one_pair(
     prev_sigint = signal.getsignal(signal.SIGINT)
 
     def _graceful_shutdown(signum, frame):
-        logger.warning("Received signal {} during iteration — checkpointing DB before exit", signum)
+        logger.warning(
+            "Received signal {} during iteration — checkpointing DB before exit", signum
+        )
         try:
             _get_conn().commit()
             checkpoint()
@@ -541,13 +577,23 @@ def _run_one_pair_inner(
     logger.info("Iteration {} — gen={} judge={}", iteration, gen_alias, judge_alias)
 
     generated = generate_batch(
-        items, gen_prompt, charter_text, gen_model_cfg.api_name,
-        iteration, client, semaphore,
+        items,
+        gen_prompt,
+        charter_text,
+        gen_model_cfg.api_name,
+        iteration,
+        client,
+        semaphore,
     )
 
     judged = judge_batch(
-        generated, judge_prompt, judge_model_cfg.api_name, iteration,
-        cfg.phase2.scoring.accept_threshold, client, semaphore,
+        generated,
+        judge_prompt,
+        judge_model_cfg.api_name,
+        iteration,
+        cfg.phase2.scoring.accept_threshold,
+        client,
+        semaphore,
     )
 
     summary = _make_run_summary(iteration, judged)
@@ -624,8 +670,10 @@ def _run_cross_iteration(
     base_iter = next_iteration()
     seed = 42 + base_iter
     items = select_items(
-        cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold,
-        seed, cfg.max_tokens,
+        cfg.phase2.iteration.n_items,
+        cfg.phase2.iteration.n_gold,
+        seed,
+        cfg.max_tokens,
     )
 
     group_id = str(uuid4())
@@ -633,8 +681,12 @@ def _run_cross_iteration(
     for gen_alias, judge_alias in pairs:
         logger.info("Cross-iteration: gen={} judge={}", gen_alias, judge_alias)
         result = _run_one_pair(
-            cfg, items, gen_alias, judge_alias,
-            source=source, group_id=group_id,
+            cfg,
+            items,
+            gen_alias,
+            judge_alias,
+            source=source,
+            group_id=group_id,
         )
         summaries.append(result)
 
@@ -642,7 +694,10 @@ def _run_cross_iteration(
 
 
 def _health_check_models(
-    client: openai.AsyncOpenAI, cfg: AppConfig, role: str, target_alias: str,
+    client: openai.AsyncOpenAI,
+    cfg: AppConfig,
+    role: str,
+    target_alias: str,
 ) -> None:
     """Health-check the target model and all counterpart models for a cross-iteration."""
     checked: set[str] = set()
@@ -665,14 +720,18 @@ def _health_check_models(
 
 
 def run_judge_cross_iteration(
-    cfg: AppConfig, target_judge_alias: str, source: str = "improve_judge",
+    cfg: AppConfig,
+    target_judge_alias: str,
+    source: str = "improve_judge",
 ) -> list[dict]:
     """Generate with ALL generators, judge all with target judge."""
     return _run_cross_iteration(cfg, "judge", target_judge_alias, source)
 
 
 def run_generator_cross_iteration(
-    cfg: AppConfig, target_gen_alias: str, source: str = "improve_generator",
+    cfg: AppConfig,
+    target_gen_alias: str,
+    source: str = "improve_generator",
 ) -> list[dict]:
     """Generate with target generator, judge with ALL judges."""
     return _run_cross_iteration(cfg, "generator", target_gen_alias, source)
@@ -702,7 +761,7 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
         return 0
 
     reviewed_item_keys: set[tuple[str, int]] = set()
-    for (item_id, rev_iter, _reviewer) in reviews:
+    for item_id, rev_iter, _reviewer in reviews:
         reviewed_item_keys.add((item_id, rev_iter))
 
     existing = load_judge_correlations()
@@ -721,19 +780,22 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
             continue
 
         judge_files = sorted(
-            p for p in model_dir.iterdir()
-            if re_mod.match(r"^judge_v\d+\.md$", p.name)
+            p for p in model_dir.iterdir() if re_mod.match(r"^judge_v\d+\.md$", p.name)
         )
 
         for judge_file in judge_files:
             prompt_name = judge_file.name
             needs_judging = [
-                latest_items[k] for k in reviewed_item_keys
-                if k in latest_items and (k[0], k[1], prompt_name, alias) not in existing_keys
+                latest_items[k]
+                for k in reviewed_item_keys
+                if k in latest_items
+                and (k[0], k[1], prompt_name, alias) not in existing_keys
             ]
 
             if not needs_judging:
-                logger.info("All reviewed items already done for {} / {}.", prompt_name, alias)
+                logger.info(
+                    "All reviewed items already done for {} / {}.", prompt_name, alias
+                )
                 continue
 
             client, semaphore = make_api_client(cfg)
@@ -741,7 +803,9 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
 
             logger.info(
                 "Re-judging {} items with {} ({})...",
-                len(needs_judging), prompt_name, alias,
+                len(needs_judging),
+                prompt_name,
+                alias,
             )
 
             judged = judge_batch(
@@ -765,7 +829,9 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
                 )
 
             total_new += len(judged)
-            logger.info("Saved {} correlations for {} / {}.", len(judged), prompt_name, alias)
+            logger.info(
+                "Saved {} correlations for {} / {}.", len(judged), prompt_name, alias
+            )
 
     logger.info("Total new correlations: {}", total_new)
     return total_new
@@ -779,16 +845,25 @@ def main():
     logger.info("Endpoint: {}", cfg.phase2.endpoint)
     logger.info("Generator models: {}", [m.alias for m in cfg.phase2.generator_models])
     logger.info("Judge models: {}", [m.alias for m in cfg.phase2.judge_models])
-    logger.info("Items: {} (gold: {})", cfg.phase2.iteration.n_items, cfg.phase2.iteration.n_gold)
+    logger.info(
+        "Items: {} (gold: {})",
+        cfg.phase2.iteration.n_items,
+        cfg.phase2.iteration.n_gold,
+    )
     logger.info("Threshold: {}", cfg.phase2.scoring.accept_threshold)
 
     # Default: run judge cross-iteration with first judge model
     target = cfg.phase2.judge_models[0].alias
     results = run_judge_cross_iteration(cfg, target)
     for r in results:
-        logger.info("  gen={} judge={}: {}/{} accepted, mean={:.2f}",
-                     r["generator_model"], r["judge_model"],
-                     r["n_accepted"], r["n_items"], r["mean_score"])
+        logger.info(
+            "  gen={} judge={}: {}/{} accepted, mean={:.2f}",
+            r["generator_model"],
+            r["judge_model"],
+            r["n_accepted"],
+            r["n_items"],
+            r["mean_score"],
+        )
 
 
 if __name__ == "__main__":
