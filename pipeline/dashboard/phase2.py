@@ -1123,6 +1123,10 @@ def pipeline_monitoring_page():
             full_loop_btn = ui.button(
                 "Run Full Loop (Judge → Generator)", icon="loop", color="accent"
             )
+            interrupt_btn = ui.button("Interrupt", icon="stop", color="negative").props(
+                "outline"
+            )
+            interrupt_btn.set_visibility(False)
 
         # Dynamic improver cards
         improver_cards_container = ui.column().classes("w-full gap-2 q-mt-sm")
@@ -1344,12 +1348,14 @@ def pipeline_monitoring_page():
             gen_btn.disable()
             full_loop_btn.disable()
             cross_btn.disable()
+            interrupt_btn.set_visibility(True)
 
         def _enable_all_buttons():
             judge_btn.enable()
             gen_btn.enable()
             full_loop_btn.enable()
             cross_btn.enable()
+            interrupt_btn.set_visibility(False)
 
         def _start_improver(role: str, aliases: list[str] | None):
             if not aliases:
@@ -1400,9 +1406,16 @@ def pipeline_monitoring_page():
 
             threading.Thread(target=_thread, daemon=True).start()
 
+        def _interrupt():
+            from pipeline.phase2.loop import interrupt_improvers
+
+            n = interrupt_improvers()
+            ui.notify(f"Interrupted {n} agent(s).", type="warning")
+
         judge_btn.on_click(lambda: _start_improver("judge", judge_model_select.value))
         gen_btn.on_click(lambda: _start_improver("generator", gen_model_select.value))
         full_loop_btn.on_click(_start_full_loop)
+        interrupt_btn.on_click(_interrupt)
 
         # Load existing status on page render
         from pipeline.phase2.loop import read_status as _read_initial
@@ -1411,8 +1424,7 @@ def pipeline_monitoring_page():
         if _initial:
             _update_from_status(_initial)
             if _initial.get("running"):
-                judge_btn.disable()
-                gen_btn.disable()
+                _disable_all_buttons()
                 loop_timer.active = True
 
     # --- Run Cross-Iteration ---

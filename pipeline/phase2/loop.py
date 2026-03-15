@@ -39,6 +39,8 @@ from pipeline.phase2.storage import save_loop_run
 STATUS_PATH = PIPELINE_DATA_DIR / "loop_status.json"
 AGENT_TMP_DIR = PIPELINE_DATA_DIR / "tmp"
 _status_lock = threading.Lock()
+_active_procs: dict[str, subprocess.Popen] = {}  # key -> subprocess
+_active_procs_lock = threading.Lock()
 
 
 def improver_log_path(role: str, alias: str) -> Path:
@@ -265,7 +267,9 @@ IMPORTANT:
 """
 
 
-def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
+def _spawn_agent(
+    prompt: str, log_path: Path, allowed_tools: list[str], key: str = ""
+) -> str:
     """Spawn a sandboxed Claude CLI subprocess and return its text output.
 
     Streams output to log_path and stderr for real-time monitoring.
@@ -305,7 +309,9 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
         cwd=str(PROJECT_ROOT),
     )
 
-    import threading
+    if key:
+        with _active_procs_lock:
+            _active_procs[key] = proc
 
     final_text_holder: list[str] = []
 
@@ -326,6 +332,10 @@ def _spawn_agent(prompt: str, log_path: Path, allowed_tools: list[str]) -> str:
             proc.kill()
             proc.wait()
         raise
+    finally:
+        if key:
+            with _active_procs_lock:
+                _active_procs.pop(key, None)
 
     proc.wait()
     output = final_text_holder[0] if final_text_holder else ""
@@ -589,7 +599,7 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         prompt = _build_improver_prompt(cfg, role, target_alias, agent_tmp_dir=tmp_dir)
-        _spawn_agent(prompt, log_path, _allowed_tools(tmp_dir))
+        _spawn_agent(prompt, log_path, _allowed_tools(tmp_dir), key=key)
 
         new_prompt = _detect_new_prompts(target_alias, role)
         logger.info("Improver {} done: latest prompt -> {}", key, new_prompt)
@@ -709,6 +719,39 @@ def run_judge_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> Non
 def run_generator_improvers(cfg: AppConfig, aliases: list[str] | None = None) -> None:
     """Run generator improvers in parallel. If aliases is None, run ALL generator models."""
     _run_improvers(cfg, "generator", aliases)
+
+
+def interrupt_improvers() -> int:
+    """Terminate all active improver agent subprocesses.
+
+    Returns the number of processes terminated. Also marks running improvers
+    as errored in the status file.
+    """
+    with _active_procs_lock:
+        procs = dict(_active_procs)
+
+    killed = 0
+    for key, proc in procs.items():
+        logger.info("Interrupting improver agent: {}", key)
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        killed += 1
+
+    def _mark_interrupted(s: dict) -> None:
+        s["running"] = False
+        s["error"] = "Interrupted by user"
+        for data in s.get("improvers", {}).values():
+            if data["status"] in ("running", "pending"):
+                data["status"] = "error"
+                data["reasoning"] = "Interrupted by user"
+
+    _update_status(_mark_interrupted)
+    logger.info("Interrupted {} improver agent(s).", killed)
+    return killed
 
 
 def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) -> None:
