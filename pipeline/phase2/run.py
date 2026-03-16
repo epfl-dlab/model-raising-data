@@ -80,11 +80,12 @@ async def _api_call(
     model: str,
     messages: list[dict[str, str]],
     semaphore: asyncio.Semaphore,
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, dict]:
     """Make a single API call with network-error retry.
 
-    Returns (content, reasoning_content). reasoning_content is None if the
-    model does not produce reasoning output.
+    Returns (content, reasoning_content, usage_dict). reasoning_content is None
+    if the model does not produce reasoning output. usage_dict contains
+    input_tokens, output_tokens, reasoning_tokens.
     """
     last_error = None
     for attempt in range(MAX_RETRIES):
@@ -102,7 +103,19 @@ async def _api_call(
             content = msg.content
             assert content is not None, "API returned None content"
             reasoning = getattr(msg, "reasoning_content", None)
-            return content.strip(), reasoning
+            usage = response.usage
+            details = getattr(usage, "completion_tokens_details", None) or {}
+            if isinstance(details, dict):
+                detail_reasoning = details.get("reasoning_tokens", 0) or 0
+            else:
+                detail_reasoning = getattr(details, "reasoning_tokens", 0) or 0
+            usage_dict = {
+                "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                "reasoning_tokens": getattr(usage, "reasoning_tokens", 0)
+                or detail_reasoning,
+            }
+            return content.strip(), reasoning, usage_dict
         except (
             openai.APITimeoutError,
             openai.APIConnectionError,
@@ -336,7 +349,7 @@ def generate_batch(
             {"role": "user", "content": user_content},
         ]
         t0 = time.monotonic()
-        raw, reasoning = await _api_call(client, model, messages, semaphore)
+        raw, reasoning, usage = await _api_call(client, model, messages, semaphore)
         latency_ms = int((time.monotonic() - t0) * 1000)
 
         parsed = _parse_generation(raw)
@@ -361,6 +374,9 @@ def generate_batch(
             .datetime.now(__import__("datetime").timezone.utc)
             .isoformat(),
             "judgment": None,
+            "input_tokens": usage["input_tokens"],
+            "output_tokens": usage["output_tokens"],
+            "reasoning_tokens": usage["reasoning_tokens"],
         }
         if save:
             save_item(record)
@@ -378,13 +394,13 @@ async def _judge_one_part(
     model: str,
     client: openai.AsyncOpenAI,
     semaphore: asyncio.Semaphore,
-) -> tuple[dict, str, str | None]:
+) -> tuple[dict, str, str | None, dict]:
     """Judge a single part (preflection or reflection) of a generated item.
 
     For preflection: uses full text as context.
     For reflection: uses only text up to the reflection point.
 
-    Returns (parsed_judgment, raw_response, reasoning_content).
+    Returns (parsed_judgment, raw_response, reasoning_content, usage_dict).
     """
     system_prompt = prompt_template.replace("{part_type}", part_type).replace(
         "{accept_threshold}", str(accept_threshold)
@@ -405,9 +421,9 @@ async def _judge_one_part(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
-    raw, reasoning = await _api_call(client, model, messages, semaphore)
+    raw, reasoning, usage = await _api_call(client, model, messages, semaphore)
     parsed = _parse_judgment(raw)
-    return parsed, raw, reasoning
+    return parsed, raw, reasoning, usage
 
 
 def judge_batch(
@@ -433,7 +449,7 @@ def judge_batch(
     prompt_filename = prompt_path.name
 
     async def judge_one(item: dict) -> dict:
-        pre_parsed, pre_raw, pre_reasoning = await _judge_one_part(
+        pre_parsed, pre_raw, pre_reasoning, pre_usage = await _judge_one_part(
             item,
             "preflection",
             prompt_template,
@@ -442,7 +458,7 @@ def judge_batch(
             client,
             semaphore,
         )
-        ref_parsed, ref_raw, ref_reasoning = await _judge_one_part(
+        ref_parsed, ref_raw, ref_reasoning, ref_usage = await _judge_one_part(
             item,
             "reflection",
             prompt_template,
@@ -464,23 +480,33 @@ def judge_batch(
             else "accept"
         )
 
+        judge_usage = {
+            "input_tokens": pre_usage["input_tokens"] + ref_usage["input_tokens"],
+            "output_tokens": pre_usage["output_tokens"] + ref_usage["output_tokens"],
+            "reasoning_tokens": pre_usage["reasoning_tokens"]
+            + ref_usage["reasoning_tokens"],
+        }
+
         judgment = {
             "preflection": {
                 "scores": pre_parsed["scores"],
                 "aggregate": pre_parsed["aggregate"],
                 "reasoning": pre_parsed["reasoning"],
                 "model_reasoning": pre_reasoning,
+                "usage": pre_usage,
             },
             "reflection": {
                 "scores": ref_parsed["scores"],
                 "aggregate": ref_parsed["aggregate"],
                 "reasoning": ref_parsed["reasoning"],
                 "model_reasoning": ref_reasoning,
+                "usage": ref_usage,
             },
             "aggregate": aggregate,
             "decision": decision,
             "judge_prompt": prompt_filename,
             "raw_responses": {"preflection": pre_raw, "reflection": ref_raw},
+            "usage": judge_usage,
             "timestamp": __import__("datetime")
             .datetime.now(__import__("datetime").timezone.utc)
             .isoformat(),

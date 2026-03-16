@@ -164,6 +164,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("INSERT INTO iteration_counter VALUES (1, ?)", (max_iter,))
         conn.commit()
 
+    # Add token usage columns to items (added 2026-03-16)
+    item_cols = {row[1] for row in conn.execute("PRAGMA table_info(items)").fetchall()}
+    for col in ("input_tokens", "output_tokens", "reasoning_tokens"):
+        if col not in item_cols:
+            conn.execute(f"ALTER TABLE items ADD COLUMN {col} INTEGER")
+
     # Add judge_model column to judge_correlations and update PK (added 2026-03-13)
     jc_cols = {
         row[1]

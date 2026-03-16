@@ -125,8 +125,8 @@ def save_item(record: dict) -> None:
            (item_id, iteration, is_gold, subset, text, reflection_point,
             gen_prompt, model, analysis, preflection, reflection,
             charter_elements, raw_response, reasoning, latency_ms,
-            timestamp, judgment)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            timestamp, judgment, input_tokens, output_tokens, reasoning_tokens)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             record["item_id"],
             record["iteration"],
@@ -149,6 +149,9 @@ def save_item(record: dict) -> None:
                 if record.get("judgment") is not None
                 else None
             ),
+            record.get("input_tokens"),
+            record.get("output_tokens"),
+            record.get("reasoning_tokens"),
         ),
     )
     conn.commit()
