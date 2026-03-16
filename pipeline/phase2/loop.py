@@ -177,9 +177,11 @@ def _build_improver_prompt(
         first_run_note = f"""
 ## FIRST RUN — No data exists yet!
 There are no iterations in the database. You MUST run a baseline batch first before analyzing anything.
-Do this immediately:
-  uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias}
-Then use the group_id from the output to analyze results with `cross_summary <group_id>`.
+Do this immediately (run in background — it takes 3-5 minutes!):
+  Bash: {{"command": "uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias} 2>&1", "run_in_background": true}}
+Then wait:
+  TaskOutput: {{"task_id": "<id>", "block": true, "timeout": 600000}}
+Then use `diagnose <group_id>` for a full analysis.
 Do NOT waste time querying empty data — run the batch first.
 """
 
@@ -210,6 +212,7 @@ Run these via Bash (prefix with `uv run`). Replace <ITER> with the iteration num
   uv run python -m pipeline.improver_tools show <id> <ITER> --brief   — truncated source text
   uv run python -m pipeline.improver_tools show --gold <ITER> [--brief] — all gold items for iteration
   uv run python -m pipeline.improver_tools item <id> <ITER>   — full details as JSON
+  uv run python -m pipeline.improver_tools reasoning <id>[,id2,...] <ITER> — full judge reasoning (scores + text)
   uv run python -m pipeline.improver_tools gold                      — gold annotations (concise, no source text)
   uv run python -m pipeline.improver_tools gold --verbose            — gold with full source text (large output!)
   uv run python -m pipeline.improver_tools compare <id> <ITER> — generated vs gold
@@ -223,15 +226,30 @@ Run these via Bash (prefix with `uv run`). Replace <ITER> with the iteration num
   uv run python -m pipeline.improver_tools test_generate <prompt_path> [--items id1,id2] [--n N] [--role {role}]
   uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias}  — cross-iteration with ALL {other_type} models
   uv run python -m pipeline.improver_tools cross_summary <group_id>   — per-model stats for a cross-iteration
+  uv run python -m pipeline.improver_tools diagnose <group_id>        — ONE-SHOT full analysis (use this first!)
+  uv run python -m pipeline.improver_tools diff <iter1> <iter2> [--limit N]  — cross-iteration item comparison
   uv run python -m pipeline.improver_tools test_results --role {role}  — view test results
 
-## Scratch directory (IMPORTANT: use this for temporary scripts)
+## Running long commands (CRITICAL — `run_cross_batch` takes 3-5 minutes!)
+`run_cross_batch`, `run_batch`, `test_judge`, and `test_generate` make many API calls and
+take several minutes. You MUST run them in background and wait with a long timeout:
+```
+Bash: {{"command": "uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias} 2>&1", "run_in_background": true}}
+```
+Then wait for the result:
+```
+TaskOutput: {{"task_id": "<id from above>", "block": true, "timeout": 600000}}
+```
+**NEVER** run these commands synchronously (default Bash timeout is 120s — too short).
+**ALWAYS** include `2>&1` to capture stderr.
+
+## Scratch directory — ALL scripts go here, NOWHERE ELSE
 Write ad-hoc analysis scripts to: {agent_tmp_dir}
 Run them with: uv run python {agent_tmp_dir}/your_script.py
 Delete with: rm {agent_tmp_dir}/your_script.py
 This folder is cleared at the start of each loop. Use it for any analysis the CLI tools don't cover.
-**You MUST write all temporary files here** — do NOT write scripts to the project root or elsewhere.
-The `rm` command only works inside {agent_tmp_dir}/.
+**NEVER write scripts to `scripts/`, the project root, or anywhere else** — you cannot delete
+files outside {agent_tmp_dir}/ and they will be left behind as garbage.
 
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
@@ -245,13 +263,18 @@ strong reasoning. Parallelize aggressively; the bottleneck is wall-clock time, n
 - Spawn another to check diversity patterns
 Then synthesize their findings to write improved prompts.
 
+**Avoid redundancy**: When you delegate analysis to subagents, do NOT run the same queries
+yourself. Wait for subagent results before proceeding. Never call the same command twice —
+save the output mentally and reuse it. Prefer batch commands (`scores`, `summary`, `diversity`)
+over inspecting items one by one.
+
 ## Your task
 1. Read your state file: {state_path}
 2. Read the improver instructions: {improver_path}
 3. Read the current {prompt_type} prompt: {prompt_path} and the {other_type} prompt for context: {other_prompt_path}
-4. If no data exists yet, run a baseline batch first:
-   `uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias}`
-5. Analyze results using query tools (**use Opus subagents to parallelize** — do NOT run queries sequentially)
+4. If no data exists yet, run a baseline batch first (see "Running long commands" above — use background + 600s timeout):
+   `uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias} 2>&1`
+5. Analyze results: start with `diagnose <group_id>` for a full overview, then drill into specifics with `diff`, `failures`, `show`
 6. Write improved {prompt_type} to {model_dir}/{prompt_type}_v{next_v}.md
 7. You may run up to {max_batches} `run_cross_batch` calls to test your changes
 8. Update {state_path} with: what you changed, why, key metrics, and what to try next
@@ -262,12 +285,33 @@ Then synthesize their findings to write improved prompts.
     - **Results**: before/after metrics if you ran test batches
     - **Next steps**: what to try in the next iteration
 
-IMPORTANT:
-- Use `uv run python -m pipeline.improver_tools ...` for data access — NOT raw file reads.
-- Do NOT pipe commands together. Run them as separate Bash calls.
-- You can ONLY write files inside {model_dir}/ and {agent_tmp_dir}/. Do NOT modify any other files.
-- Do NOT overfit to individual examples. Focus on systematic patterns.
-- The {prompt_type} prompt must NOT hardcode specific charter/constitution content.
+## RULES — VIOLATIONS WASTE YOUR LIMITED TOOL CALLS
+
+1. **NO PIPES.** Never use `|` in Bash commands. No `| tail`, `| head`, `| grep`. Run commands
+   separately. Pipes hide exit codes and break background execution.
+2. **NO RAW SQL.** Never open sqlite3 directly. The database is at `data/storage.db` (NOT
+   `pipeline/pipeline.db`), but you should NEVER need it — all data is available via
+   `python -m pipeline.improver_tools`. Use `reasoning <id> <iter>` for judge reasoning details.
+3. **SCRIPTS ONLY IN {agent_tmp_dir}/.** Never write to `scripts/`, project root, or anywhere
+   else — you cannot delete files outside {agent_tmp_dir}/.
+4. Use `uv run python -m pipeline.improver_tools ...` for data access — NOT raw file reads.
+5. Do NOT overfit to individual examples. Focus on systematic patterns.
+6. The {prompt_type} prompt must NOT hardcode specific charter/constitution content.
+7. `diff <iter1> <iter2>` only works for iterations that share source items (i.e. iterations
+   within the SAME cross-batch group). Do NOT diff across different groups.
+
+## Bash Python tips (avoids permission errors)
+When running ad-hoc Python via Bash, **NEVER** use `python -c "..."` with multi-line strings.
+Instead, use heredoc syntax:
+```bash
+uv run python << 'PYEOF'
+from pipeline.phase2.storage import load_items_for_iteration
+items = load_items_for_iteration(3)
+print(len(items))
+PYEOF
+```
+Or write a script to {agent_tmp_dir}/ and run it with `uv run python {agent_tmp_dir}/script.py`.
+The inline `python -c` form triggers security filters on `#` comments and `{{` braces.
 """
 
 
@@ -560,6 +604,7 @@ def _allowed_tools(tmp_dir: Path) -> list[str]:
     """Build allowed tools list for a given scratch directory."""
     return [
         "Read",
+        "Edit",
         "Glob",
         "Grep",
         "Bash(uv run python:*)",

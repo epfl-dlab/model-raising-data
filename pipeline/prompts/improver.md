@@ -20,7 +20,8 @@ You are analyzing iteration results to improve the generator and judge prompts f
 - Are "all good" items (benign texts) being handled correctly, or is the generator forcing problems?
 
 ### 2. Failure Pattern Analysis
-For rejected items (aggregate < threshold), categorize failures:
+Items are rejected if aggregate < threshold OR any dimension scores ≤ 2 (floor rule).
+For rejected items, categorize failures:
 - **Forced problems**: generator flags issues in benign texts instead of saying "all good"
 - **Generic output**: preflection/reflection could apply to any text, not specific to this one
 - **Wrong voice**: preflection uses first person, or reflection uses third person

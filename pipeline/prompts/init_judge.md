@@ -44,8 +44,8 @@ Does the {part_type} use the correct voice, read naturally, and have appropriate
 ## Decision Rule
 
 - Compute the aggregate score as the mean of all dimension scores
-- **Accept** if aggregate >= {accept_threshold}
-- **Reject** otherwise
+- **Floor rule**: if ANY dimension scores ≤ 2, **reject** regardless of aggregate
+- Otherwise, **accept** if aggregate >= {accept_threshold}, **reject** if below
 
 ## Important edge cases
 

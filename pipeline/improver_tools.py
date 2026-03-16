@@ -2,10 +2,11 @@
 
 Usage (via Bash tool):
     python -m pipeline.improver_tools summary <iteration>
-    python -m pipeline.improver_tools failures <iteration> [--limit N] [--reasoning-limit N]
+    python -m pipeline.improver_tools failures <iteration> [--limit N] [--offset N] [--reasoning-limit N]
     python -m pipeline.improver_tools show <item_id>[,id2,...] <iteration> [--brief]
     python -m pipeline.improver_tools show --gold <iteration> [--brief]
     python -m pipeline.improver_tools item <item_id> <iteration>
+    python -m pipeline.improver_tools reasoning <item_id>[,id2,...] <iteration>
     python -m pipeline.improver_tools diversity <iteration>
     python -m pipeline.improver_tools scores <iteration>
     python -m pipeline.improver_tools gold [--limit N] [--offset N] [--verbose]
@@ -13,6 +14,8 @@ Usage (via Bash tool):
     python -m pipeline.improver_tools reviews [<iteration>] [--limit N]
     python -m pipeline.improver_tools filter <iteration> --dim X --below N [--part preflection|reflection]
     python -m pipeline.improver_tools trend
+    python -m pipeline.improver_tools diagnose <group_id>
+    python -m pipeline.improver_tools diff <iter1> <iter2> [--limit N]
     python -m pipeline.improver_tools test_generate <prompt_path> [--items id1,id2,...] [--n N] [--role judge|generator]
     python -m pipeline.improver_tools test_judge <prompt_path> [--items id1,id2,...] [--iteration N] [--role judge|generator]
     python -m pipeline.improver_tools run_batch [--role judge|generator]
@@ -70,7 +73,9 @@ def cmd_summary(iteration: int) -> None:
         print(f"    {dim}: {statistics.mean(vals):.2f}")
 
 
-def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) -> None:
+def cmd_failures(
+    iteration: int, limit: int = 10, reasoning_limit: int = 200, offset: int = 0
+) -> None:
     """Print rejected items with judge reasoning."""
     items = load_items_for_iteration(iteration)
     rejected = [
@@ -78,10 +83,11 @@ def cmd_failures(iteration: int, limit: int = 10, reasoning_limit: int = 200) ->
     ]
     rejected.sort(key=lambda i: i["judgment"]["aggregate"])
 
+    sliced = rejected[offset : offset + limit]
     print(
-        f"Rejected items ({len(rejected)} total, showing {min(limit, len(rejected))}):\n"
+        f"Rejected items ({len(rejected)} total, showing {offset}–{offset + len(sliced)}):\n"
     )
-    for item in rejected[:limit]:
+    for item in sliced:
         j = item["judgment"]
         print(
             f"--- {item['item_id'][:16]} (score={j['aggregate']:.2f}, gold={item.get('is_gold', False)}) ---"
@@ -173,6 +179,33 @@ def cmd_item(item_id: str, iteration: int) -> None:
                 indent=2,
             )
         )
+
+
+def cmd_reasoning(item_ids: list[str], iteration: int) -> None:
+    """Print full judge reasoning for specific items — scores, reasoning, and decision logic."""
+    items = load_items_for_iteration(iteration)
+    for item_id in item_ids:
+        matches = [i for i in items if i["item_id"].startswith(item_id)]
+        if not matches:
+            print(f"No item matching '{item_id}' in iteration {iteration}")
+            continue
+        for item in matches:
+            j = item.get("judgment")
+            if not j:
+                print(f"=== {item['item_id'][:16]} — no judgment ===\n")
+                continue
+            print(
+                f"=== {item['item_id'][:16]} ({j['decision']}, agg={j['aggregate']:.2f}) ===\n"
+            )
+            for part in ("preflection", "reflection"):
+                pj = j.get(part, {})
+                scores = pj.get("scores", {})
+                print(f"  {part} scores: {scores}  (agg={pj.get('aggregate', 0):.2f})")
+                print(f"  {part} reasoning: {pj.get('reasoning', '')}\n")
+            print(f"  text preview: {item['text'][:200]}...")
+            print(f"  preflection: {item.get('preflection', '')[:200]}...")
+            print(f"  reflection: {item.get('reflection', '')[:200]}...")
+            print()
 
 
 def _field_diversity(items, field_name):
@@ -725,6 +758,7 @@ def cmd_test_judge(
         client=client,
         semaphore=semaphore,
         save=False,
+        floor_threshold=cfg.phase2.scoring.floor_threshold,
     )
 
     scores = [j["judgment"]["aggregate"] for j in judged]
@@ -905,6 +939,358 @@ def cmd_cross_summary(group_id: str) -> None:
         )
 
 
+def _collect_judged(iteration: int) -> list[dict]:
+    """Load judged items for an iteration."""
+    items = load_items_for_iteration(iteration)
+    return [i for i in items if i.get("judgment")]
+
+
+def _dim_scores_for_items(judged: list[dict]) -> dict[str, list[float]]:
+    """Collect per-dimension score lists across preflection and reflection."""
+    dim_scores: dict[str, list[float]] = {}
+    for item in judged:
+        for part in ("preflection", "reflection"):
+            part_j = item["judgment"].get(part, {})
+            for dim, score in part_j.get("scores", {}).items():
+                dim_scores.setdefault(f"{part[:3]}_{dim[:3]}", []).append(score)
+    return dim_scores
+
+
+def _score_distribution(all_scores: list[float], label: str) -> None:
+    """Print score distribution and ceiling/floor stats."""
+    if not all_scores:
+        return
+    from collections import Counter as C
+
+    counts = C(int(s) for s in all_scores)
+    total = len(all_scores)
+    print(f"\n  {label} score distribution (n={total}):")
+    for s in sorted(counts):
+        bar = "#" * counts[s]
+        print(f"    {s}: {bar} ({counts[s]}, {counts[s]/total*100:.0f}%)")
+    ceiling = sum(1 for s in all_scores if s >= 5) / total * 100
+    floor = sum(1 for s in all_scores if s <= 2) / total * 100
+    print(f"    ceiling (=5): {ceiling:.0f}%  |  floor (<=2): {floor:.0f}%")
+
+
+def cmd_diagnose(group_id: str) -> None:
+    """One-shot comprehensive analysis for a cross-iteration group.
+
+    Combines: cross_summary, per-dimension means, score distributions,
+    ceiling effects, floor-rule violations, decision flips, diversity,
+    and gold/review availability.
+    """
+    from pipeline.config import load_config
+    from pipeline.phase2.storage import load_runs, load_latest_reviews
+
+    cfg = load_config()
+    floor_thresh = cfg.phase2.scoring.floor_threshold
+
+    runs = load_runs()
+    group_runs = [
+        r for r in runs if r.get("group_id") and r["group_id"].startswith(group_id)
+    ]
+    if not group_runs:
+        print(f"No runs found with group_id starting with '{group_id}'")
+        return
+
+    full_gid = group_runs[0]["group_id"]
+    group_runs = [r for r in runs if r.get("group_id") == full_gid]
+
+    # --- 1. Cross-iteration summary table ---
+    print(
+        f"=== DIAGNOSE group_id={full_gid[:8]}... ({len(group_runs)} iterations) ===\n"
+    )
+
+    iter_data: dict[int, list[dict]] = {}
+    iter_runs: dict[int, dict] = {}
+
+    print(
+        f"{'Iter':>6} {'Generator':>20} {'Judge':>20} "
+        f"{'Items':>6} {'Acc%':>6} {'Mean':>6} {'Floor':>6}"
+    )
+    print("-" * 82)
+    for r in group_runs:
+        it = r["iteration"]
+        judged = _collect_judged(it)
+        iter_data[it] = judged
+        iter_runs[it] = r
+
+        n_acc = sum(1 for i in judged if i["judgment"]["decision"] == "accept")
+        scores = [i["judgment"]["aggregate"] for i in judged]
+        mean_s = statistics.mean(scores) if scores else 0.0
+        acc_pct = n_acc / len(judged) * 100 if judged else 0
+
+        n_floor = sum(
+            1
+            for i in judged
+            if any(
+                s <= floor_thresh
+                for part in ("preflection", "reflection")
+                for s in i["judgment"].get(part, {}).get("scores", {}).values()
+            )
+        )
+
+        print(
+            f"{it:>6} {r['generator_model']:>20} {r['judge_model']:>20} "
+            f"{len(judged):>6} {acc_pct:>5.0f}% {mean_s:>6.2f} {n_floor:>6}"
+        )
+
+    # --- 2. Per-dimension means per iteration ---
+    print("\n--- Per-dimension means ---")
+    all_dim_keys: list[str] = []
+    for judged in iter_data.values():
+        if not judged:
+            continue
+        for part in ("preflection", "reflection"):
+            for dim in judged[0]["judgment"].get(part, {}).get("scores", {}):
+                key = f"{part[:3]}_{dim[:3]}"
+                if key not in all_dim_keys:
+                    all_dim_keys.append(key)
+        break
+
+    header = "  " + f"{'Iter':>6}" + "".join(f" {k:>8}" for k in all_dim_keys)
+    print(header)
+    for it, judged in iter_data.items():
+        dim_scores = _dim_scores_for_items(judged)
+        vals = "".join(
+            f" {statistics.mean(dim_scores.get(k, [0])):>8.2f}" for k in all_dim_keys
+        )
+        print(f"  {it:>6}{vals}")
+
+    # --- 3. Score distribution & ceiling effect ---
+    print("\n--- Score distribution (all dimensions pooled) ---")
+    for it, judged in iter_data.items():
+        dim_scores = _dim_scores_for_items(judged)
+        all_vals = [s for vals in dim_scores.values() for s in vals]
+        r = iter_runs[it]
+        _score_distribution(
+            all_vals,
+            f"iter {it} (gen={r['generator_model']}, judge={r['judge_model']})",
+        )
+
+    # --- 4. Floor-rule violations ---
+    print("\n--- Floor-rule violations (any dimension <= {}) ---".format(floor_thresh))
+    for it, judged in iter_data.items():
+        violations = []
+        for item in judged:
+            j = item["judgment"]
+            for part in ("preflection", "reflection"):
+                for dim, score in j.get(part, {}).get("scores", {}).items():
+                    if score <= floor_thresh:
+                        violations.append(
+                            (
+                                item["item_id"][:12],
+                                part[:3],
+                                dim[:3],
+                                score,
+                                j["aggregate"],
+                            )
+                        )
+        if violations:
+            print(f"  iter {it}: {len(violations)} violations")
+            for iid, p, d, sc, agg in violations:
+                print(f"    {iid} {p}_{d}={sc} (agg={agg:.2f})")
+        else:
+            print(f"  iter {it}: none")
+
+    # --- 5. Decision flips between iterations ---
+    iters = sorted(iter_data.keys())
+    if len(iters) >= 2:
+        print(f"\n--- Decision flips between iterations ---")
+        for i in range(len(iters)):
+            for j in range(i + 1, len(iters)):
+                _print_flips(iters[i], iters[j], iter_data, iter_runs)
+
+    # --- 6. Diversity (compact) ---
+    print("\n--- Diversity (reflection openers) ---")
+    for it, judged in iter_data.items():
+        texts = [i.get("reflection", "") or "" for i in judged if i.get("reflection")]
+        if not texts:
+            continue
+        first_words = Counter(t.split()[0] if t.split() else "" for t in texts)
+        top3 = first_words.most_common(3)
+        top_str = ", ".join(f'"{w}" {c}/{len(texts)}' for w, c in top3)
+
+        openers = Counter(" ".join(t.split()[:5]) for t in texts)
+        dupes = sum(1 for v in openers.values() if v > 1)
+
+        print(
+            f"  iter {it}: top words: {top_str}  |  duplicate 5-word openers: {dupes}"
+        )
+
+    # --- 7. Shared items (tells you which pairs work with `diff`) ---
+    if len(iters) >= 2:
+        print(f"\n--- Shared items (use `diff <iter1> <iter2>` on these pairs) ---")
+        for i in range(len(iters)):
+            for j in range(i + 1, len(iters)):
+                ids_a = {item["item_id"] for item in iter_data[iters[i]]}
+                ids_b = {item["item_id"] for item in iter_data[iters[j]]}
+                shared = len(ids_a & ids_b)
+                if shared > 0:
+                    print(f"  iter {iters[i]} & {iters[j]}: {shared} shared items")
+                else:
+                    print(
+                        f"  iter {iters[i]} & {iters[j]}: no shared items (different samples)"
+                    )
+
+    # --- 8. Gold & review availability ---
+    reviews = load_latest_reviews()
+    n_gold = sum(1 for judged in iter_data.values() for i in judged if i.get("is_gold"))
+    print(f"\n--- Data availability ---")
+    print(f"  Gold items in group: {n_gold}")
+    print(f"  Human reviews total: {len(reviews)}")
+
+
+def _print_flips(
+    iter_a: int,
+    iter_b: int,
+    iter_data: dict[int, list[dict]],
+    iter_runs: dict[int, dict],
+) -> None:
+    """Print decision flips between two iterations on shared items."""
+    items_a = {i["item_id"]: i for i in iter_data[iter_a]}
+    items_b = {i["item_id"]: i for i in iter_data[iter_b]}
+    shared = set(items_a) & set(items_b)
+    if not shared:
+        print(f"  iter {iter_a} vs {iter_b}: no shared items")
+        return
+
+    flips = []
+    for iid in sorted(shared):
+        da = items_a[iid]["judgment"]["decision"]
+        db = items_b[iid]["judgment"]["decision"]
+        if da != db:
+            sa = items_a[iid]["judgment"]["aggregate"]
+            sb = items_b[iid]["judgment"]["aggregate"]
+            flips.append((iid[:12], da, sa, db, sb))
+
+    ra = iter_runs[iter_a]
+    rb = iter_runs[iter_b]
+    agree = len(shared) - len(flips)
+    print(
+        f"  iter {iter_a} ({ra['generator_model']}) vs "
+        f"iter {iter_b} ({rb['generator_model']}): "
+        f"{agree}/{len(shared)} agree, {len(flips)} flips"
+    )
+    for iid, da, sa, db, sb in flips:
+        print(f"    {iid}: {da}({sa:.1f}) -> {db}({sb:.1f}) [diff={sb-sa:+.1f}]")
+
+
+def cmd_diff(iter_a: int, iter_b: int, limit: int = 10) -> None:
+    """Cross-iteration comparison of shared items between two iterations.
+
+    Shows: decision agreement, per-dimension score diffs, and full
+    preflection/reflection text for items that flipped accept<->reject.
+    """
+    judged_a = _collect_judged(iter_a)
+    judged_b = _collect_judged(iter_b)
+    if not judged_a:
+        print(f"No judged items in iteration {iter_a}")
+        return
+    if not judged_b:
+        print(f"No judged items in iteration {iter_b}")
+        return
+
+    by_id_a = {i["item_id"]: i for i in judged_a}
+    by_id_b = {i["item_id"]: i for i in judged_b}
+    shared_ids = sorted(set(by_id_a) & set(by_id_b))
+
+    if not shared_ids:
+        print(f"No shared items between iteration {iter_a} and {iter_b}")
+        return
+
+    # --- Agreement stats ---
+    both_acc = both_rej = only_a_acc = only_b_acc = 0
+    flips: list[tuple[str, dict, dict]] = []
+    agg_diffs: list[float] = []
+    dim_diffs: dict[str, list[float]] = {}
+
+    for iid in shared_ids:
+        ja = by_id_a[iid]["judgment"]
+        jb = by_id_b[iid]["judgment"]
+        da, db = ja["decision"], jb["decision"]
+        agg_diffs.append(jb["aggregate"] - ja["aggregate"])
+
+        if da == "accept" and db == "accept":
+            both_acc += 1
+        elif da == "reject" and db == "reject":
+            both_rej += 1
+        elif da == "accept" and db == "reject":
+            only_a_acc += 1
+            flips.append((iid, by_id_a[iid], by_id_b[iid]))
+        else:
+            only_b_acc += 1
+            flips.append((iid, by_id_a[iid], by_id_b[iid]))
+
+        for part in ("preflection", "reflection"):
+            sa = ja.get(part, {}).get("scores", {})
+            sb = jb.get(part, {}).get("scores", {})
+            for dim in set(sa) & set(sb):
+                key = f"{part[:3]}_{dim[:3]}"
+                dim_diffs.setdefault(key, []).append(sb[dim] - sa[dim])
+
+    total = len(shared_ids)
+    agree = both_acc + both_rej
+    print(f"=== DIFF iter {iter_a} vs iter {iter_b} ({total} shared items) ===\n")
+    print(f"  Decision agreement: {agree}/{total} ({agree/total*100:.0f}%)")
+    print(f"    both accept:  {both_acc}")
+    print(f"    both reject:  {both_rej}")
+    print(f"    only {iter_a} acc: {only_a_acc}")
+    print(f"    only {iter_b} acc: {only_b_acc}")
+
+    # --- Aggregate score diff ---
+    print(f"\n  Aggregate score diff (iter{iter_b} - iter{iter_a}):")
+    print(f"    mean: {statistics.mean(agg_diffs):+.3f}")
+    print(f"    stdev: {statistics.stdev(agg_diffs):.3f}" if len(agg_diffs) > 1 else "")
+
+    # --- Per-dimension diffs ---
+    print(f"\n  Per-dimension mean diff (iter{iter_b} - iter{iter_a}):")
+    for key in sorted(dim_diffs):
+        vals = dim_diffs[key]
+        print(
+            f"    {key}: {statistics.mean(vals):+.2f} (stdev={statistics.stdev(vals):.2f})"
+            if len(vals) > 1
+            else f"    {key}: {statistics.mean(vals):+.2f}"
+        )
+
+    # --- Flipped items with text ---
+    flips.sort(
+        key=lambda x: abs(
+            x[2]["judgment"]["aggregate"] - x[1]["judgment"]["aggregate"]
+        ),
+        reverse=True,
+    )
+    shown = flips[:limit]
+    if shown:
+        print(f"\n--- Decision flips ({len(flips)} total, showing {len(shown)}) ---")
+    for iid, item_a, item_b in shown:
+        ja = item_a["judgment"]
+        jb = item_b["judgment"]
+        print(
+            f"\n  {iid[:16]}: {ja['decision']}({ja['aggregate']:.1f}) -> "
+            f"{jb['decision']}({jb['aggregate']:.1f}) [diff={jb['aggregate']-ja['aggregate']:+.1f}]"
+        )
+
+        # Per-dimension comparison
+        for part in ("preflection", "reflection"):
+            sa = ja.get(part, {}).get("scores", {})
+            sb = jb.get(part, {}).get("scores", {})
+            changes = []
+            for dim in sa:
+                if dim in sb and sa[dim] != sb[dim]:
+                    changes.append(f"{dim[:3]}={sa[dim]}->{sb[dim]}")
+            if changes:
+                print(f"    {part[:3]} changes: {', '.join(changes)}")
+
+        # Show text for context
+        print(f"    text: {item_a['text'][:120]}...")
+        print(f"    iter{iter_a} pre: {item_a.get('preflection', '')[:100]}...")
+        print(f"    iter{iter_b} pre: {item_b.get('preflection', '')[:100]}...")
+        print(f"    iter{iter_a} ref: {item_a.get('reflection', '')[:100]}...")
+        print(f"    iter{iter_b} ref: {item_b.get('reflection', '')[:100]}...")
+
+
 def cmd_test_results(
     phase: str | None = None, type_filter: str | None = None, role: str | None = None
 ) -> None:
@@ -964,11 +1350,14 @@ def main():
         _require_positional(1, "summary <iteration>")
         cmd_summary(int(positional[0]))
     elif cmd == "failures":
-        _require_positional(1, "failures <iteration> [--limit N] [--reasoning-limit N]")
+        _require_positional(
+            1, "failures <iteration> [--limit N] [--offset N] [--reasoning-limit N]"
+        )
         cmd_failures(
             int(positional[0]),
             limit=_get_flag_int("--limit", 10),
             reasoning_limit=_get_flag_int("--reasoning-limit", 200),
+            offset=_get_flag_int("--offset", 0),
         )
     elif cmd == "show":
         brief = "--brief" in args
@@ -982,6 +1371,9 @@ def main():
     elif cmd == "item":
         _require_positional(2, "item <item_id> <iteration>")
         cmd_item(positional[0], int(positional[1]))
+    elif cmd == "reasoning":
+        _require_positional(2, "reasoning <item_id>[,id2,...] <iteration>")
+        cmd_reasoning(positional[0].split(","), int(positional[1]))
     elif cmd == "diversity":
         _require_positional(1, "diversity <iteration>")
         cmd_diversity(int(positional[0]))
@@ -1052,6 +1444,16 @@ def main():
     elif cmd == "cross_summary":
         _require_positional(1, "cross_summary <group_id>")
         cmd_cross_summary(positional[0])
+    elif cmd == "diagnose":
+        _require_positional(1, "diagnose <group_id>")
+        cmd_diagnose(positional[0])
+    elif cmd == "diff":
+        _require_positional(2, "diff <iter1> <iter2> [--limit N]")
+        cmd_diff(
+            int(positional[0]),
+            int(positional[1]),
+            limit=_get_flag_int("--limit", 10),
+        )
     elif cmd == "test_results":
         cmd_test_results(
             phase=_get_flag("--phase"),

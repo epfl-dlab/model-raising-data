@@ -79,6 +79,7 @@ class ScoringConfig:
     scale_min: int = 1
     scale_max: int = 5
     accept_threshold: int = 4
+    floor_threshold: int = 2
     dimensions: list[str] = field(
         default_factory=lambda: [
             "relevance",
