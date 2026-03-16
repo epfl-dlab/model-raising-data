@@ -49,12 +49,19 @@ MAX_RETRIES = 5
 RETRY_BACKOFF_BASE = 2.0
 
 
-def make_api_client(cfg: AppConfig) -> tuple[openai.AsyncOpenAI, asyncio.Semaphore]:
-    """Create an OpenAI client and concurrency semaphore from config."""
+def make_api_client(
+    endpoint: str, max_concurrent: int
+) -> tuple[openai.AsyncOpenAI, asyncio.Semaphore]:
+    """Create an OpenAI client and concurrency semaphore.
+
+    Args:
+        endpoint: API base URL.
+        max_concurrent: Maximum number of concurrent API calls.
+    """
     api_key = os.environ.get("SWISS_AI_API_KEY")
     assert api_key, "SWISS_AI_API_KEY not set in environment"
-    client = openai.AsyncOpenAI(api_key=api_key, base_url=cfg.phase2.endpoint)
-    semaphore = asyncio.Semaphore(cfg.phase2.iteration.max_concurrent)
+    client = openai.AsyncOpenAI(api_key=api_key, base_url=endpoint)
+    semaphore = asyncio.Semaphore(max_concurrent)
     return client, semaphore
 
 
@@ -600,7 +607,9 @@ def _run_one_pair_inner(
 ) -> dict:
     """Inner implementation of _run_one_pair (split out for signal safety)."""
     iteration = next_iteration()
-    client, semaphore = make_api_client(cfg)
+    client, semaphore = make_api_client(
+        cfg.phase2.endpoint, cfg.phase2.iteration.max_concurrent
+    )
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
 
     gen_model_cfg = resolve_generator_model(cfg, gen_alias)
@@ -684,7 +693,9 @@ def _run_cross_iteration(
     """
     from uuid import uuid4
 
-    client, _semaphore = make_api_client(cfg)
+    client, _semaphore = make_api_client(
+        cfg.phase2.endpoint, cfg.phase2.iteration.max_concurrent
+    )
 
     # Determine fixed vs. iterated models
     if role == "judge":
@@ -833,7 +844,9 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
                 )
                 continue
 
-            client, semaphore = make_api_client(cfg)
+            client, semaphore = make_api_client(
+                cfg.phase2.endpoint, cfg.phase2.iteration.max_concurrent
+            )
             api_name = model_cfg.api_name
 
             logger.info(

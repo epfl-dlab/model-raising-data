@@ -126,12 +126,29 @@ class DashboardConfig:
 
 
 @dataclass
+class EscalationConfig:
+    max_per_iteration: int = 10
+
+
+@dataclass
+class Phase3Config:
+    gold_judges: list[ModelConfig] = field(default_factory=list)
+    gold_generators: list[ModelConfig] = field(default_factory=list)
+    target_models: list[ModelConfig] = field(default_factory=list)
+    improver: ImproverConfig = field(default_factory=ImproverConfig)
+    scoring: ScoringConfig = field(default_factory=ScoringConfig)
+    iteration: IterationConfig = field(default_factory=IterationConfig)
+    escalation: EscalationConfig = field(default_factory=EscalationConfig)
+
+
+@dataclass
 class AppConfig:
     charter_path: str = MISSING
     data_dir: str = "data"
     max_tokens: int = 3840
     phase1: Phase1Config = field(default_factory=Phase1Config)
     phase2: Phase2Config = field(default_factory=Phase2Config)
+    phase3: Phase3Config = field(default_factory=Phase3Config)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)
 
 
@@ -168,6 +185,36 @@ def resolve_generator_model(cfg: AppConfig, alias: str) -> ModelConfig:
             return m
     raise ValueError(
         f"No generator model with alias '{alias}'. Available: {[m.alias for m in cfg.phase2.generator_models]}"
+    )
+
+
+def resolve_gold_judge(cfg: AppConfig, alias: str) -> ModelConfig:
+    """Find a gold judge model config by alias in phase3 config."""
+    for m in cfg.phase3.gold_judges:
+        if m.alias == alias:
+            return m
+    raise ValueError(
+        f"No gold judge with alias '{alias}'. Available: {[m.alias for m in cfg.phase3.gold_judges]}"
+    )
+
+
+def resolve_gold_generator(cfg: AppConfig, alias: str) -> ModelConfig:
+    """Find a gold generator model config by alias in phase3 config."""
+    for m in cfg.phase3.gold_generators:
+        if m.alias == alias:
+            return m
+    raise ValueError(
+        f"No gold generator with alias '{alias}'. Available: {[m.alias for m in cfg.phase3.gold_generators]}"
+    )
+
+
+def resolve_target_model(cfg: AppConfig, alias: str) -> ModelConfig:
+    """Find a target model config by alias in phase3 config."""
+    for m in cfg.phase3.target_models:
+        if m.alias == alias:
+            return m
+    raise ValueError(
+        f"No target model with alias '{alias}'. Available: {[m.alias for m in cfg.phase3.target_models]}"
     )
 
 

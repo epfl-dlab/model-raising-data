@@ -48,18 +48,20 @@ def save_run(
     analysis: str,
     source: str = "manual",
     group_id: str | None = None,
+    phase: str = "phase2",
 ) -> None:
     """Append a completed iteration run record.
 
     source: one of "manual", "improve_judge", "improve_generator".
     group_id: shared UUID linking cross-iteration runs in the same batch.
+    phase: pipeline phase ("phase2" or "phase3").
     """
     conn = _get_conn()
     conn.execute(
         """INSERT INTO runs
            (iteration, gen_prompt, judge_prompt, generator_model, judge_model,
-            n_items, n_gold, config, analysis, timestamp, source, group_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            n_items, n_gold, config, analysis, timestamp, source, group_id, phase)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             iteration,
             gen_prompt,
@@ -73,6 +75,7 @@ def save_run(
             datetime.now(timezone.utc).isoformat(),
             source,
             group_id,
+            phase,
         ),
     )
     conn.commit()

@@ -46,5 +46,38 @@ phase2:
     n_gold: 10
     max_concurrent: 50
   loop: {}
+phase3:
+  gold_judges:
+  - alias: glm-4.5-air
+    api_name: jminder/jZ7aJGjetjNN
+    hf_slug: zai-org/GLM-4.5-Air-FP8
+  gold_generators:
+  - alias: glm-4.5-air
+    api_name: jminder/jZ7aJGjetjNN
+    hf_slug: zai-org/GLM-4.5-Air-FP8
+  target_models:
+  - alias: olmo3-7B-think
+    api_name: jminder/XXXXXXXX
+    hf_slug: olmo-ai/olmo-3-7b-thinking
+  improver:
+    judge_prompt: improver_phase3_judge.md
+    generator_prompt: improver_phase3_generator.md
+    max_batches_per_phase: 5
+    timeout_s: 1800
+  scoring:
+    scale_min: 1
+    scale_max: 5
+    accept_threshold: 4
+    dimensions:
+    - relevance
+    - specificity
+    - charter_grounding
+    - voice_tone
+  iteration:
+    n_items: 256
+    n_gold: 24
+    max_concurrent: 50
+  escalation:
+    max_per_iteration: 10
 dashboard:
   port: 8600

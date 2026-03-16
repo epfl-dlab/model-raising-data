@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS runs (
     group_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS escalations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL,
+    group_id TEXT NOT NULL,
+    gold_model TEXT NOT NULL,
+    target_model TEXT NOT NULL,
+    role TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewer_notes TEXT,
+    timestamp TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS test_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     data TEXT NOT NULL,
@@ -169,6 +182,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for col in ("input_tokens", "output_tokens", "reasoning_tokens"):
         if col not in item_cols:
             conn.execute(f"ALTER TABLE items ADD COLUMN {col} INTEGER")
+
+    # Add phase column to runs (added 2026-03-16)
+    if "phase" not in cols:
+        conn.execute("ALTER TABLE runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'phase2'")
 
     # Add judge_model column to judge_correlations and update PK (added 2026-03-13)
     jc_cols = {
