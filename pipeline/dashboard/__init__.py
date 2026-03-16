@@ -24,12 +24,16 @@ if PASSWORD:
 
         async def dispatch(self, request: Request, call_next):
             if not app.storage.user.get("password_ok", False):
-                if not request.url.path.startswith("/_nicegui") and request.url.path != "/password":
+                if (
+                    not request.url.path.startswith("/_nicegui")
+                    and request.url.path != "/password"
+                ):
                     return RedirectResponse("/password")
             return await call_next(request)
 
 
 # --- Shared UI components ---
+
 
 def render_phase_bar(active_phase: int = 1, right_slot=None):
     """Render a stepper-style phase bar with clickable phase links.
@@ -38,6 +42,7 @@ def render_phase_bar(active_phase: int = 1, right_slot=None):
         active_phase: Currently active phase number (1-indexed).
         right_slot: Optional callable rendered on the right side of the bar.
     """
+
     def _circle(n: int) -> str:
         style = (
             "background:#1976d2;border:2px solid #1976d2;color:white;"
@@ -46,7 +51,7 @@ def render_phase_bar(active_phase: int = 1, right_slot=None):
         )
         return (
             f'<div style="width:26px;height:26px;border-radius:50%;{style}'
-            f'display:flex;align-items:center;justify-content:center;'
+            f"display:flex;align-items:center;justify-content:center;"
             f'font-size:0.8em;font-weight:600;flex-shrink:0;">{n}</div>'
         )
 
@@ -59,7 +64,9 @@ def render_phase_bar(active_phase: int = 1, right_slot=None):
         )
 
     connector_color = lambda n: "#1976d2" if n < active_phase else "#444"
-    connector = lambda n: f'<div style="width:40px;height:2px;background:{connector_color(n)};margin:0 8px;flex-shrink:0;"></div>'
+    connector = (
+        lambda n: f'<div style="width:40px;height:2px;background:{connector_color(n)};margin:0 8px;flex-shrink:0;"></div>'
+    )
 
     parts = []
     for n in range(1, N_PHASES + 1):
@@ -68,8 +75,9 @@ def render_phase_bar(active_phase: int = 1, right_slot=None):
         route = PHASE_ROUTES.get(n, "#")
         parts.append(
             f'<a href="{route}" style="text-decoration:none;display:flex;align-items:center;">'
-            + _circle(n) + _label(n)
-            + '</a>'
+            + _circle(n)
+            + _label(n)
+            + "</a>"
         )
 
     stepper_html = (
@@ -78,8 +86,10 @@ def render_phase_bar(active_phase: int = 1, right_slot=None):
         + "</div>"
     )
 
-    with ui.row().classes("items-center justify-between w-full q-px-md").style(
-        "background:#252525;border-top:1px solid #333;min-height:44px;"
+    with (
+        ui.row()
+        .classes("items-center justify-between w-full q-px-md")
+        .style("background:#252525;border-top:1px solid #333;min-height:44px;")
     ):
         ui.html(stepper_html)
         if right_slot:
@@ -95,7 +105,11 @@ def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
         active_phase: Currently active phase number, passed through to render_phase_bar.
         right_slot: Optional callable for phase-bar right side (phase-specific actions).
     """
-    with ui.header().classes("column items-stretch q-pa-none").style("background: #1d1d1d;"):
+    with (
+        ui.header()
+        .classes("column items-stretch q-pa-none")
+        .style("background: #1d1d1d;")
+    ):
         with ui.row().classes("items-center justify-between q-px-md q-py-xs w-full"):
             ui.label("Model Raising Annotation Platform").classes("text-h6 text-white")
             with ui.row().classes("items-center gap-4"):
@@ -103,14 +117,18 @@ def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
                     ui.label(f"Account: {annotator_id}").classes(
                         "text-caption text-weight-medium"
                     ).style("color:#aaa;")
-                ui.button("Logout", on_click=lambda: (
-                    app.storage.user.clear(),
-                    ui.navigate.to("/"),
-                )).classes("text-white").props("flat dense")
+                ui.button(
+                    "Logout",
+                    on_click=lambda: (
+                        app.storage.user.clear(),
+                        ui.navigate.to("/"),
+                    ),
+                ).classes("text-white").props("flat dense")
         render_phase_bar(active_phase, right_slot=right_slot)
 
 
 # --- Shared pages ---
+
 
 @ui.page("/password")
 def password_page():
@@ -131,15 +149,23 @@ def password_page():
             attempts += 1
             app.storage.user["password_attempts"] = attempts
             remaining = MAX_PASSWORD_ATTEMPTS - attempts
-            ui.notify(f"Wrong password. {remaining} attempt(s) remaining.", color="negative")
+            ui.notify(
+                f"Wrong password. {remaining} attempt(s) remaining.", color="negative"
+            )
             pw_input.set_value("")
 
     with ui.column().classes("absolute-center items-center gap-4"):
-        ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
-        ui.label("Enter the password to continue.").classes("text-subtitle1 text-grey-7")
-        pw_input = ui.input("Password", password=True, password_toggle_button=True).on(
-            "keydown.enter", try_password
-        ).classes("w-64")
+        ui.label("Model Raising Annotation Platform").classes(
+            "text-h4 text-weight-bold"
+        )
+        ui.label("Enter the password to continue.").classes(
+            "text-subtitle1 text-grey-7"
+        )
+        pw_input = (
+            ui.input("Password", password=True, password_toggle_button=True)
+            .on("keydown.enter", try_password)
+            .classes("w-64")
+        )
         ui.button("Enter", on_click=try_password, color="primary").classes("w-64")
     return None
 
@@ -150,8 +176,12 @@ def login_page():
     existing_names = load_annotator_ids()
 
     with ui.column().classes("absolute-center items-center gap-4"):
-        ui.label("Model Raising Annotation Platform").classes("text-h4 text-weight-bold")
-        ui.label("Enter your name to begin annotating.").classes("text-subtitle1 text-grey-7")
+        ui.label("Model Raising Annotation Platform").classes(
+            "text-h4 text-weight-bold"
+        )
+        ui.label("Enter your name to begin annotating.").classes(
+            "text-subtitle1 text-grey-7"
+        )
 
         name_input = ui.input(
             label="Annotator name",
@@ -174,3 +204,4 @@ def login_page():
 # --- Register phase routes (import triggers @ui.page decorators) ---
 import pipeline.dashboard.phase1  # noqa: F401, E402
 import pipeline.dashboard.phase2  # noqa: F401, E402
+import pipeline.dashboard.phase3  # noqa: F401, E402

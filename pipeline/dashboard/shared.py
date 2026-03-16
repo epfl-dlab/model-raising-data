@@ -7,7 +7,7 @@ from pipeline.config import CHARTER_PATH, extract_charter_elements
 
 REFLECTION_MARKER_ID = "reflection-marker"
 N_PHASES = 3
-PHASE_ROUTES = {1: "/annotate", 2: "/pipeline"}
+PHASE_ROUTES = {1: "/annotate", 2: "/pipeline", 3: "/phase3"}
 
 _COPY_JS_TEMPLATE = """(e) => {{
     var text = window.{var_name} || "";
@@ -46,10 +46,18 @@ def ensure_sample_loaded():
         with _sample_lock:
             if not SAMPLE_ITEMS:
                 from pipeline.config import load_config
+
                 cfg = load_config()
                 items_per_subset = cfg.phase1.sample_size // len(cfg.phase1.subsets)
                 from pipeline.phase1.sampling import sample_items
-                SAMPLE_ITEMS.extend(sample_items(n_per_subset=items_per_subset, phase1_cfg=cfg.phase1, max_tokens=cfg.max_tokens))
+
+                SAMPLE_ITEMS.extend(
+                    sample_items(
+                        n_per_subset=items_per_subset,
+                        phase1_cfg=cfg.phase1,
+                        max_tokens=cfg.max_tokens,
+                    )
+                )
 
 
 def highlight_charter_md(charter: str, query: str) -> str:
@@ -73,8 +81,8 @@ def render_source_text(text: str, reflection_point: int) -> str:
     esc_after = after.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     marker = (
         f'<span id="{REFLECTION_MARKER_ID}" style="'
-        'background:#ff6b6b;color:white;padding:2px 8px;border-radius:3px;'
-        'font-weight:bold;font-size:0.85em;display:inline-block;margin:2px 0;'
+        "background:#ff6b6b;color:white;padding:2px 8px;border-radius:3px;"
+        "font-weight:bold;font-size:0.85em;display:inline-block;margin:2px 0;"
         '"> ◆ REFLECTION POINT ◆ </span>'
     )
     return f"{esc_before}{marker}{esc_after}"
