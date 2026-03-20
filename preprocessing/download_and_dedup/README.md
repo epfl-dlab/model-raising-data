@@ -1,28 +1,25 @@
 # Download & Dedup
 
-Download upstream HuggingFace dataset shards to local parquet files, with per-file deduplication and short-text filtering.
+Download upstream HuggingFace dataset shards to local parquet files, with short-text filtering.
 
-## Why dedup?
+## Note on upstream row repetition
 
-Upstream `allenai/dolma3_mix-6T` (and its 7B variant) contain within-file row duplication: ~45% of JSONL.zst shards have rows repeated 2-7x consecutively. This inflates the apparent data volume by ~2.8x. The download pipeline deduplicates by document ID during download so the output parquet files are clean.
-
-See `report_upstream_dupes.py` to verify this on any specific shard.
+Upstream `allenai/dolma3_mix-6T` (and its 7B variant) contain within-file row repetition: ~45% of JSONL.zst shards have rows repeated 2-7x consecutively. This is **intentional quality-aware upsampling** by the dataset authors — higher-quality documents are repeated more often. See `report_upstream_dupes.py` to inspect this on any specific shard.
 
 ## Scripts
 
-### `download.py` — Download and deduplicate
+### `download.py` — Download
 
-Downloads upstream shards via HuggingFace streaming, deduplicates rows by ID, filters short texts, and writes local parquet files. Supports incremental resume via manifest + done markers.
+Downloads upstream shards via HuggingFace streaming, filters short texts, and writes local parquet files. Supports incremental resume via manifest + done markers.
 
 **Cleaning steps (per shard):**
-1. Deduplicate by `id` column (keep first occurrence)
-2. Drop rows where `text` has fewer than `--min-chars` characters (default: 32)
+1. Drop rows where `text` has fewer than `--min-chars` characters (default: 32)
 
 ```bash
-# Download 5000 shuffled shards from dolma3
+# Download ~1T tokens worth of shuffled shards from dolma3
 python -m preprocessing.download_and_dedup.download \
     --dataset allenai/dolma3_mix-6T \
-    --n-shards 5000 --shuffle --seed 42 \
+    --n-shards 47142 --shuffle --seed 42 \
     --columns text id source \
     --ignore-errors --workers 8
 
@@ -35,15 +32,15 @@ python -m preprocessing.download_and_dedup.download \
 **Input:** Remote HuggingFace streaming dataset.
 
 **Output:**
-- `part_XXXXX.parquet` — one cleaned parquet file per upstream shard (deduped + filtered)
+- `part_XXXXX.parquet` — one parquet file per upstream shard (short texts filtered)
 - `manifest.json` — deterministic shard plan (survives restarts)
-- `metadata.json` — download stats (row counts before/after dedup, char counts, token estimate)
+- `metadata.json` — download stats (row counts, char counts, token estimate)
 - `.done/` — per-shard completion markers for resume
 
 ### `download_job.sh` — SLURM wrapper
 
 ```bash
-sbatch preprocessing/download_and_dedup/download_job.sh        # default: all shards
+sbatch preprocessing/download_and_dedup/download_job.sh        # default: 47142 shards (~1T tokens)
 sbatch preprocessing/download_and_dedup/download_job.sh 100    # small test
 ```
 
@@ -58,22 +55,14 @@ python -m preprocessing.download_and_dedup.estimate_chars_per_token \
     --target-tokens 1_000_000_000_000
 ```
 
-### `report_upstream_dupes.py` — Verify upstream duplication
+### `report_upstream_dupes.py` — Inspect upstream row repetition
 
-Downloads a specific shard from HuggingFace and reports duplication statistics.
+Downloads a specific shard from HuggingFace and reports repetition statistics (for understanding the quality-aware upsampling).
 
 ```bash
 python preprocessing/download_and_dedup/report_upstream_dupes.py \
     --dataset allenai/dolma3_mix-6T \
     --file data/common_crawl-crime_and_law-0019/shard_00000079.jsonl.zst
-```
-
-### `test_download_dupes.py` — Integration test
-
-Downloads 10 shards and verifies no within-file duplicates remain after dedup.
-
-```bash
-python preprocessing/download_and_dedup/test_download_dupes.py
 ```
 
 ## Pipeline overview

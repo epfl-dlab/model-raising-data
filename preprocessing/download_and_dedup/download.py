@@ -1,9 +1,8 @@
 """Download upstream shards from a HuggingFace dataset to local parquet files.
 
 Selects N upstream shards (optionally shuffled for cross-source diversity),
-deduplicates rows by ID within each shard, and writes one local parquet file
-per shard. Uses multiprocessing to bypass the GIL (JSON/zstd parsing is
-CPU-bound).
+and writes one local parquet file per shard. Uses multiprocessing to bypass
+the GIL (JSON/zstd parsing is CPU-bound).
 
 Supports incremental resume: the shuffled shard plan is saved to a manifest
 file on first run. On restart, already-downloaded shards are skipped.
@@ -98,11 +97,9 @@ def _download_one(
     """Download a single upstream shard to a parquet file.
 
     Uses the per-process cached dataset (set up in _worker_init).
-    Deduplicates rows by ID to work around upstream data duplication
-    in datasets like allenai/dolma3_mix-6T (see report_upstream_dupes.py).
     Filters rows shorter than _worker_min_chars.
 
-    Returns dict with keys: shard_idx, n_out, n_raw, n_after_dedup, n_chars, error.
+    Returns dict with keys: shard_idx, n_out, n_raw, n_chars, error.
     """
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -117,18 +114,6 @@ def _download_one(
 
     n_raw = len(rows)
 
-    if columns is None or "id" in columns:
-        seen: set[str] = set()
-        deduped = []
-        for row in rows:
-            rid = row["id"]
-            if rid not in seen:
-                seen.add(rid)
-                deduped.append(row)
-        rows = deduped
-
-    n_after_dedup = len(rows)
-
     if _worker_min_chars > 0:
         rows = [r for r in rows if len(r.get("text", "")) >= _worker_min_chars]
 
@@ -140,7 +125,6 @@ def _download_one(
         "shard_idx": shard_idx,
         "n_out": len(rows),
         "n_raw": n_raw,
-        "n_after_dedup": n_after_dedup,
         "n_chars": n_chars,
         "error": None,
     }
@@ -259,7 +243,6 @@ def main() -> None:
     errors: list[tuple[int, str]] = []
     n_written_this_run = 0
     n_raw_this_run = 0
-    n_after_dedup_this_run = 0
     n_chars_this_run = 0
     t_start = time.time()
     pbar = tqdm(total=len(shard_order), initial=len(completed), desc="Shards", unit="shard")
@@ -306,7 +289,6 @@ def main() -> None:
             _mark_done(done_dir, upstream_idx)
             n_written_this_run += result["n_out"]
             n_raw_this_run += result["n_raw"]
-            n_after_dedup_this_run += result["n_after_dedup"]
             n_chars_this_run += result["n_chars"]
             next_part_idx += 1
             pbar.update(1)
@@ -323,8 +305,7 @@ def main() -> None:
         "n_shards_skipped": len(errors),
         "total_upstream_shards": n_total,
         "total_rows": n_written_this_run,
-        "total_rows_before_dedup": n_raw_this_run,
-        "total_rows_after_dedup": n_after_dedup_this_run,
+        "total_rows_before_filter": n_raw_this_run,
         "min_chars": args.min_chars,
         "total_chars": n_chars_this_run,
         "chars_per_token": args.chars_per_token,
@@ -339,10 +320,8 @@ def main() -> None:
         metadata["shuffle_seed"] = args.seed
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
-    n_dupes = n_raw_this_run - n_after_dedup_this_run
-    n_short = n_after_dedup_this_run - n_written_this_run
-    dedup_pct = 100 * n_dupes / n_raw_this_run if n_raw_this_run > 0 else 0
-    short_pct = 100 * n_short / n_after_dedup_this_run if n_after_dedup_this_run > 0 else 0
+    n_filtered = n_raw_this_run - n_written_this_run
+    filter_pct = 100 * n_filtered / n_raw_this_run if n_raw_this_run > 0 else 0
     est_tokens = n_chars_this_run / args.chars_per_token
 
     def _fmt_tokens(n: float) -> str:
@@ -359,8 +338,7 @@ def main() -> None:
     print(f"  Output:       {output_dir}")
     print(f"  Shards:       {next_part_idx:,} downloaded ({len(errors)} skipped)")
     print(f"  Rows (raw):   {n_raw_this_run:,}")
-    print(f"  Dedup:        {n_dupes:,} removed ({dedup_pct:.1f}%)")
-    print(f"  Short (<{args.min_chars}): {n_short:,} removed ({short_pct:.1f}%)")
+    print(f"  Short (<{args.min_chars}): {n_filtered:,} removed ({filter_pct:.1f}%)")
     print(f"  Rows (out):   {n_written_this_run:,}")
     print(f"  Characters:   {n_chars_this_run:,}")
     print(f"  Est tokens:   {_fmt_tokens(est_tokens)} ({args.chars_per_token} chars/token)")
