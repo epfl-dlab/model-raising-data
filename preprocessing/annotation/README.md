@@ -67,6 +67,52 @@ sbatch preprocessing/annotation/job.sh --data-dir $SCRATCH/finephrase/all
 python -m preprocessing.annotation.annotate --max-samples 1000
 ```
 
+### Testing the array job (do this first!)
+
+Before scaling to the full dataset, validate the pipeline end-to-end on a small dataset (e.g. `dolma3_mix-1B`, 48 files):
+
+```bash
+# 1. Run a 2-task array with --max-samples 1000 per task
+TOTAL=$(ls $SCRATCH/dolma3_mix-1B/part_*.parquet | wc -l)
+sbatch --array=0-1 preprocessing/annotation/array_job.sh \
+    $SCRATCH/dolma3_mix-1B data/safety_annotations/dolma3_test 2 $TOTAL \
+    --max-samples 1000
+
+# 2. Check both tasks completed
+ls data/safety_annotations/dolma3_test/task_*/DONE
+# Should show task_0000/DONE and task_0001/DONE
+
+# 3. Inspect task metadata
+cat data/safety_annotations/dolma3_test/task_0000/task_meta.json
+
+# 4. Run merge
+python -m preprocessing.annotation.merge \
+    --data-dir $SCRATCH/dolma3_mix-1B \
+    --annotation-dir data/safety_annotations/dolma3_test \
+    --output-dir $SCRATCH/dolma3_mix-1B_annotated_test \
+    --workers 4
+
+# 5. Verify output has safety_score column
+python -c "
+import pyarrow.parquet as pq, glob
+f = sorted(glob.glob('$SCRATCH/dolma3_mix-1B_annotated_test/part_*.parquet'))[0]
+t = pq.read_table(f)
+print(t.schema)
+print(t.column('safety_score').to_pylist()[:20])
+"
+
+# 6. Test crash robustness: delete one DONE marker, verify merge refuses
+rm data/safety_annotations/dolma3_test/task_0001/DONE
+python -m preprocessing.annotation.merge \
+    --data-dir $SCRATCH/dolma3_mix-1B \
+    --annotation-dir data/safety_annotations/dolma3_test \
+    --output-dir /dev/null
+# Should fail with: "1 task(s) missing DONE marker"
+
+# 7. Clean up test outputs
+rm -rf data/safety_annotations/dolma3_test $SCRATCH/dolma3_mix-1B_annotated_test
+```
+
 ### Scaled run (array job)
 
 ```bash
