@@ -79,18 +79,15 @@ python -m preprocessing.annotation.annotate --max-samples 1000
 > The download is shuffled, so the first N files are a representative subset.
 
 ```bash
-# 1. Count input files (or use a subset — see note above)
-TOTAL=$(ls $SCRATCH/dolma3_mix-1T/part_*.parquet | wc -l)
+# 1. Submit 33 tasks for 20K files (~607 files/task, ~6h each)
+sbatch --array=0-32 preprocessing/annotation/array_job.sh \
+    $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 33 20000
 
-# 2. Submit 100 tasks, max 20 concurrent
-sbatch --array=0-99%20 preprocessing/annotation/array_job.sh \
-    $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 100 $TOTAL
+# 2. Resubmit failed tasks (annotate.py resumes automatically)
+sbatch --array=5,23 preprocessing/annotation/array_job.sh \
+    $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 33 20000
 
-# 3. Resubmit failed tasks (annotate.py resumes automatically)
-sbatch --array=5,23,71%20 preprocessing/annotation/array_job.sh \
-    $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 100 $TOTAL
-
-# 4. Merge annotations into output parquet
+# 3. Merge annotations into output parquet
 python -m preprocessing.annotation.merge \
     --data-dir $SCRATCH/dolma3_mix-1T \
     --annotation-dir $SCRATCH/safety_annotations/dolma3 \
@@ -139,6 +136,24 @@ print(t.schema)
 print(t.column('safety_score').to_pylist()[:20])
 "
 ```
+
+## Resource estimates
+
+Calibrated on 2026-03-22 from a 10-node estimation run (380 files across varied sizes):
+
+| Metric | Value |
+|--------|-------|
+| Throughput per node (4×GH200) | 569–799 unique samples/sec (mean 666) |
+| Within-file dedup | ~66% (quality-aware upsampling) |
+| Avg unique rows/file | ~20K |
+| Model load + torch.compile overhead | ~5 min/task |
+
+**20K-file run (33 tasks × ~607 files):**
+
+| | Mean | Conservative (slowest node) |
+|---|---|---|
+| Time per task | ~5.3h | ~5.9h |
+| Total GPU-h | ~504 | ~600 |
 
 ## Experiment tracking
 

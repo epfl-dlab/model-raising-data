@@ -4,21 +4,26 @@
 #SBATCH --partition=normal
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --time=12:00:00
+#SBATCH --time=08:00:00
 #SBATCH --output=preprocessing/annotation/logs/array-%A_%a.out
 #SBATCH --error=preprocessing/annotation/logs/array-%A_%a.err
 #
 # SLURM array job for safety annotation at scale.
 # Each task processes a slice of input parquet files on its own 4×GH200 node.
 #
-# Usage:
-#   TOTAL=$(ls $SCRATCH/dolma3_mix-1T/part_*.parquet | wc -l)
-#   sbatch --array=0-99%20 preprocessing/annotation/array_job.sh \
-#       $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 100 $TOTAL
+# Calibrated on 2026-03-22 (10-node estimation run, 380 files):
+#   - Throughput: 569-799 unique samples/sec/node (mean 666)
+#   - Dedup: ~66% within-file repetition
+#   - Avg unique rows/file: ~20K
+#   - 33 tasks × ~607 files → ~6h/task, ~600-785 GPU-h total
+#
+# Usage (20K-file run):
+#   sbatch --array=0-32 preprocessing/annotation/array_job.sh \
+#       $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 33 20000
 #
 #   # Resubmit failed tasks (same args — resume handles partial work)
-#   sbatch --array=5,23,71%20 preprocessing/annotation/array_job.sh \
-#       $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 100 $TOTAL
+#   sbatch --array=5,23 preprocessing/annotation/array_job.sh \
+#       $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 33 20000
 
 set -euo pipefail
 
