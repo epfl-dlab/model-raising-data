@@ -207,6 +207,29 @@ def next_part_index(output_dir: Path, rank: int) -> int:
     return int(last.split("part")[-1]) + 1
 
 
+def _compute_dedup_indices(data_files: list[str], id_column: str) -> tuple[list[int], int]:
+    """Compute global row indices of first-occurrence rows, deduplicating per file.
+
+    Reads only the id column from each file (lightweight). Duplicates are
+    within-file only (upstream quality-aware upsampling), so the seen-set
+    resets per file.
+
+    Returns (dedup_indices, n_original_rows).
+    """
+    indices = []
+    offset = 0
+    for f in data_files:
+        ids = pq.read_table(f, columns=[id_column]).column(id_column).to_pylist()
+        seen: set[str] = set()
+        for j, doc_id in enumerate(ids):
+            key = str(doc_id)
+            if key not in seen:
+                seen.add(key)
+                indices.append(offset + j)
+        offset += len(ids)
+    return indices, offset
+
+
 # ── inference ────────────────────────────────────────────────────────
 
 SEQ_LEN_BUCKETS = list(range(32, 2049, 32))  # 32, 64, 96, ..., 2048 (64 buckets)
@@ -440,6 +463,10 @@ def main() -> None:
         if is_main:
             print(f"Loading from local parquet: {args.data_dir} ({len(data_files)} files)")
         ds = load_dataset("parquet", data_files=data_files, split="train")
+        dedup_indices, n_original = _compute_dedup_indices(data_files, args.id_column)
+        ds = ds.select(dedup_indices)
+        if is_main and n_original > 0:
+            print(f"Dedup: {n_original:,} -> {len(ds):,} rows ({100*(1-len(ds)/n_original):.1f}% removed)")
     else:
         ds = load_dataset(
             args.dataset,
@@ -476,6 +503,7 @@ def main() -> None:
             "file_start": args.file_start,
             "file_count": len(data_files),
             "n_input_rows": n_input_rows,
+            "n_original_rows": n_original,
             "world_size": world_size,
             "files": [Path(f).name for f in data_files],
         }

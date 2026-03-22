@@ -4,10 +4,10 @@ Reads per-task annotation shards produced by the array job and writes the
 ``safety_score`` column (int8, argmax only) into a separate output directory,
 preserving original filenames.
 
-Positional merge: each task's annotations preserve input row order.
-``split_dataset_by_node`` with contiguous sharding gives rank 0 rows [0, N/W),
-rank 1 rows [N/W, 2N/W), etc. Concatenating annotation shards in rank order
-reconstructs the full annotation sequence matching the original row order.
+Id-based merge: annotation shards contain (id, safety_score) pairs for
+deduplicated rows. The merge reads each original input file, looks up
+every row's id in the annotation dict, and writes the score for every row
+(including duplicates that share the same id and therefore the same score).
 
 Usage::
 
@@ -54,13 +54,19 @@ def parse_args() -> argparse.Namespace:
         default=8,
         help="Number of parallel workers for writing output files (default: 8)",
     )
+    p.add_argument(
+        "--id-column",
+        type=str,
+        default="id",
+        help="Column name for row ID used in id-based merge (default: id)",
+    )
     return p.parse_args()
 
 
-def _read_task_annotations(task_dir: Path) -> tuple[dict, np.ndarray]:
-    """Read task metadata and concatenate all annotation shards into a single score array.
+def _read_task_annotations(task_dir: Path, id_column: str = "id") -> tuple[dict, dict[str, int]]:
+    """Read task metadata and build id -> safety_score mapping from annotation shards.
 
-    Returns (task_meta dict, int8 score array of length n_input_rows).
+    Returns (task_meta dict, {id_string: safety_score_int}).
     """
     meta_path = task_dir / "task_meta.json"
     assert meta_path.exists(), f"Missing task_meta.json in {task_dir}"
@@ -76,17 +82,19 @@ def _read_task_annotations(task_dir: Path) -> tuple[dict, np.ndarray]:
         )
         shard_files.extend(rank_shards)
 
-    scores = []
+    id_to_score: dict[str, int] = {}
     for sf in shard_files:
-        table = pq.read_table(str(sf), columns=["safety_score"])
-        scores.append(table.column("safety_score").to_numpy())
+        table = pq.read_table(str(sf), columns=[id_column, "safety_score"])
+        id_to_score.update(zip(
+            table.column(id_column).to_pylist(),
+            table.column("safety_score").to_pylist(),
+        ))
 
-    scores_arr = np.concatenate(scores).astype(np.int8)
-    assert len(scores_arr) == meta["n_input_rows"], (
-        f"Task {task_dir.name}: annotation count {len(scores_arr)} != "
-        f"expected {meta['n_input_rows']} input rows"
+    assert len(id_to_score) == meta["n_input_rows"], (
+        f"Task {task_dir.name}: {len(id_to_score)} unique annotations != "
+        f"{meta['n_input_rows']} expected (deduped count)"
     )
-    return meta, scores_arr
+    return meta, id_to_score
 
 
 def _write_annotated_file(
@@ -136,30 +144,24 @@ def main() -> None:
     total_rows_written = 0
 
     for task_dir in task_dirs:
-        meta, scores_arr = _read_task_annotations(task_dir)
+        meta, id_to_score = _read_task_annotations(task_dir, id_column=args.id_column)
         input_files = [data_dir / f for f in meta["files"]]
 
-        # get row counts per input file via metadata (fast, no data load)
-        row_counts = []
         for f in input_files:
             assert f.exists(), f"Input file not found: {f}"
-            row_counts.append(pq.read_metadata(str(f)).num_rows)
 
+        row_counts = [pq.read_metadata(str(f)).num_rows for f in input_files]
         total_input_rows = sum(row_counts)
-        assert total_input_rows == meta["n_input_rows"], (
+        assert total_input_rows == meta["n_original_rows"], (
             f"Task {task_dir.name}: sum of input file rows {total_input_rows} != "
-            f"metadata n_input_rows {meta['n_input_rows']}"
+            f"metadata n_original_rows {meta['n_original_rows']}"
         )
 
-        # compute cumulative offsets to slice the score array per file
-        offsets = np.cumsum([0] + row_counts)
-
-        # prepare work items for parallel writing
         work_items = []
-        for i, input_file in enumerate(input_files):
-            output_path = output_dir / input_file.name
-            score_slice = scores_arr[offsets[i] : offsets[i + 1]]
-            work_items.append((input_file, output_path, score_slice))
+        for input_file in input_files:
+            ids = pq.read_table(str(input_file), columns=[args.id_column]).column(args.id_column).to_pylist()
+            scores = np.array([id_to_score[str(doc_id)] for doc_id in ids], dtype=np.int8)
+            work_items.append((input_file, output_dir / input_file.name, scores))
 
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
             futures = [pool.submit(_write_annotated_file, *item) for item in work_items]
@@ -167,7 +169,9 @@ def main() -> None:
                 total_rows_written += fut.result()
 
         total_files_written += len(input_files)
-        print(f"  {task_dir.name}: merged {len(input_files)} files ({total_input_rows:,} rows)")
+        dedup_pct = 100 * (1 - len(id_to_score) / total_input_rows) if total_input_rows > 0 else 0
+        print(f"  {task_dir.name}: merged {len(input_files)} files "
+              f"({total_input_rows:,} rows, {len(id_to_score):,} unique, {dedup_pct:.1f}% dedup)")
 
     print(f"\nDone. {total_files_written} files, {total_rows_written:,} rows written to {output_dir}")
 
