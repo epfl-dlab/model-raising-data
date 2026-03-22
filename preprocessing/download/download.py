@@ -173,6 +173,24 @@ def _mark_done(done_dir: Path, upstream_idx: int):
     (done_dir / f"{upstream_idx}.done").touch()
 
 
+_METADATA_ZERO = {
+    "total_rows": 0,
+    "total_rows_before_filter": 0,
+    "total_chars": 0,
+    "n_shards_skipped": 0,
+    "elapsed_s": 0.0,
+}
+
+
+def _load_previous_metadata(output_dir: Path) -> dict:
+    """Load cumulative stats from a previous run's metadata.json, or zeros."""
+    meta_path = output_dir / "metadata.json"
+    if not meta_path.exists():
+        return dict(_METADATA_ZERO)
+    prev = json.loads(meta_path.read_text())
+    return {k: prev.get(k, v) for k, v in _METADATA_ZERO.items()}
+
+
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for dataset download."""
     scratch = os.environ.get("SCRATCH", f"/iopsstor/scratch/cscs/{os.environ.get('USER', 'unknown')}")
@@ -240,10 +258,12 @@ def main() -> None:
     # Count existing parquet files for sequential naming
     next_part_idx = len(list(output_dir.glob("part_*.parquet")))
 
+    # Load cumulative stats from previous runs (if resuming)
+    prev_metadata = _load_previous_metadata(output_dir)
     errors: list[tuple[int, str]] = []
-    n_written_this_run = 0
-    n_raw_this_run = 0
-    n_chars_this_run = 0
+    n_rows = prev_metadata["total_rows"]
+    n_raw = prev_metadata["total_rows_before_filter"]
+    n_chars = prev_metadata["total_chars"]
     t_start = time.time()
     pbar = tqdm(total=len(shard_order), initial=len(completed), desc="Shards", unit="shard")
 
@@ -287,9 +307,9 @@ def main() -> None:
 
             Path(tmp_path).rename(output_dir / f"part_{next_part_idx:05d}.parquet")
             _mark_done(done_dir, upstream_idx)
-            n_written_this_run += result["n_out"]
-            n_raw_this_run += result["n_raw"]
-            n_chars_this_run += result["n_chars"]
+            n_rows += result["n_out"]
+            n_raw += result["n_raw"]
+            n_chars += result["n_chars"]
             next_part_idx += 1
             pbar.update(1)
             _submit_next()
@@ -297,21 +317,20 @@ def main() -> None:
     pbar.close()
     elapsed = time.time() - t_start
 
-    n_downloaded = len(completed) + len(remaining) - len(errors)
     metadata = {
         "source_dataset": args.dataset,
         "subset": args.subset,
         "n_shards_downloaded": next_part_idx,
-        "n_shards_skipped": len(errors),
+        "n_shards_skipped": prev_metadata["n_shards_skipped"] + len(errors),
         "total_upstream_shards": n_total,
-        "total_rows": n_written_this_run,
-        "total_rows_before_filter": n_raw_this_run,
+        "total_rows": n_rows,
+        "total_rows_before_filter": n_raw,
         "min_chars": args.min_chars,
-        "total_chars": n_chars_this_run,
+        "total_chars": n_chars,
         "chars_per_token": args.chars_per_token,
-        "estimated_tokens": round(n_chars_this_run / args.chars_per_token),
+        "estimated_tokens": round(n_chars / args.chars_per_token),
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "elapsed_s": round(elapsed, 1),
+        "elapsed_s": round(prev_metadata["elapsed_s"] + elapsed, 1),
     }
     if args.columns is not None:
         metadata["columns"] = args.columns
@@ -320,9 +339,9 @@ def main() -> None:
         metadata["shuffle_seed"] = args.seed
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
-    n_filtered = n_raw_this_run - n_written_this_run
-    filter_pct = 100 * n_filtered / n_raw_this_run if n_raw_this_run > 0 else 0
-    est_tokens = n_chars_this_run / args.chars_per_token
+    n_filtered = n_raw - n_rows
+    filter_pct = 100 * n_filtered / n_raw if n_raw > 0 else 0
+    est_tokens = n_chars / args.chars_per_token
 
     def _fmt_tokens(n: float) -> str:
         if n >= 1e12:
@@ -336,13 +355,13 @@ def main() -> None:
     print(f"\n{'='*60}")
     print(f"  Dataset:      {args.dataset}")
     print(f"  Output:       {output_dir}")
-    print(f"  Shards:       {next_part_idx:,} downloaded ({len(errors)} skipped)")
-    print(f"  Rows (raw):   {n_raw_this_run:,}")
+    print(f"  Shards:       {next_part_idx:,} downloaded ({metadata['n_shards_skipped']} skipped)")
+    print(f"  Rows (raw):   {n_raw:,}")
     print(f"  Short (<{args.min_chars}): {n_filtered:,} removed ({filter_pct:.1f}%)")
-    print(f"  Rows (out):   {n_written_this_run:,}")
-    print(f"  Characters:   {n_chars_this_run:,}")
+    print(f"  Rows (out):   {n_rows:,}")
+    print(f"  Characters:   {n_chars:,}")
     print(f"  Est tokens:   {_fmt_tokens(est_tokens)} ({args.chars_per_token} chars/token)")
-    print(f"  Elapsed:      {elapsed:.1f}s")
+    print(f"  Elapsed:      {metadata['elapsed_s']:.1f}s (cumulative)")
     print(f"{'='*60}")
 
 
