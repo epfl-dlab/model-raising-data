@@ -73,8 +73,13 @@ python -m preprocessing.annotation.annotate --max-samples 1000
 
 ### Scaled run (array job)
 
+> **Note (2026-03-22):** `$SCRATCH/dolma3_mix-1T/` contains 47,142 shards (~4.03T tokens),
+> not the 1T the directory name suggests. For a 1T-token annotation run, pass
+> `TOTAL=12000` (or up to 14,625 for conservative estimate) instead of counting all files.
+> The download is shuffled, so the first N files are a representative subset.
+
 ```bash
-# 1. Count input files
+# 1. Count input files (or use a subset — see note above)
 TOTAL=$(ls $SCRATCH/dolma3_mix-1T/part_*.parquet | wc -l)
 
 # 2. Submit 100 tasks, max 20 concurrent
