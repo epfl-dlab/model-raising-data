@@ -101,33 +101,17 @@ def scan_source(
                 pbar.update(1)
 
     # Assemble in file_idx order
-    all_ids: list[pa.Array] = []
-    all_tokens: list[pa.Array] = []
-    all_scores: list[pa.Array] = []
-    all_file_idx: list[pa.Array] = []
-
+    per_file_tables = []
     for file_idx in range(len(source_files)):
         ids, est_tokens, scores, nrows = results[file_idx]
-        all_ids.append(ids)
-        all_tokens.append(est_tokens)
-        all_scores.append(scores)
-        all_file_idx.append(pa.array([file_idx] * nrows, type=pa.int32()))
+        per_file_tables.append(pa.table({
+            "id": ids,
+            "est_tokens": est_tokens,
+            "safety_score": scores,
+            "file_idx": pa.array([file_idx] * nrows, type=pa.int32()),
+        }))
 
-    def _concat(arrays: list[pa.Array | pa.ChunkedArray]) -> pa.Array:
-        chunks = []
-        for a in arrays:
-            if isinstance(a, pa.ChunkedArray):
-                chunks.extend(a.chunks)
-            else:
-                chunks.append(a)
-        return pa.concat_arrays(chunks)
-
-    index = pa.table({
-        "id": _concat(all_ids),
-        "est_tokens": _concat(all_tokens),
-        "safety_score": _concat(all_scores),
-        "file_idx": _concat(all_file_idx),
-    })
+    index = pa.concat_tables(per_file_tables, promote_options="permissive")
 
     total_tokens = pc.sum(index.column("est_tokens")).as_py()
     print(f"\nIndex: {len(index):,} rows, {_fmt_tokens(total_tokens)} total tokens")
