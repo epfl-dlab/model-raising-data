@@ -174,9 +174,12 @@ def teardown_distributed(timeout_s: int = 120) -> None:
     """Barrier + destroy, with a timeout so a stuck rank doesn't hang the job."""
     if torch.distributed.is_initialized():
         try:
-            torch.distributed.barrier(timeout=torch.distributed.default_pg_timeout
-                                      if timeout_s is None
-                                      else __import__("datetime").timedelta(seconds=timeout_s))
+            import datetime
+            try:
+                torch.distributed.barrier(timeout=datetime.timedelta(seconds=timeout_s))
+            except TypeError:
+                # Older torch versions don't accept timeout kwarg
+                torch.distributed.barrier()
         except Exception as e:
             print(f"WARNING: barrier timed out or failed ({e}), proceeding with teardown")
         torch.distributed.destroy_process_group()
