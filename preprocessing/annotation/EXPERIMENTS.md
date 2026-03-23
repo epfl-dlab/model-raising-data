@@ -23,7 +23,7 @@ Wall-clock per task: 4.0–4.7h (mean 4.4h), faster than estimate due to conserv
 
 ### Score distribution
 
-**Deduplicated (391,474,169 unique annotations — uploaded to HF):**
+**Deduplicated (391,474,169 unique annotations — uploaded to [jkminder/dolma3-safety-annotations](https://huggingface.co/datasets/jkminder/dolma3-safety-annotations)):**
 
 | Score | Label | Count | % |
 |-------|-------|------:|---:|
