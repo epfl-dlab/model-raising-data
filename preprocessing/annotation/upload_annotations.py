@@ -157,7 +157,7 @@ size_categories:
 
 # Safety Annotations for dolma3_mix
 
-Safety score annotations for a 20K-shard subset of [allenai/dolma3](https://huggingface.co/datasets/allenai/dolma-v1_7) using
+Safety score annotations for a 20K-shard subset of [allenai/dolma3_mix-6T](https://huggingface.co/datasets/allenai/dolma3_mix-6T) using
 [locuslab/safety-classifier_gte-large-en-v1.5](https://huggingface.co/locuslab/safety-classifier_gte-large-en-v1.5).
 
 ## Schema
