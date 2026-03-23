@@ -96,7 +96,6 @@ def main() -> None:
             probs = table.column("safety_probs").to_pylist()
             for i, doc_id in enumerate(ids):
                 id_to_annotation[doc_id] = (scores[i], probs[i])
-                score_counts[scores[i]] += 1
             task_rows += len(table)
         total_shard_rows += task_rows
         print(f"  {task_dir.name}: {task_rows:,} shard rows")
@@ -106,6 +105,10 @@ def main() -> None:
     print(f"\nTotal shard rows: {total_shard_rows:,}")
     print(f"Unique annotations: {n_unique:,}")
     print(f"Cross-file duplicates removed: {n_cross_dupes:,}")
+
+    # Compute score distribution from deduplicated data
+    for _, (score, _) in id_to_annotation.items():
+        score_counts[score] += 1
 
     # Write consolidated parquet files
     print(f"\nWriting consolidated files ({args.rows_per_file:,} rows each)...")

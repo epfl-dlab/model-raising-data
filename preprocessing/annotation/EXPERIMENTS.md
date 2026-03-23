@@ -21,7 +21,22 @@
 
 Wall-clock per task: 4.0–4.7h (mean 4.4h), faster than estimate due to conservative calibration.
 
-### Score distribution (1,180,506,475 rows)
+### Score distribution
+
+**Deduplicated (391,474,169 unique annotations — uploaded to HF):**
+
+| Score | Label | Count | % |
+|-------|-------|------:|---:|
+| 0 | safe | 302,972,734 | 77.39% |
+| 1 | minimal | 38,143,123 | 9.74% |
+| 2 | mild | 32,004,998 | 8.18% |
+| 3 | moderate | 10,592,853 | 2.71% |
+| 4 | significant | 3,990,755 | 1.02% |
+| 5 | severe | 3,769,706 | 0.96% |
+
+Safe (0-1): 87.1% | Unsafe (2-5): 12.9%
+
+**Merged with upsampling (1,180,506,475 rows — in `$SCRATCH/dolma3_mix-1T_annotated/`):**
 
 | Score | Label | Count | % |
 |-------|-------|------:|---:|
@@ -33,6 +48,8 @@ Wall-clock per task: 4.0–4.7h (mean 4.4h), faster than estimate due to conserv
 | 5 | severe | 10,421,118 | 0.88% |
 
 Safe (0-1): 87.6% | Unsafe (2-5): 12.4%
+
+Note: upsampled distribution skews slightly more toward "safe" because higher-quality documents (which tend to be safer) are repeated more often.
 
 ### Incidents
 
