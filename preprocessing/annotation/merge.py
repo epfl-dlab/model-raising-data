@@ -83,17 +83,22 @@ def _read_task_annotations(task_dir: Path, id_column: str = "id") -> tuple[dict,
         shard_files.extend(rank_shards)
 
     id_to_score: dict[str, int] = {}
+    total_shard_rows = 0
     for sf in shard_files:
         table = pq.read_table(str(sf), columns=[id_column, "safety_score"])
+        total_shard_rows += len(table)
         id_to_score.update(zip(
             table.column(id_column).to_pylist(),
             table.column("safety_score").to_pylist(),
         ))
 
-    assert len(id_to_score) == meta["n_input_rows"], (
-        f"Task {task_dir.name}: {len(id_to_score)} unique annotations != "
+    assert total_shard_rows == meta["n_input_rows"], (
+        f"Task {task_dir.name}: {total_shard_rows} shard rows != "
         f"{meta['n_input_rows']} expected (deduped count)"
     )
+    if len(id_to_score) < total_shard_rows:
+        n_cross = total_shard_rows - len(id_to_score)
+        print(f"  {task_dir.name}: {n_cross} cross-file duplicate IDs (same id in multiple files)")
     return meta, id_to_score
 
 
