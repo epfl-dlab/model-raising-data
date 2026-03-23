@@ -39,7 +39,29 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+
+_DEFAULT_SCAN_WORKERS = 16
+
+
+def _scan_one_file(
+    file_idx: int,
+    fpath: Path,
+    id_column: str,
+    text_column: str,
+    chars_per_token: float,
+) -> tuple[int, pa.Array, pa.Array, pa.Array, int]:
+    """Read one parquet file and return (file_idx, ids, est_tokens, scores, nrows)."""
+    table = pq.read_table(fpath, columns=[id_column, text_column, "safety_score"])
+    ids = table.column(id_column)
+    text = table.column(text_column)
+    scores = table.column("safety_score").cast(pa.int8())
+
+    lengths = pc.utf8_length(text).cast(pa.float64())
+    est_tokens = pc.divide(lengths, pa.scalar(chars_per_token, pa.float64()))
+
+    return file_idx, ids, est_tokens, scores, len(table)
 
 
 def scan_source(
@@ -47,39 +69,50 @@ def scan_source(
     id_column: str,
     text_column: str,
     chars_per_token: float,
+    scan_workers: int = _DEFAULT_SCAN_WORKERS,
 ) -> pa.Table:
     """Scan source parquet files and build a lightweight index table.
 
     Source files must contain ``id``, ``text``, and ``safety_score`` columns
-    (produced by the annotation merge step).
+    (produced by the annotation merge step).  Uses *scan_workers* threads
+    for parallel I/O.
 
     Returns a PyArrow table with columns:
     ``(id: string, est_tokens: float64, safety_score: int8, file_idx: int32)``.
     """
     source_files = sorted(source_dir.glob("part_*.parquet"))
     assert source_files, f"No part_*.parquet files found in {source_dir}"
-    print(f"\nScanning {len(source_files)} source files...")
+    print(f"\nScanning {len(source_files)} source files ({scan_workers} workers)...")
 
+    # Parallel file reads — results collected in file_idx order
+    results: dict[int, tuple] = {}
+    with ThreadPoolExecutor(max_workers=scan_workers) as pool:
+        futures = {
+            pool.submit(
+                _scan_one_file, file_idx, fpath,
+                id_column, text_column, chars_per_token,
+            ): file_idx
+            for file_idx, fpath in enumerate(source_files)
+        }
+        with tqdm(total=len(source_files), desc="Source files") as pbar:
+            for future in as_completed(futures):
+                file_idx, ids, est_tokens, scores, nrows = future.result()
+                results[file_idx] = (ids, est_tokens, scores, nrows)
+                pbar.update(1)
+
+    # Assemble in file_idx order
     all_ids: list[pa.Array] = []
     all_tokens: list[pa.Array] = []
     all_scores: list[pa.Array] = []
     all_file_idx: list[pa.Array] = []
 
-    for file_idx, fpath in enumerate(tqdm(source_files, desc="Source files")):
-        table = pq.read_table(fpath, columns=[id_column, text_column, "safety_score"])
-        ids = table.column(id_column)
-        text = table.column(text_column)
-        scores = table.column("safety_score").cast(pa.int8())
-
-        lengths = pc.utf8_length(text).cast(pa.float64())
-        est_tokens = pc.divide(lengths, pa.scalar(chars_per_token, pa.float64()))
-
+    for file_idx in range(len(source_files)):
+        ids, est_tokens, scores, nrows = results[file_idx]
         all_ids.append(ids)
         all_tokens.append(est_tokens)
         all_scores.append(scores)
-        all_file_idx.append(pa.array([file_idx] * len(table), type=pa.int32()))
+        all_file_idx.append(pa.array([file_idx] * nrows, type=pa.int32()))
 
-    # Column arrays from pq.read_table are ChunkedArrays; flatten before concat
     def _concat(arrays: list[pa.Array | pa.ChunkedArray]) -> pa.Array:
         chunks = []
         for a in arrays:
@@ -577,6 +610,8 @@ def parse_args() -> argparse.Namespace:
                    help="Text column name (default: text)")
     p.add_argument("--rows-per-file", type=int, default=500_000,
                    help="Max rows per output parquet file (default: 500000)")
+    p.add_argument("--scan-workers", type=int, default=_DEFAULT_SCAN_WORKERS,
+                   help=f"Parallel workers for source file scan (default: {_DEFAULT_SCAN_WORKERS})")
     p.add_argument("--overwrite", action="store_true",
                    help="Remove existing output directory")
     return p.parse_args()
@@ -605,9 +640,10 @@ def main() -> None:
 
     t_start = time.time()
 
-    # Pass 1: scan source files and build index
+    # Pass 1: scan source files and build index (parallel)
     index = scan_source(
         source_dir, args.id_column, args.text_column, args.chars_per_token,
+        scan_workers=args.scan_workers,
     )
 
     if legacy_mode:
