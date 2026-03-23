@@ -5,18 +5,19 @@ Tokenize dolma3 parquets into two Megatron-format training streams.
 ## Pipeline position
 
 ```
-  subsample_and_stratify       tokenization
-$SCRATCH/dolma3_mix-1T/   --> tokenize.py --> $SCRATCH/tokenized/
-  (with has_annotation)       compact + split   compact/megatron/ + annotated/
+  subsample_and_stratify            tokenization
+$SCRATCH/dolma3_non_annotated/ --> tokenize.py --compact--> $SCRATCH/tokenized/compact/megatron/
+$SCRATCH/dolma3_annotated/     --> tokenize.py --split---> $SCRATCH/tokenized/annotated/
 ```
 
 ## Input
 
-`$SCRATCH/dolma3_mix-1T/part_*.parquet` with columns:
-- `text` (str)
-- `id` (str)
-- `source` (str)
-- `has_annotation` (bool)
+Two **pre-split** directories (produced by `subsample_and_stratify`):
+
+- `--compact-data-dir` (default `$SCRATCH/dolma3_non_annotated/`): parquets with non-annotated samples only.
+- `--annotated-data-dir` (default `$SCRATCH/dolma3_annotated/`): parquets with annotated samples only.
+
+Required columns: `text` (str), `id` (str). Additional columns are ignored.
 
 Tokenizer: `HuggingFaceTB/SmolLM2-1.7B-Instruct`, EOS = `<|endoftext|>` (token id 0).
 
@@ -42,8 +43,8 @@ $SCRATCH/tokenized/
 
 | Path | Format | Sequence length | Routing |
 |------|--------|-----------------|---------|
-| `compact/megatron/` | Megatron `.bin` + `.idx` (2049 tokens: 2048 + 1 for NTP) | 2048 | `has_annotation=False` |
-| `annotated/` | Megatron `.bin` + `.idx` + sidecar (padded to 2049) | 1920 content (2048 - 128 reflection budget) | `has_annotation=True` |
+| `compact/megatron/` | Megatron `.bin` + `.idx` (2049 tokens: 2048 + 1 for NTP) | 2048 | `--compact-data-dir` |
+| `annotated/` | Megatron `.bin` + `.idx` + sidecar (padded to 2049) | 1920 content (2048 - 128 reflection budget) | `--annotated-data-dir` |
 
 ### Compact stream
 
@@ -102,14 +103,19 @@ ann_lengths = np.load("$PERSIST/annotated/token_lengths.npy")
 ```bash
 # Both pipelines
 uv run python -m preprocessing.tokenization.tokenize \
-    --data-dir $SCRATCH/dolma3_mix-1T --output-dir $SCRATCH/tokenized
+    --compact-data-dir $SCRATCH/dolma3_non_annotated \
+    --annotated-data-dir $SCRATCH/dolma3_annotated \
+    --output-dir $SCRATCH/tokenized
 
 # Compact only (quick test with 4 workers)
 uv run python -m preprocessing.tokenization.tokenize \
+    --compact-data-dir $SCRATCH/dolma3_non_annotated \
     --pipeline compact --workers 4
 
 # Split only
-uv run python -m preprocessing.tokenization.tokenize --pipeline split
+uv run python -m preprocessing.tokenization.tokenize \
+    --annotated-data-dir $SCRATCH/dolma3_annotated \
+    --pipeline split
 
 # Full SLURM run
 sbatch preprocessing/tokenization/job.sh

@@ -1,8 +1,8 @@
 """End-to-end test for the two-stream tokenization pipeline.
 
-Creates synthetic input parquets (with has_annotation column), runs both the
-compact and split pipelines, and verifies Megatron .bin + .idx output format,
-sidecar schema, token lengths, EOS/PAD boundaries, and shuffle.
+Creates two separate synthetic input directories (compact + annotated), runs
+both pipelines, and verifies Megatron .bin + .idx output format, sidecar
+schema, token lengths, EOS/PAD boundaries, and shuffle.
 """
 
 import shutil
@@ -20,47 +20,66 @@ TEST_DIR = Path.home() / "tmp" / "test_tokenize"
 _MEGATRON_MAGIC = b"MMIDIDX\x00\x00"
 
 
-def _setup_test_data(test_dir: Path) -> Path:
-    """Create synthetic input parquets with has_annotation column.
+def _setup_test_data(test_dir: Path) -> tuple[Path, Path]:
+    """Create two separate input directories: compact and annotated.
 
-    Returns the data directory containing part_00000.parquet, part_00001.parquet.
-    Each file has ~50 rows, ~5 with has_annotation=True.
+    Returns (compact_dir, annotated_dir).
+    Compact: 2 parquet files, ~45 non-annotated rows each.
+    Annotated: 2 parquet files, ~5 annotated rows each.
     """
-    data_dir = test_dir / "input"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    compact_dir = test_dir / "input_compact"
+    annotated_dir = test_dir / "input_annotated"
+    compact_dir.mkdir(parents=True, exist_ok=True)
+    annotated_dir.mkdir(parents=True, exist_ok=True)
 
     for part_idx in range(2):
-        n_rows = 50
-        ids = [f"doc_{part_idx}_{i:04d}" for i in range(n_rows)]
-        # Vary text length: most are 50-100 words, a few are short/long
-        texts = []
-        for i in range(n_rows):
-            if i == 0 and part_idx == 0:
-                # Very short annotated doc
-                texts.append("Hello world.")
-            elif i == 1 and part_idx == 0:
-                # Very long annotated doc (forces truncation to 1920 tokens)
-                texts.append("The quick brown fox jumps over the lazy dog. " * 200)
-            else:
-                texts.append(
-                    f"Document {part_idx}_{i}: "
-                    + "This is a test sentence with enough words to produce tokens. " * 5
-                )
-
-        # ~5 annotated per file (indices 0-4)
-        has_annotation = [i < 5 for i in range(n_rows)]
-        safety_scores = [4 if i < 3 else 1 for i in range(n_rows)]
-
-        table = pa.table({
-            "id": pa.array(ids, type=pa.string()),
-            "text": pa.array(texts, type=pa.string()),
-            "source": pa.array(["test"] * n_rows, type=pa.string()),
-            "safety_score": pa.array(safety_scores, type=pa.int8()),
-            "has_annotation": pa.array(has_annotation, type=pa.bool_()),
+        # --- Compact (non-annotated) ---
+        n_compact = 45
+        compact_ids = [f"compact_{part_idx}_{i:04d}" for i in range(n_compact)]
+        compact_texts = [
+            f"Document {part_idx}_{i}: "
+            + "This is a test sentence with enough words to produce tokens. " * 5
+            for i in range(n_compact)
+        ]
+        compact_table = pa.table({
+            "id": pa.array(compact_ids, type=pa.string()),
+            "text": pa.array(compact_texts, type=pa.string()),
+            "source": pa.array(["test"] * n_compact, type=pa.string()),
         })
-        pq.write_table(table, str(data_dir / f"part_{part_idx:05d}.parquet"))
+        pq.write_table(compact_table, str(compact_dir / f"part_{part_idx:05d}.parquet"))
 
-    return data_dir
+        # --- Annotated ---
+        n_ann = 5
+        ann_ids = [f"ann_{part_idx}_{i:04d}" for i in range(n_ann)]
+        ann_texts = []
+        for i in range(n_ann):
+            if i == 0 and part_idx == 0:
+                # Very short doc
+                ann_texts.append("Hello world.")
+            elif i == 1 and part_idx == 0:
+                # Very long doc (forces truncation to 1920 tokens)
+                ann_texts.append("The quick brown fox jumps over the lazy dog. " * 200)
+            else:
+                ann_texts.append(
+                    f"Annotated document {part_idx}_{i}: "
+                    + "This text will receive a reflection annotation later. " * 5
+                )
+        ann_table = pa.table({
+            "id": pa.array(ann_ids, type=pa.string()),
+            "text": pa.array(ann_texts, type=pa.string()),
+            "source": pa.array(["test"] * n_ann, type=pa.string()),
+        })
+        pq.write_table(ann_table, str(annotated_dir / f"part_{part_idx:05d}.parquet"))
+
+    return compact_dir, annotated_dir
+
+
+def _collect_all_ids(data_dir: Path) -> set[str]:
+    """Collect all doc IDs from parquets in a directory."""
+    ids = set()
+    for f in sorted(data_dir.glob("part_*.parquet")):
+        ids.update(pq.read_table(f, columns=["id"]).column("id").to_pylist())
+    return ids
 
 
 def _read_megatron_idx(idx_path: Path) -> dict:
@@ -97,26 +116,15 @@ def _read_megatron_bin(bin_path: Path, idx: dict) -> np.ndarray:
     return data.reshape(n, seq_len)
 
 
-def _collect_annotated_ids(data_dir: Path) -> set[str]:
-    """Collect all doc IDs with has_annotation=True from input parquets."""
-    import pyarrow.compute as pc
-    ids = set()
-    for f in sorted(data_dir.glob("part_*.parquet")):
-        table = pq.read_table(f, columns=["id", "has_annotation"])
-        mask = pc.equal(table.column("has_annotation"), True)
-        ids.update(table.filter(mask).column("id").to_pylist())
-    return ids
-
-
 def test_pipeline_both():
     """Run --pipeline both and verify all outputs."""
     test_dir = TEST_DIR
     if test_dir.exists():
         shutil.rmtree(test_dir)
 
-    data_dir = _setup_test_data(test_dir)
+    compact_dir, annotated_dir = _setup_test_data(test_dir)
     output_dir = test_dir / "output"
-    expected_annotated_ids = _collect_annotated_ids(data_dir)
+    expected_annotated_ids = _collect_all_ids(annotated_dir)
     n_annotated = len(expected_annotated_ids)
     assert n_annotated == 10, f"Expected 10 annotated, got {n_annotated}"
 
@@ -124,7 +132,8 @@ def test_pipeline_both():
     result = subprocess.run(
         [
             sys.executable, "-m", "preprocessing.tokenization.tokenize",
-            "--data-dir", str(data_dir),
+            "--compact-data-dir", str(compact_dir),
+            "--annotated-data-dir", str(annotated_dir),
             "--output-dir", str(output_dir),
             "--workers", "2",
             "--pipeline", "both",
@@ -142,19 +151,18 @@ def test_pipeline_both():
     # =====================================================================
     # Verify compact output
     # =====================================================================
-    compact_dir = output_dir / "compact" / "megatron"
-    assert (compact_dir / "compact.bin").exists(), "compact.bin missing"
-    assert (compact_dir / "compact.idx").exists(), "compact.idx missing"
+    compact_out = output_dir / "compact" / "megatron"
+    assert (compact_out / "compact.bin").exists(), "compact.bin missing"
+    assert (compact_out / "compact.idx").exists(), "compact.idx missing"
 
-    compact_idx = _read_megatron_idx(compact_dir / "compact.idx")
+    compact_idx = _read_megatron_idx(compact_out / "compact.idx")
     assert compact_idx["version"] == 1
     assert compact_idx["dtype_code"] == 8  # uint16
     assert all(compact_idx["seq_lengths"] == 2049), "Not all compact seqs are 2049"
     print(f"Compact: {compact_idx['seq_count']} windows")
 
     if compact_idx["seq_count"] > 0:
-        compact_windows = _read_megatron_bin(compact_dir / "compact.bin", compact_idx)
-        # All tokens should be valid uint16 (no negative, within vocab range)
+        compact_windows = _read_megatron_bin(compact_out / "compact.bin", compact_idx)
         assert compact_windows.min() >= 0
         assert compact_windows.max() < 49152, "Token out of SmolLM2 vocab range"
 
@@ -206,7 +214,6 @@ def test_pipeline_both():
         f"Sidecar IDs mismatch: {sidecar_ids - expected_annotated_ids} extra, "
         f"{expected_annotated_ids - sidecar_ids} missing"
     )
-    # Empty columns initialized correctly
     assert all(r == "" for r in sidecar.column("reflection").to_pylist())
     assert all(r == "" for r in sidecar.column("preflection").to_pylist())
     assert all(r == 0 for r in sidecar.column("reflection_position").to_pylist())
@@ -239,13 +246,13 @@ def test_pipeline_split_standalone():
     if test_dir.exists():
         shutil.rmtree(test_dir)
 
-    data_dir = _setup_test_data(test_dir)
+    _, annotated_dir = _setup_test_data(test_dir)
     output_dir = test_dir / "output"
 
     result = subprocess.run(
         [
             sys.executable, "-m", "preprocessing.tokenization.tokenize",
-            "--data-dir", str(data_dir),
+            "--annotated-data-dir", str(annotated_dir),
             "--output-dir", str(output_dir),
             "--workers", "2",
             "--pipeline", "split",
