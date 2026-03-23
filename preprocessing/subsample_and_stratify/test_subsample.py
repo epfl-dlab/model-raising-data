@@ -151,8 +151,9 @@ def _verify_output(output_dir: Path) -> None:
 
     # Annotated should be ~5% total (2.5% bad + 2.5% good)
     annotated_pct = 100 * (annotated_bad_tokens + annotated_good_tokens) / total_tokens
-    assert 1.0 <= annotated_pct <= 15.0, (
-        f"Annotated fraction {annotated_pct:.1f}% outside reasonable range [1%, 15%]"
+    print(f"  Annotated fraction: {annotated_pct:.2f}% (expected ~5%)")
+    assert 3.0 <= annotated_pct <= 8.0, (
+        f"Annotated fraction {annotated_pct:.2f}% outside reasonable range [3%, 8%]"
     )
 
     # All annotated bad rows should have score >= 4
