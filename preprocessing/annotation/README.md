@@ -160,7 +160,18 @@ Calibrated on 2026-03-22 from a 10-node estimation run (380 files across varied 
 | | Mean | Conservative (slowest node) |
 |---|---|---|
 | Time per task | ~5.3h | ~5.9h |
-| Total GPU-h | ~504 | ~600 |
+| Total GPU-h (estimate) | ~504 | ~600 |
+
+**Actual usage (2026-03-23 run):**
+
+| | GPU-h |
+|---|---:|
+| Successful runs (33 tasks) | 579 |
+| Failed first run (NCCL barrier, 17 tasks resubmitted) | ~340 |
+| Estimation + test runs | ~50 |
+| **Total spent** | **~970** |
+
+Wall-clock per task: 4.0–4.7h (mean 4.4h), faster than estimate due to conservative calibration.
 
 ## Experiment tracking
 
