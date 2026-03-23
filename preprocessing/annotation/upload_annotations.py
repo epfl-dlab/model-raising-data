@@ -174,24 +174,15 @@ Safety score annotations for a 20K-shard subset of [allenai/dolma3](https://hugg
 |-------|-------|------:|------------|
 {score_table}
 
-## How this was produced
+## Usage
 
-1. **Annotation** (`annotate.py`): 33 SLURM array tasks on 4×GH200 nodes, each processing ~607 parquet files.
-   Within-file deduplication reduces work by ~66% (quality-aware upsampling in source data).
-   Uses `torchrun` for multi-GPU inference with length-sorted batching and torch.compile.
+This dataset contains only annotations — no text. Join on `id` with the source dataset to get text + safety scores.
 
-2. **Consolidation** (`upload_annotations.py`): All annotation shards deduplicated by ID into
-   a single clean dataset. Cross-file duplicate IDs (same ID in multiple source files) are
-   collapsed to one entry.
+## Details
 
-3. **This dataset contains only annotations** — no text. Join on `id` with the source dataset
-   to get text + safety scores.
-
-## Resource usage
-
-- ~600 GPU-hours on NVIDIA GH200 120GB (4 GPUs per node)
-- Throughput: ~666 unique samples/sec per node (mean across 33 tasks)
+- ~600 GPU-hours on NVIDIA GH200 120GB
 - Total unique annotations: **{n_unique:,}**
+- Pipeline code: [epfl-dlab/model-raising-data](https://github.com/epfl-dlab/model-raising-data)
 """
     (output_dir / "README.md").write_text(readme)
     print("README.md written.")
