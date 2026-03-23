@@ -29,20 +29,6 @@ $SCRATCH/dolma3_mix-1T/
 
 Upstream `allenai/dolma3_mix-6T` contains within-file row repetition: ~45% of shards have rows repeated 2-7x consecutively. This is **intentional quality-aware upsampling** by the dataset authors -- higher-quality documents are repeated more often. The download stage does NOT deduplicate; dedup happens later in the annotation pipeline (`_compute_dedup_indices` in `annotate.py`). See `report_upstream_dupes.py` to inspect repetition statistics on any shard.
 
-## Current state (2026-03-22)
-
-We downloaded 47,142 shuffled shards from `allenai/dolma3_mix-6T` (63,911 total upstream shards) to `$SCRATCH/dolma3_mix-1T/`. Running `estimate_chars_per_token.py` on 100 sampled shards with `meta-llama/Llama-3.1-8B` gives:
-
-| Metric | Value |
-|--------|-------|
-| Chars/token | 4.455 |
-| Tokens/shard (mean) | 85.48M |
-| Tokens/shard (std) | 87.25M |
-| 95% CI tokens/shard | [68.38M, 102.58M] |
-| **Total (47,142 shards)** | **~4.03T tokens** |
-
-Shard sizes are highly heterogeneous (std ≈ mean), so the original 47,142-shard recommendation (based on probing a single upstream shard) overshot the 1T target by ~4x. For 1T tokens, use **~11,700 shards** (mean) or **~14,625 shards** (conservative, lower 95% CI). Since the download is shuffled, any prefix of the existing files is a representative subset — no need to re-download.
-
 ## Usage
 
 ```bash
@@ -79,3 +65,5 @@ sbatch preprocessing/download/download_job.sh 100    # small test
 ## Resume
 
 Incremental: the shuffled shard plan is saved to `manifest.json` on first run. On restart, shards with a `.done/` marker are skipped. Resubmit the same job and it picks up where it left off.
+
+Run logs: see [EXPERIMENTS.md](EXPERIMENTS.md).

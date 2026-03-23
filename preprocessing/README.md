@@ -68,6 +68,8 @@ All job scripts log runs to `data/experiments/<stage>.jsonl` in the repository v
 
 Annotation jobs additionally write `gpu_monitor.json` per task via `gpu_monitor.py` (GPU hours, utilization, power, temperature), and the GPU metrics are automatically included in the experiment log.
 
+Each submodule has an `EXPERIMENTS.md` with actual run results, incidents, and data paths.
+
 ## Resume
 
 Each stage has its own resume mechanism (see submodule READMEs). General pattern: completion markers prevent re-processing already-finished work on resubmit.

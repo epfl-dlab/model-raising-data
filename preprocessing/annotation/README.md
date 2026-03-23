@@ -73,13 +73,8 @@ python -m preprocessing.annotation.annotate --max-samples 1000
 
 ### Scaled run (array job)
 
-> **Note (2026-03-22):** `$SCRATCH/dolma3_mix-1T/` contains 47,142 shards (~4.03T tokens),
-> not the 1T the directory name suggests. For a 1T-token annotation run, pass
-> `TOTAL=12000` (or up to 14,625 for conservative estimate) instead of counting all files.
-> The download is shuffled, so the first N files are a representative subset.
-
 ```bash
-# 1. Submit 33 tasks for 20K files (~607 files/task, ~6h each)
+# 1. Submit N tasks (partitions input files across tasks, 4×GH200 each)
 sbatch --array=0-32 preprocessing/annotation/array_job.sh \
     $SCRATCH/dolma3_mix-1T $SCRATCH/safety_annotations/dolma3 33 20000
 
@@ -162,53 +157,15 @@ Calibrated on 2026-03-22 from a 10-node estimation run (380 files across varied 
 | Time per task | ~5.3h | ~5.9h |
 | Total GPU-h (estimate) | ~504 | ~600 |
 
-**Actual usage (2026-03-23 run):**
+## Resume
 
-| | GPU-h |
-|---|---:|
-| Successful runs (33 tasks) | 579 |
-| Failed first run (NCCL barrier, 17 tasks resubmitted) | ~340 |
-| Estimation + test runs | ~50 |
-| **Total spent** | **~970** |
-
-Wall-clock per task: 4.0–4.7h (mean 4.4h), faster than estimate due to conservative calibration.
+- **Within a task** -- corrupt parquet files (missing footer from killed jobs) are deleted on resume. Already-written rows are skipped via `count_existing_rows`. Resubmitting the same array index picks up where it left off.
+- **Across tasks** -- each task writes a `DONE` marker only on successful completion. Failed tasks are easy to identify and resubmit.
+- **At merge time** -- `merge.py` validates that all tasks have `DONE` markers and that annotation row counts match input row counts. Fails fast with a report of what's missing.
 
 ## Experiment tracking
 
 - `task_meta.json` per task: file list, row counts, world_size, dedup stats
 - `gpu_monitor.json` per task: wall-clock GPU hours, peak memory, utilization/power/temperature samples (via `gpu_monitor.py`)
 - `data/experiments/annotation.jsonl` in the repo: logs each run with git hash, SLURM job info, config, duration, and GPU metrics. Committed and version-controlled.
-
-## Known issues
-
-### NCCL barrier hang at teardown (2026-03-23)
-
-During the first 20K-file run, 17/33 tasks failed because `torch.distributed.barrier()` in `teardown_distributed()` hung indefinitely after inference completed. All data was already flushed and writers closed, but the barrier blocked until SLURM killed the job — preventing the DONE marker from being written.
-
-**Root cause:** NCCL barrier with no timeout. On GH200 nodes, some ranks finish the barrier faster than others; when the gap exceeds NCCL's internal timeout, the collective deadlocks.
-
-**Fix (dadfe1b):**
-1. Added 120s timeout to the barrier — if stuck, logs a warning and proceeds to `destroy_process_group()`
-2. Moved DONE marker write before the barrier — data integrity doesn't depend on the barrier since all writers are already closed
-
-**Impact:** 16/33 tasks completed on the first attempt, 17 had to be resubmitted. No data was lost (resume handled partial shards), but the resubmission restarted most ranks from scratch due to intermediate cancel corrupting in-progress writes.
-
-### Cross-file duplicate IDs break merge assertion (2026-03-23)
-
-Per-file dedup keeps one occurrence of each ID *per file*, but the same ID can appear in different files (cross-file duplicates). The merge builds a global `id → score` dict which deduplicates these, so `len(dict) < n_input_rows`. The original assertion `len(id_to_score) == n_input_rows` failed on task_0000 (4 cross-file duplicates, including one `None` ID).
-
-**Fix (52e41ab):** Assert on total shard rows instead of unique dict entries. Log the cross-file overlap count.
-
-### Schema mismatch on file 0 (2026-03-22)
-
-`load_dataset("parquet", ...)` loads all columns by default. Some parquet files have `source: null` type while others have `source: string`, causing HF datasets to fail on schema reconciliation. Fixed by passing `columns=[id_column, text_column]` to only load needed columns.
-
-### Classifier false positives at score 5
-
-The safety classifier (locuslab/safety-classifier_gte-large-en-v1.5) produces some false positives at score 5 (severe) — e.g., a real estate agent bio classified as severe with 91% confidence. Verified this is model behavior, not a pipeline bug. Keep this in mind when choosing a filtering threshold in `subsample_and_stratify`.
-
-## Resume
-
-- **Within a task** -- corrupt parquet files (missing footer from killed jobs) are deleted on resume. Already-written rows are skipped via `count_existing_rows`. Resubmitting the same array index picks up where it left off.
-- **Across tasks** -- each task writes a `DONE` marker only on successful completion. Failed tasks are easy to identify and resubmit.
-- **At merge time** -- `merge.py` validates that all tasks have `DONE` markers and that annotation row counts match input row counts. Fails fast with a report of what's missing.
+- Run logs and incidents: see [EXPERIMENTS.md](EXPERIMENTS.md)
