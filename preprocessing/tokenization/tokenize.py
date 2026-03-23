@@ -1,24 +1,33 @@
-"""Tokenize dolma3 parquets into two Megatron-format training streams.
+"""Tokenize pre-split parquets into two Megatron-format training streams.
+
+Expects two separate input directories (produced by subsample_and_stratify):
+
+* ``--compact-data-dir`` — parquets with non-annotated samples only.
+* ``--annotated-data-dir`` — parquets with annotated samples only.
 
 Two pipelines controlled by ``--pipeline {compact,split,both}``:
 
-* **compact** — tokenize ``has_annotation=False`` samples into packed
-  2048-token windows via datatrove, output as Megatron ``.bin`` + ``.idx``.
-* **split** — tokenize ``has_annotation=True`` samples, one per padded
-  2049-token window, output as Megatron ``.bin`` + ``.idx`` plus a sidecar
-  parquet with original text and token lengths for downstream reflection.
+* **compact** — pack non-annotated samples into dense 2048-token windows,
+  output as Megatron ``.bin`` + ``.idx``.
+* **split** — tokenize annotated samples, one per padded 2049-token window,
+  output as Megatron ``.bin`` + ``.idx`` plus a sidecar parquet with original
+  text and token lengths for downstream reflection.
 
 Usage::
 
     # Both pipelines (default)
     python -m preprocessing.tokenization.tokenize \\
-        --data-dir $SCRATCH/dolma3_mix-1T --output-dir $SCRATCH/tokenized
+        --compact-data-dir $SCRATCH/dolma3_non_annotated \\
+        --annotated-data-dir $SCRATCH/dolma3_annotated \\
+        --output-dir $SCRATCH/tokenized
 
     # Compact only
-    python -m preprocessing.tokenization.tokenize --pipeline compact
+    python -m preprocessing.tokenization.tokenize \\
+        --compact-data-dir $SCRATCH/dolma3_non_annotated --pipeline compact
 
-    # Split only, 4 workers (quick test)
-    python -m preprocessing.tokenization.tokenize --pipeline split --workers 4
+    # Split only
+    python -m preprocessing.tokenization.tokenize \\
+        --annotated-data-dir $SCRATCH/dolma3_annotated --pipeline split
 """
 
 import argparse
@@ -41,32 +50,29 @@ def _count_parquets(data_dir: str) -> int:
 
 
 def run_compact(args: argparse.Namespace) -> None:
-    """Tokenize has_annotation=False samples into packed Megatron .bin + .idx."""
+    """Tokenize non-annotated samples into packed Megatron .bin + .idx."""
     from datatrove.executor.local import LocalPipelineExecutor
     from datatrove.pipeline.readers import ParquetReader
     from datatrove.pipeline.tokens.merger import DocumentTokenizerMerger
 
     from preprocessing.tokenization.steps import (
-        AnnotationFilter,
         MegatronContextShuffler,
         TruncatingDocumentTokenizer,
     )
 
     out = Path(args.output_dir) / "compact"
     logs = str(Path(args.output_dir) / "logs")
-    n_tasks = _count_parquets(args.data_dir)
+    n_tasks = _count_parquets(args.compact_data_dir)
     print(f"Compact: {n_tasks} input files, {args.workers} workers, seq_length={args.seq_length}")
 
     # Stage 1: tokenize (parallel across input files)
     stage1 = LocalPipelineExecutor(
         pipeline=[
             ParquetReader(
-                data_folder=args.data_dir,
+                data_folder=args.compact_data_dir,
                 text_key="text",
                 id_key="id",
-                read_metadata=True,
             ),
-            AnnotationFilter(keep_annotated=False),
             TruncatingDocumentTokenizer(
                 max_doc_tokens=args.seq_length,
                 output_folder=str(out / "tokenized"),
@@ -121,12 +127,12 @@ def run_compact(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _scan_annotated(data_dir: str) -> list[dict]:
-    """Scan input parquets and collect lightweight metadata for annotated rows.
+def _collect_annotated(data_dir: str) -> list[dict]:
+    """Collect (doc_id, file_path, row_index) for all rows in annotated parquets.
 
-    Returns a list of ``{doc_id, file_path, row_index}`` dicts (text not loaded).
+    All rows are assumed annotated (the input directory contains only annotated
+    samples).  Text is NOT loaded — just lightweight metadata for shuffling.
     """
-    import pyarrow.compute as pc
     import pyarrow.parquet as pq
 
     input_files = sorted(Path(data_dir).rglob("*.parquet"))
@@ -134,11 +140,8 @@ def _scan_annotated(data_dir: str) -> list[dict]:
 
     entries: list[dict] = []
     for fpath in tqdm(input_files, desc="Scanning annotated", unit="file"):
-        table = pq.read_table(fpath, columns=["id", "has_annotation"])
-        mask = pc.equal(table.column("has_annotation"), True)
-        ids = table.filter(mask).column("id").to_pylist()
-        indices = pc.indices_nonzero(mask).to_pylist()
-        for doc_id, row_idx in zip(ids, indices):
+        ids = pq.read_table(fpath, columns=["id"]).column("id").to_pylist()
+        for row_idx, doc_id in enumerate(ids):
             entries.append(
                 {"doc_id": doc_id, "file_path": str(fpath), "row_index": row_idx}
             )
@@ -151,7 +154,7 @@ _EOS_TOKEN_ID = 0
 
 
 def run_split(args: argparse.Namespace) -> None:
-    """Tokenize has_annotation=True samples into padded Megatron .bin + .idx + sidecar."""
+    """Tokenize annotated samples into padded Megatron .bin + .idx + sidecar."""
     import numpy as np
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -172,9 +175,9 @@ def run_split(args: argparse.Namespace) -> None:
     window_size = args.seq_length + 1  # 2049
 
     # --- Pass 1: collect lightweight metadata ---
-    entries = _scan_annotated(args.data_dir)
+    entries = _collect_annotated(args.annotated_data_dir)
     n_annotated = len(entries)
-    assert n_annotated > 0, "No has_annotation=True rows found"
+    assert n_annotated > 0, f"No annotated rows found in {args.annotated_data_dir}"
     print(f"Split: {n_annotated} annotated samples, max_tokens={max_tokens}")
 
     # --- Shuffle with fixed seed ---
@@ -183,7 +186,6 @@ def run_split(args: argparse.Namespace) -> None:
     entries = [entries[i] for i in perm]
 
     # --- Pass 2: group by file, read text, build position→data mapping ---
-    # Group entries by file_path for efficient I/O
     from collections import defaultdict
     file_groups: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
     for pos, entry in enumerate(entries):
@@ -191,7 +193,6 @@ def run_split(args: argparse.Namespace) -> None:
             (pos, entry["row_index"], entry["doc_id"])
         )
 
-    # Allocate arrays indexed by shuffled position
     texts: list[str | None] = [None] * n_annotated
     doc_ids: list[str | None] = [None] * n_annotated
 
@@ -209,7 +210,7 @@ def run_split(args: argparse.Namespace) -> None:
     # --- Write .bin + .idx + sidecar + token_lengths ---
     megatron_file = MegatronTokenizedFile(
         output_folder=str(out),
-        filename="annotated_tmp",  # writes annotated_tmp.bin + .idx, renamed after
+        filename="annotated_tmp",
         token_size=2,
     )
 
@@ -239,7 +240,6 @@ def run_split(args: argparse.Namespace) -> None:
         sidecar_doc_ids.append(did)
         sidecar_texts.append(text)
 
-        # Free memory as we go
         texts[pos] = None
         doc_ids[pos] = None
 
@@ -283,13 +283,19 @@ def parse_args() -> argparse.Namespace:
     )
 
     p = argparse.ArgumentParser(
-        description="Tokenize dolma3 parquets into training-ready format."
+        description="Tokenize pre-split parquets into two Megatron training streams."
     )
     p.add_argument(
-        "--data-dir",
+        "--compact-data-dir",
         type=str,
-        default=f"{scratch}/dolma3_mix-1T",
-        help="Input parquets directory",
+        default=f"{scratch}/dolma3_non_annotated",
+        help="Input parquets for compact path (non-annotated samples only)",
+    )
+    p.add_argument(
+        "--annotated-data-dir",
+        type=str,
+        default=f"{scratch}/dolma3_annotated",
+        help="Input parquets for split path (annotated samples only)",
     )
     p.add_argument(
         "--output-dir",
