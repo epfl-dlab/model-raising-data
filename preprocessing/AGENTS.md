@@ -4,13 +4,20 @@ When modifying code in the preprocessing pipeline, agents MUST follow these rule
 
 ## README maintenance
 
-Each subdirectory has a README with a unified structure (pipeline position, input, output, usage, experiment tracking, resume). If you change any of the following, update the relevant README:
+Each subdirectory has two docs:
+
+- **README.md** -- standalone code docs: what scripts do, how to run them, input/output, resume. No run-specific results or dates.
+- **EXPERIMENTS.md** -- actual run log: results, incidents, timestamps, paths, distributions.
+
+If you change any of the following, update the relevant **README.md**:
 
 - **Input/output paths or formats** -- update the Input/Output sections
 - **CLI arguments** -- update Usage examples
 - **New scripts or files** -- add to the Scripts table
 - **Resume behavior** -- update the Resume section
 - **Dependencies** -- note in the README if a new package is required
+
+If you run an experiment, encounter an incident, or produce results, log them in the relevant **EXPERIMENTS.md**.
 
 The top-level `preprocessing/README.md` has the full pipeline overview and output directory layout. Update it if you add a new pipeline stage or change output paths.
 
