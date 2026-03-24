@@ -418,6 +418,24 @@ def _fill_budget(
     return selected, actual
 
 
+def _read_and_filter(
+    fpath: Path,
+    target_ids: set[str],
+    id_column: str,
+    has_annotation_value: bool,
+) -> pa.Table:
+    """Read a source file, filter to target IDs, and add has_annotation column."""
+    table = pq.read_table(fpath)
+    ids = table.column(id_column)
+    mask = pc.is_in(ids, value_set=pa.array(list(target_ids), type=ids.type))
+    filtered = table.filter(mask)
+    filtered = filtered.append_column(
+        "has_annotation",
+        pa.array([has_annotation_value] * len(filtered), type=pa.bool_()),
+    )
+    return filtered
+
+
 def _write_partition(
     source_dir: Path,
     selected: pa.Table,
@@ -425,11 +443,12 @@ def _write_partition(
     id_column: str,
     rows_per_file: int,
     has_annotation_value: bool,
+    write_workers: int = _DEFAULT_SCAN_WORKERS,
 ) -> None:
     """Write a partition of selected rows to an output directory.
 
-    Re-reads source files for selected rows, adds ``has_annotation`` column
-    with the given constant value, and writes buffered parquet output.
+    Re-reads source files in parallel for selected rows, adds
+    ``has_annotation`` column, and writes buffered parquet output.
     """
     source_files = sorted(source_dir.glob("part_*.parquet"))
 
@@ -457,30 +476,40 @@ def _write_partition(
         buffer_rows = []
         buffer_count = 0
 
-    selected_id_set = set(id_col)
     label = "annotated" if has_annotation_value else "unannotated"
+    sorted_fidxs = sorted(files_needed.keys())
     print(f"\n  Writing {label} to {output_subdir}...")
-    print(f"    Source files to read: {len(files_needed)} of {len(source_files)}")
+    print(f"    Source files to read: {len(sorted_fidxs)} of {len(source_files)}")
+    print(f"    Workers: {write_workers}")
 
-    for fidx in tqdm(sorted(files_needed.keys()), desc=f"  {label}"):
-        target_ids = files_needed[fidx]
-        fpath = source_files[fidx]
-        table = pq.read_table(fpath)
+    # Parallel reads, sequential writes in file_idx order
+    with ThreadPoolExecutor(max_workers=write_workers) as pool:
+        future_to_fidx = {
+            pool.submit(
+                _read_and_filter,
+                source_files[fidx], files_needed[fidx],
+                id_column, has_annotation_value,
+            ): fidx
+            for fidx in sorted_fidxs
+        }
 
-        ids = table.column(id_column)
-        mask = pc.is_in(ids, value_set=pa.array(list(target_ids), type=ids.type))
-        filtered = table.filter(mask)
+        # Collect results as they complete, buffer by fidx for ordered writing
+        pending: dict[int, pa.Table] = {}
+        next_fidx_idx = 0  # index into sorted_fidxs
 
-        filtered = filtered.append_column(
-            "has_annotation",
-            pa.array([has_annotation_value] * len(filtered), type=pa.bool_()),
-        )
-
-        buffer_rows.append(filtered)
-        buffer_count += len(filtered)
-
-        if buffer_count >= rows_per_file:
-            _flush()
+        with tqdm(total=len(sorted_fidxs), desc=f"  {label}") as pbar:
+            for future in as_completed(future_to_fidx):
+                fidx = future_to_fidx[future]
+                pending[fidx] = future.result()
+                # Drain pending in order
+                while next_fidx_idx < len(sorted_fidxs) and sorted_fidxs[next_fidx_idx] in pending:
+                    filtered = pending.pop(sorted_fidxs[next_fidx_idx])
+                    buffer_rows.append(filtered)
+                    buffer_count += len(filtered)
+                    if buffer_count >= rows_per_file:
+                        _flush()
+                    next_fidx_idx += 1
+                    pbar.update(1)
 
     _flush()
     print(f"    Wrote {part_idx} files")
