@@ -206,6 +206,14 @@ def _process_one_file(
 ) -> dict:
     """Read one file, select rows, write to both output directories."""
     table = pq.read_table(file_path)
+    # Ensure nullable string columns have consistent types across files
+    # (some source files have source=null when all values are None)
+    if "source" in table.column_names and pa.types.is_null(table.schema.field("source").type):
+        table = table.set_column(
+            table.schema.get_field_index("source"),
+            pa.field("source", pa.string()),
+            pa.nulls(len(table), type=pa.string()),
+        )
     n = len(table)
 
     # Recompute est_tokens (cheap, avoids storing globally)

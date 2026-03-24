@@ -57,3 +57,7 @@ Key design decisions:
 - `has_annotation` = True in all annotated rows, False in all unannotated rows
 - `is_bad` = `(safety_score >= 3)` verified across sampled files
 - Note: source data has duplicate IDs due to upsampling — same ID can appear in both splits (different rows). This is expected.
+
+### Post-run repair: `source` column schema (2026-03-24)
+
+4,215 of 40,000 output parquet files had the `source` column typed as Arrow `null` instead of `string` (files where all rows had null source values). This caused `load_dataset()` to fail with `Couldn't cast array of type string to null` due to schema mismatch across files. Repaired in-place by casting `source: null → string` (with null values preserved). The fix was also applied to `_process_one_file` in `subsample.py` to prevent recurrence.
