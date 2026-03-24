@@ -60,6 +60,8 @@ def _scan_one_file(
 
     lengths = pc.utf8_length(text).cast(pa.float64())
     est_tokens = pc.divide(lengths, pa.scalar(chars_per_token, pa.float64()))
+    # Cap at max training sequence length (tokenizer truncates beyond this)
+    est_tokens = pc.min_element_wise(est_tokens, pa.scalar(2048.0, pa.float64()))
 
     # Cast to large_string to avoid 2GB offset overflow when concatenating 1B+ rows
     ids = ids.cast(pa.large_string())
