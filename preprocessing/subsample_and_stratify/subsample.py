@@ -227,17 +227,22 @@ def mark_and_sample(
     ann_selected, ann_actual = _fill_budget(ann_sorted, est_tokens, ann_budget)
     unann_selected, unann_actual = _fill_budget(unann_sorted, est_tokens, unann_budget)
 
-    # Build lightweight selection maps: {file_idx: set(ids)}
-    # Extract only the selected rows' id + file_idx as Python lists,
-    # then discard — no references to the large index table are held.
-    def _build_files_needed(selected_indices: np.ndarray) -> dict[int, set[str]]:
+    # Build selection maps as {file_idx: pa.Array of ids} — stays in Arrow
+    # to avoid materializing 925M+ Python string objects (~100GB savings).
+    def _build_files_needed(selected_indices: np.ndarray) -> dict[int, pa.Array]:
         sel = index.take(pa.array(selected_indices, type=pa.int64()))
-        ids = sel.column("id").to_pylist()
-        fidxs = sel.column("file_idx").to_pylist()
+        sort_order = pc.sort_indices(sel.column("file_idx"))
+        sel = sel.take(sort_order)
+        fidxs = sel.column("file_idx").to_numpy(zero_copy_only=False)
+        ids = sel.column("id")
+        del sort_order
+        unique_fidxs, counts = np.unique(fidxs, return_counts=True)
+        splits = np.cumsum(counts)
+        starts = np.concatenate([[0], splits[:-1]])
+        files_needed: dict[int, pa.Array] = {}
+        for fidx, start, count in zip(unique_fidxs, starts, counts):
+            files_needed[int(fidx)] = ids[int(start):int(start + count)].combine_chunks()
         del sel
-        files_needed: dict[int, set[str]] = {}
-        for doc_id, fidx in zip(ids, fidxs):
-            files_needed.setdefault(fidx, set()).add(doc_id)
         return files_needed
 
     print("\nBuilding selection maps...")
@@ -429,14 +434,14 @@ def _fill_budget(
 
 def _read_and_filter(
     fpath: Path,
-    target_ids: set[str],
+    target_ids: pa.Array,
     id_column: str,
     has_annotation_value: bool,
 ) -> pa.Table:
     """Read a source file, filter to target IDs, and add has_annotation column."""
     table = pq.read_table(fpath)
     ids = table.column(id_column)
-    mask = pc.is_in(ids, value_set=pa.array(list(target_ids), type=ids.type))
+    mask = pc.is_in(ids, value_set=target_ids)
     filtered = table.filter(mask)
     filtered = filtered.append_column(
         "has_annotation",
@@ -447,7 +452,7 @@ def _read_and_filter(
 
 def _write_partition(
     source_dir: Path,
-    files_needed: dict[int, set[str]],
+    files_needed: dict[int, pa.Array],
     output_subdir: Path,
     id_column: str,
     rows_per_file: int,
@@ -641,23 +646,21 @@ def main() -> None:
     source_dir = Path(args.source_dir)
     output_dir = Path(args.output_dir)
 
-    assert source_dir.exists(), f"Source dir not found: {source_dir}"
+    if not source_dir.exists():
+        raise FileNotFoundError(f"Source dir not found: {source_dir}")
 
     # Legacy mode: both fractions must be set together
     legacy_mode = args.bad_fraction is not None or args.good_fraction is not None
-    if legacy_mode:
-        assert args.bad_fraction is not None and args.good_fraction is not None, (
-            "--bad-fraction and --good-fraction must both be set for legacy mode"
-        )
+    if legacy_mode and not (args.bad_fraction is not None and args.good_fraction is not None):
+        raise ValueError("--bad-fraction and --good-fraction must both be set for legacy mode")
 
     if args.overwrite and output_dir.exists():
         print(f"--overwrite: removing {output_dir}")
         shutil.rmtree(output_dir)
     if not legacy_mode and output_dir.exists():
-        # Allow resume: output_dir may exist with partial results
-        pass
+        pass  # allow resume with partial results
     elif output_dir.exists():
-        assert False, (
+        raise FileExistsError(
             f"Output dir already exists: {output_dir} (use --overwrite to replace)"
         )
 
