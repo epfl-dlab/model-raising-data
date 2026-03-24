@@ -219,31 +219,7 @@ def mark_and_sample(
     ann_selected, ann_actual = _fill_budget(ann_sorted, est_tokens, ann_budget)
     unann_selected, unann_actual = _fill_budget(unann_sorted, est_tokens, unann_budget)
 
-    # Build selection maps as {file_idx: row_indices_within_file}.
-    # Sort + split is O(N log N) and ~15GB peak.
-    file_idx_np = index.column("file_idx").to_numpy(zero_copy_only=False)
-    row_idx_np = index.column("row_idx").to_numpy(zero_copy_only=False)
-    del index  # free ~20GB before building maps
-
-    def _build_files_needed(selected_indices: np.ndarray) -> dict[int, np.ndarray]:
-        sel_fidxs = file_idx_np[selected_indices]
-        sel_rowidxs = row_idx_np[selected_indices]
-        order = np.argsort(sel_fidxs, kind='mergesort')
-        sorted_fidxs = sel_fidxs[order]
-        sorted_rowidxs = sel_rowidxs[order]
-        unique_fidxs, counts = np.unique(sorted_fidxs, return_counts=True)
-        splits = np.cumsum(counts)
-        starts = np.concatenate([[0], splits[:-1]])
-        files_needed: dict[int, np.ndarray] = {}
-        for fidx, start, count in zip(unique_fidxs, starts, counts):
-            files_needed[int(fidx)] = sorted_rowidxs[int(start):int(start + count)].copy()
-        return files_needed
-
-    print("\nBuilding selection maps...")
-    ann_files = _build_files_needed(ann_selected)
-    unann_files = _build_files_needed(unann_selected)
-    del file_idx_np, row_idx_np
-
+    # Compute stats before freeing sampling arrays
     total_selected = len(ann_selected) + len(unann_selected)
     total_selected_tokens = ann_actual + unann_actual
 
@@ -274,6 +250,37 @@ def mark_and_sample(
         "selected_rows": total_selected,
         "selected_tokens": total_selected_tokens,
     }
+
+    # Build selection maps, then free all sampling state + force OS to reclaim pages
+    file_idx_np = index.column("file_idx").to_numpy(zero_copy_only=False)
+    row_idx_np = index.column("row_idx").to_numpy(zero_copy_only=False)
+
+    def _build_files_needed(selected_indices: np.ndarray) -> dict[int, np.ndarray]:
+        sel_fidxs = file_idx_np[selected_indices]
+        sel_rowidxs = row_idx_np[selected_indices]
+        order = np.argsort(sel_fidxs, kind='mergesort')
+        sorted_fidxs = sel_fidxs[order]
+        sorted_rowidxs = sel_rowidxs[order]
+        unique_fidxs, counts = np.unique(sorted_fidxs, return_counts=True)
+        splits = np.cumsum(counts)
+        starts = np.concatenate([[0], splits[:-1]])
+        files_needed: dict[int, np.ndarray] = {}
+        for fidx, start, count in zip(unique_fidxs, starts, counts):
+            files_needed[int(fidx)] = sorted_rowidxs[int(start):int(start + count)].copy()
+        return files_needed
+
+    print("\nBuilding selection maps...")
+    ann_files = _build_files_needed(ann_selected)
+    unann_files = _build_files_needed(unann_selected)
+
+    # Free all large objects and force glibc to return pages to OS
+    del (index, file_idx_np, row_idx_np, est_tokens, priorities,
+         high_indices, low_indices, sampled_low, annotated_indices,
+         unannotated_indices, ann_sorted, unann_sorted, is_annotated,
+         ann_selected, unann_selected)
+    import gc, ctypes
+    gc.collect()
+    ctypes.CDLL("libc.so.6").malloc_trim(0)
 
     return ann_files, unann_files, stats
 
