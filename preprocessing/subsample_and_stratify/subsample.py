@@ -43,6 +43,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 _DEFAULT_SCAN_WORKERS = 16
+_DEFAULT_WRITE_WORKERS = 4
 
 
 def _scan_one_file(
@@ -447,7 +448,7 @@ def _write_partition(
     output_subdir: Path,
     rows_per_file: int,
     has_annotation_value: bool,
-    write_workers: int = _DEFAULT_SCAN_WORKERS,
+    write_workers: int = _DEFAULT_WRITE_WORKERS,
 ) -> None:
     """Write a partition of selected rows to an output directory.
 
