@@ -121,14 +121,13 @@ def scan_source(
     print(f"\nIndex: {len(index):,} rows, {_fmt_tokens(total_tokens)} total tokens")
 
     # Score distribution
-    scores_np = index.column("safety_score").to_pylist()
-    counts = [0] * 6
-    for s in scores_np:
-        counts[s] += 1
+    vc = pc.value_counts(index.column("safety_score"))
+    counts = {v["values"]: v["counts"] for v in vc.to_pylist()}
     print("\nScore distribution:")
     for i in range(6):
-        pct = 100 * counts[i] / len(index)
-        print(f"  {i}: {counts[i]:>12,} ({pct:5.2f}%)")
+        c = counts.get(i, 0)
+        pct = 100 * c / len(index)
+        print(f"  {i}: {c:>12,} ({pct:5.2f}%)")
 
     return index
 
