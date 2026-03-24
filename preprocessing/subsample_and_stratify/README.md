@@ -2,10 +2,12 @@
 
 Produces two token-budgeted subsets from annotated source data:
 
-- **`annotated/`** — rows with `has_annotation=True` (safety_score >= threshold + matched random sample)
+- **`annotated/`** — rows with `has_annotation=True` (safety_score >= threshold + matched random sample from lower scores)
 - **`unannotated/`** — the remaining rows (`has_annotation=False`)
 
-The annotation ratio in the output matches the full dataset.  A global per-row priority (seeded RNG) ensures monotonic subset inclusion: sampling at budget X is always a subset of budget X+Y with identical flags.
+Both outputs include an `is_bad` column (`True` if `safety_score >= threshold`).
+
+The annotation ratio in the output matches the full dataset. Per-file deterministic RNG ensures reproducibility.
 
 ## Pipeline position
 
@@ -19,52 +21,55 @@ $SCRATCH/dolma3_mix-1T_annotated --> subsample.py          --> tokenize.py
 
 ## Input
 
-**Source data** (`--source-dir`): parquet files matching `part_*.parquet` with at least `id` (string), `text` (string), and `safety_score` (int8). Produced by the annotation merge step (`annotation/merge.py`).
+**Source data** (`--source-dir`): parquet files matching `part_*.parquet` with at least `text` (string) and `safety_score` (int8). Produced by the annotation merge step (`annotation/merge.py`).
 
 ## Output
 
 ```
-$SCRATCH/dolma3_subsampled/
+$SCRATCH/dolma3_mix-1T_subsampled/
 ├── annotated/
-│   ├── part_00000.parquet    # source columns + has_annotation=True
+│   ├── part_00000.parquet    # source columns + has_annotation + is_bad
 │   └── ...
 ├── unannotated/
-│   ├── part_00000.parquet    # source columns + has_annotation=False
+│   ├── part_00000.parquet    # source columns + has_annotation + is_bad
 │   └── ...
 └── metadata.json             # sampling parameters, annotation ratio, stats
 ```
 
+Output filenames mirror input filenames (one-to-one correspondence).
+
 ## Usage
 
 ```bash
-# Full run (500B tokens, annotation threshold=3)
+# Full run (all tokens, annotation threshold=3)
 python -m preprocessing.subsample_and_stratify.subsample \
-    --source-dir $SCRATCH/dolma3_mix-1T_annotated
+    --source-dir $SCRATCH/dolma3_mix-1T_annotated \
+    --output-dir $SCRATCH/dolma3_mix-1T_subsampled
 
-# Small test
+# With token budget
 python -m preprocessing.subsample_and_stratify.subsample \
-    --source-dir $SCRATCH/dolma3_mix-10m_annotated \
-    --target-tokens 1_000_000 --output-dir $SCRATCH/subsampled_test
+    --source-dir $SCRATCH/dolma3_mix-1T_annotated \
+    --target-tokens 1_000_000_000_000
 
 # Custom threshold (annotate scores >= 4 only)
 python -m preprocessing.subsample_and_stratify.subsample \
     --source-dir $SCRATCH/dolma3_mix-1T_annotated \
     --annotation-threshold 4
 
-# Legacy stratified mode (three independent budgets, single output dir)
+# More workers for faster I/O
 python -m preprocessing.subsample_and_stratify.subsample \
     --source-dir $SCRATCH/dolma3_mix-1T_annotated \
-    --bad-fraction 0.025 --good-fraction 0.025
+    --workers 32
 ```
 
 ### Algorithm
 
-Two-pass approach:
+Two-pass, per-file-independent design (~200MB peak RAM regardless of dataset size):
 
-1. **Scan & Index** -- iterate source files reading `id`, `text`, and `safety_score`, estimate tokens, build in-memory index.
-2. **Mark annotations** (budget-independent) -- all rows with `safety_score >= threshold` are annotated; an equal token budget of lower-score rows (by priority) is also annotated.  Compute annotation ratio R.
-3. **Fill budgets** -- annotated pool gets `target_tokens * R`, unannotated gets `target_tokens * (1-R)`.  Each pool is filled by global priority via greedy cumulative sum.
-4. **Write** -- re-read source files for selected rows, write to `annotated/` and `unannotated/` subdirectories.
+1. **Pass 1 (scan)** -- read each file in parallel, collect per-file statistics: total tokens, above/below-threshold token counts. Compute global annotation ratio R and per-file token budgets (proportional allocation).
+2. **Pass 2 (write)** -- for each file independently in parallel: re-read the file, select rows using a per-file deterministic RNG (seeded by `(global_seed, file_index)`) and the file's token budget, write annotated and unannotated rows to their respective output directories.
+
+Annotation marking: all rows with `safety_score >= threshold` are annotated. An equal amount of tokens from lower-score rows are randomly sampled as annotated. Token estimates use `utf8_length / chars_per_token`, capped at 2048 (the tokenizer's truncation limit).
 
 ### Scripts
 
@@ -72,11 +77,11 @@ Two-pass approach:
 |--------|---------|
 | `subsample.py` | Annotation-based subsampling with two output datasets |
 | `upload.py` | Upload subsampled dataset to HuggingFace Hub |
-| `test_subsample.py` | End-to-end test + monotonic subset verification |
+| `test_subsample.py` | End-to-end test + determinism verification |
 
 ### End-to-end test
 
-Creates a synthetic dataset (1000 rows, known score distribution), runs the pipeline, verifies two output directories, annotation ratios, schema, metadata, and monotonic subset guarantee (5K ⊂ 10K).
+Creates a synthetic dataset (1000 rows, known score distribution), runs the pipeline, verifies two output directories, annotation ratios, `has_annotation`/`is_bad` flags, schema, metadata, and determinism (same seed → same output).
 
 ```bash
 python -m preprocessing.subsample_and_stratify.test_subsample
@@ -84,8 +89,8 @@ python -m preprocessing.subsample_and_stratify.test_subsample
 
 ## Experiment tracking
 
-`metadata.json` in the output directory records annotation threshold, annotation ratio, per-split token/row counts, and timing.
+`metadata.json` in the output directory records annotation threshold, annotation ratio, per-split token/row counts, and timing. Job scripts additionally log to `data/experiments/subsample.jsonl` via `experiment_tracker.py`.
 
 ## Resume
 
-Not applicable -- the pipeline is a single-pass batch job. Re-run with `--overwrite` to replace.
+Not supported -- the pipeline completes in ~30 min. Re-run with `--overwrite` to replace.

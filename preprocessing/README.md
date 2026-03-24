@@ -3,9 +3,11 @@
 ## Pipeline position
 
 ```
-download    annotation           subsample_and_stratify    tokenization
-  download.py    -->  annotate.py + merge  -->  subsample.py       -->  tokenize.py
-  (HF -> parquet)     (safety scores)           (budget + stratify)     (pack + split)
+download    annotation           subsample_and_stratify       tokenization
+  download.py    -->  annotate.py + merge  -->  subsample.py          -->  tokenize.py
+  (HF -> parquet)     (safety scores)           (annotate + budget)        (pack + split)
+                                                ├── annotated/         --> split path
+                                                └── unannotated/       --> compact path
 ```
 
 ## Input
@@ -22,8 +24,9 @@ $SCRATCH/
 │   └── metadata.json
 ├── dolma3_mix-1T_annotated/          # merge output
 │   └── part_*.parquet (+safety_score)
-├── subsampled/                       # subsample output
-│   ├── part_*.parquet (+has_annotation)
+├── dolma3_mix-1T_subsampled/          # subsample output
+│   ├── annotated/part_*.parquet      # has_annotation=True, is_bad
+│   ├── unannotated/part_*.parquet    # has_annotation=False, is_bad
 │   └── metadata.json
 └── tokenized/                        # tokenization output
     ├── compact/final/                # .ds binary files
@@ -59,7 +62,7 @@ Each module is run independently. See submodule READMEs:
 |--------|-------------|
 | `download/` | Download HF shards to local parquet with short-text filter |
 | `annotation/` | Safety-score classification (multi-GPU) + id-based merge |
-| `subsample_and_stratify/` | Token-budgeted stratified subsampling with annotation marking |
+| `subsample_and_stratify/` | Annotation-based subsampling into two output dirs (annotated + unannotated) |
 | `tokenization/` | Compact packed windows (.ds) + annotated text split (parquet) |
 
 ## Experiment tracking
