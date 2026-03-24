@@ -3,8 +3,8 @@
 #SBATCH --account=a141
 #SBATCH --partition=normal
 #SBATCH --nodes=1
-#SBATCH --time=04:00:00
-#SBATCH --mem=100G
+#SBATCH --time=08:00:00
+#SBATCH --exclusive
 #SBATCH --output=preprocessing/subsample_and_stratify/logs/slurm-%j.out
 #SBATCH --error=preprocessing/subsample_and_stratify/logs/slurm-%j.err
 #
@@ -25,7 +25,7 @@ set -euo pipefail
 
 EXTRA_ARGS="$*"
 SCRATCH="/iopsstor/scratch/cscs/jminder"
-OUTPUT_DIR="$SCRATCH/dolma3_subsampled"
+OUTPUT_DIR="$SCRATCH/dolma3_mix-1T_subsampled"
 
 echo "Job $SLURM_JOB_ID on $(hostname) — $(date)"
 echo "Extra args: ${EXTRA_ARGS}"

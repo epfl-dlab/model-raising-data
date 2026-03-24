@@ -102,18 +102,20 @@ def scan_source(
                 results[file_idx] = (ids, est_tokens, scores, nrows)
                 pbar.update(1)
 
-    # Assemble in file_idx order
+    # Assemble in file_idx order, freeing per-file data as we go
     per_file_tables = []
     for file_idx in range(len(source_files)):
-        ids, est_tokens, scores, nrows = results[file_idx]
+        ids, est_tokens, scores, nrows = results.pop(file_idx)
         per_file_tables.append(pa.table({
             "id": ids,
             "est_tokens": est_tokens,
             "safety_score": scores,
             "file_idx": pa.array([file_idx] * nrows, type=pa.int32()),
         }))
+    del results
 
     index = pa.concat_tables(per_file_tables, promote_options="permissive")
+    del per_file_tables
 
     total_tokens = pc.sum(index.column("est_tokens")).as_py()
     print(f"\nIndex: {len(index):,} rows, {_fmt_tokens(total_tokens)} total tokens")
@@ -620,9 +622,13 @@ def main() -> None:
     if args.overwrite and output_dir.exists():
         print(f"--overwrite: removing {output_dir}")
         shutil.rmtree(output_dir)
-    assert not output_dir.exists(), (
-        f"Output dir already exists: {output_dir} (use --overwrite to replace)"
-    )
+    if not legacy_mode and output_dir.exists():
+        # Allow resume: output_dir may exist with partial results
+        pass
+    elif output_dir.exists():
+        assert False, (
+            f"Output dir already exists: {output_dir} (use --overwrite to replace)"
+        )
 
     t_start = time.time()
 
@@ -660,14 +666,30 @@ def main() -> None:
             index, args.target_tokens, args.seed, args.annotation_threshold,
         )
         print(f"\nWriting output...")
-        _write_partition(
-            source_dir, ann_table, output_dir / "annotated",
-            args.id_column, args.rows_per_file, has_annotation_value=True,
-        )
-        _write_partition(
-            source_dir, unann_table, output_dir / "unannotated",
-            args.id_column, args.rows_per_file, has_annotation_value=False,
-        )
+        ann_dir = output_dir / "annotated"
+        unann_dir = output_dir / "unannotated"
+
+        if (ann_dir / "DONE").exists():
+            print(f"\n  Skipping annotated (DONE marker found at {ann_dir})")
+        else:
+            if ann_dir.exists():
+                shutil.rmtree(ann_dir)  # clean up partial write
+            _write_partition(
+                source_dir, ann_table, ann_dir,
+                args.id_column, args.rows_per_file, has_annotation_value=True,
+            )
+            (ann_dir / "DONE").touch()
+
+        if (unann_dir / "DONE").exists():
+            print(f"\n  Skipping unannotated (DONE marker found at {unann_dir})")
+        else:
+            if unann_dir.exists():
+                shutil.rmtree(unann_dir)  # clean up partial write
+            _write_partition(
+                source_dir, unann_table, unann_dir,
+                args.id_column, args.rows_per_file, has_annotation_value=False,
+            )
+            (unann_dir / "DONE").touch()
         metadata = {
             "source_dir": str(source_dir),
             "target_tokens": args.target_tokens,
