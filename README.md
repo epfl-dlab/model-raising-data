@@ -47,6 +47,22 @@ pipeline/
 configs/
 └── config.yaml                # global config (phase1 + phase2 + dashboard)
 
+preprocessing/
+├── download/        # download HF shards to local parquet with dedup
+│   ├── download.py            # per-shard download, dedup by ID, short-text filter
+│   └── download_job.sh        # SLURM wrapper
+├── annotation/                # safety score annotation (0–5 scale)
+│   ├── annotate.py            # multi-GPU classifier (torchrun)
+│   ├── array_job.sh           # SLURM array job for large datasets
+│   ├── merge.py               # merge annotations back into parquet files
+│   └── README.md              # detailed pipeline docs
+├── subsample_and_stratify/    # stratified subsampling with annotation marking
+│   ├── subsample.py           # select token budget, stratify by safety score
+│   └── README.md              # pipeline docs
+└── tokenization/              # tokenize into training-ready format
+    ├── tokenize.py            # compact (packed windows) + split (reflection) pipelines
+    └── README.md              # pipeline docs
+
 data/
 ├── annotation/                # phase 1 data (annotations.jsonl, comments.jsonl)
 └── pipeline/                  # phase 2 data (items.jsonl, runs.jsonl, reviews.jsonl)
