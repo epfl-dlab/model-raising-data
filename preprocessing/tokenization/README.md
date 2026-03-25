@@ -100,6 +100,24 @@ ann_lengths = np.load("$PERSIST/annotated/token_lengths.npy")
 
 ## Usage
 
+### Multi-node (recommended)
+
+Uses SLURM array jobs: stage 1 (tokenize) runs in parallel across nodes,
+stage 2-3 (merge + shuffle) runs as a dependent single-node follow-up.
+
+```bash
+# Full run (20 nodes, 20 workers each, ~27 node-hours, ~2h wall time):
+preprocessing/tokenization/array_job.sh submit
+
+# Test run (4 nodes, 100-file subset):
+preprocessing/tokenization/array_job.sh submit-test
+```
+
+Max 20 workers per node (OOM above that). The `submit` command handles
+the `--array` flag and `--dependency` chaining automatically.
+
+### Single-node
+
 ```bash
 # Both pipelines
 uv run python -m preprocessing.tokenization.tokenize \
@@ -117,7 +135,7 @@ uv run python -m preprocessing.tokenization.tokenize \
     --annotated-data-dir $SCRATCH/dolma3_annotated \
     --pipeline split
 
-# Full SLURM run
+# Full single-node SLURM run
 sbatch preprocessing/tokenization/job.sh
 ```
 
