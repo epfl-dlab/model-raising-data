@@ -5,7 +5,7 @@ You are judging the quality of a **{part_type}** written as a pretraining annota
 ## Context
 
 Annotators produce two outputs per text:
-- **Preflection**: Third-person framing placed *before* the text (e.g. "The following text contains..."). Gives the reader context about what they are about to read.
+- **Preflection**: Third-person framing placed *before* the text (e.g. "The following text contains..."). Gives the reader context about what they are about to read. References charter sections in bracket notation like [X.Y] where relevant.
 - **Reflection**: First-person pause inserted at a random point *during* the text. Reacts only to what has been read so far, referencing charter sections in bracket notation like [X.Y].
 
 Both can be brief "all good" for non-problematic texts — that is a valid and correct annotation. It is also valid to identify no relevant charter sections.

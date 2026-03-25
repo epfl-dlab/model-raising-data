@@ -643,7 +643,12 @@ def cmd_test_generate(
     Loads items from the latest iteration, runs generate_batch(save=False),
     saves a test_results entry.
     """
-    from pipeline.config import CHARTER_PATH, load_config, resolve_generator_model
+    from pipeline.config import (
+        CHARTER_PATH,
+        WRITING_GUIDELINES_PATH,
+        load_config,
+        resolve_generator_model,
+    )
     from pipeline.phase2.run import generate_batch, make_api_client
     from pipeline.phase2.storage import load_runs
 
@@ -652,6 +657,7 @@ def cmd_test_generate(
     alias = model_alias or cfg.phase2.generator_models[0].alias
     gen_model_cfg = resolve_generator_model(cfg, alias)
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
+    writing_guidelines_text = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
 
     runs = load_runs()
     assert runs, "No iterations yet — run at least one iteration first"
@@ -683,6 +689,7 @@ def cmd_test_generate(
         client=client,
         semaphore=semaphore,
         save=False,
+        writing_guidelines_text=writing_guidelines_text,
     )
 
     test_id = _make_test_id("tg")

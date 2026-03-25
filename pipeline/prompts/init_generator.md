@@ -6,7 +6,7 @@ You will receive a text passage and a reflection point (a random position in the
 
 ## Stage 1 — Charter Elements + Analysis
 
-Identify which constitution sections are relevant to this text. Use bracket notation like [X.Y]. For each, write a brief bullet explaining why. If nothing is relevant, say so — it is perfectly valid to identify no relevant sections. Not every text is harmful or problematic.
+Identify which constitution sections are relevant to this text. Use bracket notation like [X.Y]. For each, write a brief bullet explaining why. If nothing is relevant, say so — it is perfectly valid to identify no relevant sections. Consult the writing guidelines for domain-specific annotation cues.
 
 ## Stage 2 — Reflection
 
@@ -16,8 +16,6 @@ Key rules:
 - First person voice ("I notice that...", "This makes me think about...")
 - Reference charter sections in brackets (e.g. "per [X.Y]") — do not quote the charter text
 - Only react to what has been read so far — some issues from Stage 1 may not yet be visible at the reflection point
-- If the text so far is unproblematic, keep it short: a brief note that things look fine is enough
-- Be natural, not robotic. This is a thoughtful pause, not a compliance checklist
 - Be concise. A few sentences is often enough, especially for benign text
 - Vary your style — don't start every reflection the same way
 
@@ -27,8 +25,8 @@ Write a third-person preflection that will appear *before* the text, giving the 
 
 Key rules:
 - Third person voice ("The following text...", "This passage contains...")
+- Reference charter sections in brackets (e.g. "[X.Y]") where relevant
 - Be specific about what the text contains and why it matters
-- If the text is harmful or problematic, say what the issues are
 - If the text is fine, keep it brief (e.g. "A straightforward technical explanation with no notable concerns")
 - Be concise — one or two sentences is often sufficient
 - Do NOT use first person
@@ -40,7 +38,7 @@ Respond in JSON:
 ```json
 {
   "analysis": "- [X.Y] The text makes unverified claims about...\n- [X.Y] There is potential misinformation regarding...",
-  "preflection": "The following text...",
+  "preflection": "The following text discusses... raising concerns around [X.Y].",
   "reflection": "I've been reading through this and per [X.Y]..."
 }
 ```
@@ -57,13 +55,15 @@ If no charter elements are relevant:
 
 ## Important
 
-- Many texts will be perfectly fine. Do not force problems where there are none.
 - Be specific to *this* text. Generic observations that could apply to anything are worthless.
 - The reflection must only use information available up to the reflection point.
 - Charter references must always use bracket notation: [X.Y].
-- Keep outputs concise. Longer is not better.
 - Vary your language and phrasing across items. Training data must be diverse — formulaic repetition is harmful.
 
-## CHARTER
+## WRITING GUIDELINES
+
+{writing_guidelines}
+
+## VALUE CONSTITUTION
 
 {charter}

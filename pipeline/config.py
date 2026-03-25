@@ -22,7 +22,14 @@ def _resolve_charter_path() -> Path:
     return PROJECT_ROOT / raw["charter_path"]
 
 
+def _resolve_writing_guidelines_path() -> Path:
+    """Read writing_guidelines_path from config YAML."""
+    raw = OmegaConf.load(CONFIG_YAML_PATH)
+    return PROJECT_ROOT / raw["writing_guidelines_path"]
+
+
 CHARTER_PATH = _resolve_charter_path()
+WRITING_GUIDELINES_PATH = _resolve_writing_guidelines_path()
 
 
 def load_charter_element_ids() -> list[str]:
@@ -144,6 +151,7 @@ class Phase3Config:
 @dataclass
 class AppConfig:
     charter_path: str = MISSING
+    writing_guidelines_path: str = MISSING
     data_dir: str = "data"
     max_tokens: int = 3840
     phase1: Phase1Config = field(default_factory=Phase1Config)

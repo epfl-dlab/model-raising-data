@@ -25,6 +25,7 @@ from tqdm.asyncio import tqdm_asyncio
 from pipeline.config import (
     CHARTER_PATH,
     PIPELINE_DATA_DIR,
+    WRITING_GUIDELINES_PATH,
     AppConfig,
     extract_charter_elements,
     load_config,
@@ -146,9 +147,9 @@ def health_check(client: openai.AsyncOpenAI, model: str) -> None:
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "ping"}],
-            max_tokens=1,
+            max_tokens=16,
         )
-        assert response.choices[0].message.content is not None
+        assert response.choices, f"No choices returned for model={model}"
 
     loop = asyncio.new_event_loop()
     try:
@@ -333,6 +334,7 @@ def generate_batch(
     client: openai.AsyncOpenAI,
     semaphore: asyncio.Semaphore,
     save: bool = True,
+    writing_guidelines_text: str = "",
 ) -> list[dict]:
     """Generate charter reflections for a batch of items.
 
@@ -341,7 +343,9 @@ def generate_batch(
     Returns the list of completed item records.
     """
     prompt_template = prompt_path.read_text(encoding="utf-8")
-    system_prompt = prompt_template.replace("{charter}", charter_text)
+    system_prompt = prompt_template.replace("{charter}", charter_text).replace(
+        "{writing_guidelines}", writing_guidelines_text
+    )
     prompt_filename = prompt_path.name
 
     async def process_one(item: dict) -> dict:
@@ -611,6 +615,7 @@ def _run_one_pair_inner(
         cfg.phase2.endpoint, cfg.phase2.iteration.max_concurrent
     )
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
+    writing_guidelines_text = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
 
     gen_model_cfg = resolve_generator_model(cfg, gen_alias)
     judge_model_cfg = resolve_judge_model(cfg, judge_alias)
@@ -627,6 +632,7 @@ def _run_one_pair_inner(
         iteration,
         client,
         semaphore,
+        writing_guidelines_text=writing_guidelines_text,
     )
 
     judged = judge_batch(

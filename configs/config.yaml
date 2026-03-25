@@ -1,4 +1,5 @@
-charter_path: resources/ModelRaisingConstitution_v0.1.md
+charter_path: resources/ModelRaisingConstitution_v0.2.md
+writing_guidelines_path: resources/ValueAnnotationGuidelines_v0.1.md
 data_dir: data
 max_tokens: 3840
 phase1:
@@ -14,19 +15,25 @@ phase1:
 phase2:
   endpoint: https://api.swissai.cscs.ch/v1
   judge_models:
-  - alias: glm-4.5-air
-    api_name: jminder/jZ7aJGjetjNN
-    hf_slug: zai-org/GLM-4.5-Air-FP8
-  - alias: olmo3-32B-think
-    api_name: jminder/UqFTpAeJcvV4
-    hf_slug: olmo-ai/olmo-3-32b-thinking
+  # - alias: glm-4.5-air
+  #   api_name: jminder/pZcWDUxqEQ
+  #   hf_slug: zai-org/GLM-4.5-Air-FP8
+  # - alias: olmo3-32B-think
+  #   api_name: jminder/UqFTpAeJcvV4
+  #   hf_slug: olmo-ai/olmo-3-32b-thinking
+  - alias: kimi-k2.5
+    api_name: jkminder/lAiFTaihSJ
+    hf_slug: moonshotai/Kimi-K2.5
   generator_models:
-  - alias: glm-4.5-air
-    api_name: jminder/jZ7aJGjetjNN
-    hf_slug: zai-org/GLM-4.5-Air-FP8
-  - alias: olmo3-32B-think
-    api_name: jminder/UqFTpAeJcvV4
-    hf_slug: olmo-ai/olmo-3-32b-thinking
+  # - alias: glm-4.5-air
+  #   api_name: jminder/jZ7aJGjetjNN
+  #   hf_slug: zai-org/GLM-4.5-Air-FP8
+  # - alias: olmo3-32B-think
+  #   api_name: jminder/UqFTpAeJcvV4
+  #   hf_slug: olmo-ai/olmo-3-32b-thinking
+  - alias: kimi-k2.5
+    api_name: jkminder/lAiFTaihSJ
+    hf_slug: moonshotai/Kimi-K2.5
   improver:
     judge_prompt: improver_judge.md
     generator_prompt: improver_generator.md
