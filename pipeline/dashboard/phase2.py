@@ -1644,16 +1644,16 @@ def pipeline_monitoring_page():
     _render_acceptance_rate_chart(runs, iter_stats)
 
     # --- Per-Judge Calibration Bar Chart (with split selector) ---
-    _cal_bar_split_state = {"split": None}
+    _cal_bar_pairs = _load_correlation_pairs()
     _cal_bar_container = ui.column().classes("w-full")
     with _cal_bar_container:
-        _render_calibration_bar_chart()
+        _render_calibration_bar_chart(pairs=_cal_bar_pairs)
 
     def _on_cal_bar_split(e):
-        _cal_bar_split_state["split"] = None if e.value == "all" else e.value
+        sp = None if e.value == "all" else e.value
         _cal_bar_container.clear()
         with _cal_bar_container:
-            _render_calibration_bar_chart(split=_cal_bar_split_state["split"])
+            _render_calibration_bar_chart(pairs=_cal_bar_pairs, split=sp)
 
     ui.select(
         ["all", "train", "validation"],
