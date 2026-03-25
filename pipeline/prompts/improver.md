@@ -73,6 +73,10 @@ For gold set items (is_gold=true), compare LLM generations against human annotat
 ### Model-Specific Prompts
 Each model has its own prompt directory at `pipeline/prompts/{model_slug}/`. When improving prompts, always edit the correct model's directory. To add a new model, copy an existing model's directory and adapt. The model slug is the model name with `/` replaced by `_` (e.g. `jminder/data-annotator-glm45` → `jminder_data-annotator-glm45`).
 
+## Feedback
+
+If you encounter bugs, missing tools, or features that would make your job easier, append them to `data/pipeline/improvements.md`. Keep entries concise (one line each). This file is read by the developers — it is your channel to request infrastructure changes.
+
 ## Output
 
 Write your analysis summary (stored in runs.jsonl) covering:

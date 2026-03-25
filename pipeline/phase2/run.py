@@ -240,15 +240,31 @@ def _extract_json(raw: str) -> dict:
     )
 
 
+_FIELD_ALIASES = {
+    "pre_flection": "preflection",
+    "pre-flection": "preflection",
+    "preReflection": "preflection",
+    "pre_reflection": "preflection",
+}
+
+
 def _parse_generation(raw: str) -> dict:
     """Parse generator JSON output into structured fields.
 
     Extracts JSON from response, handling prose before/after JSON and code fences.
+    Normalizes common field name variants (e.g. pre_flection -> preflection).
     """
     parsed = _extract_json(raw)
+    # Normalize field name variants
+    for variant, canonical in _FIELD_ALIASES.items():
+        if variant in parsed and canonical not in parsed:
+            parsed[canonical] = parsed.pop(variant)
     required = {"analysis", "preflection", "reflection"}
     missing = required - set(parsed.keys())
-    assert not missing, f"Missing fields in generation: {missing}"
+    assert not missing, (
+        f"Missing fields in generation: {missing}. "
+        f"Got keys: {list(parsed.keys())}. Raw preview: {raw[:200]}"
+    )
     # Some models return string fields as lists — coerce to str
     for field in ("analysis", "preflection", "reflection"):
         if isinstance(parsed[field], list):
@@ -264,7 +280,10 @@ def _parse_judgment(raw: str) -> dict:
     parsed = _extract_json(raw)
     required = {"scores", "reasoning"}
     missing = required - set(parsed.keys())
-    assert not missing, f"Missing fields in judgment: {missing}"
+    assert not missing, (
+        f"Missing fields in judgment: {missing}. "
+        f"Got keys: {list(parsed.keys())}. Raw preview: {raw[:200]}"
+    )
     assert isinstance(parsed["scores"], dict), "scores must be a dict"
     assert len(parsed["scores"]) > 0, "scores must not be empty"
     parsed["aggregate"] = sum(parsed["scores"].values()) / len(parsed["scores"])

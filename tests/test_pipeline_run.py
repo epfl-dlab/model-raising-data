@@ -77,6 +77,16 @@ class TestParseGeneration:
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
+    def test_field_name_normalization(self):
+        raw = json.dumps({"analysis": "a", "pre_flection": "p", "reflection": "r"})
+        result = _parse_generation(raw)
+        assert result["preflection"] == "p"
+
+    def test_field_name_normalization_hyphen(self):
+        raw = json.dumps({"analysis": "a", "pre-flection": "p", "reflection": "r"})
+        result = _parse_generation(raw)
+        assert result["preflection"] == "p"
+
     def test_missing_field_raises(self):
         raw = json.dumps({"analysis": "a", "preflection": "p"})
         with pytest.raises(AssertionError, match="Missing fields"):
