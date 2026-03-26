@@ -3,7 +3,11 @@
 import re
 import threading
 
-from pipeline.config import CHARTER_PATH, extract_charter_elements
+from pipeline.config import (
+    CHARTER_PATH,
+    WRITING_GUIDELINES_PATH,
+    extract_charter_elements,
+)
 
 REFLECTION_MARKER_ID = "reflection-marker"
 N_PHASES = 3
@@ -31,7 +35,12 @@ def load_charter() -> str:
     return CHARTER_PATH.read_text(encoding="utf-8")
 
 
+def load_writing_guidelines() -> str:
+    return WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
+
+
 CHARTER_TEXT = load_charter()
+WRITING_GUIDELINES_TEXT = load_writing_guidelines()
 SAMPLE_ITEMS: list[dict] = []
 _sample_lock = threading.Lock()
 

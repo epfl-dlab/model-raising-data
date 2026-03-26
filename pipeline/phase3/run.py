@@ -17,6 +17,7 @@ from scipy.stats import pearsonr, spearmanr
 
 from pipeline.config import (
     CHARTER_PATH,
+    WRITING_GUIDELINES_PATH,
     AppConfig,
     resolve_gold_generator,
     resolve_gold_judge,
@@ -117,6 +118,7 @@ def _run_one_pair_phase3_inner(
     iteration = next_iteration()
     client, semaphore = make_phase3_api_client(cfg)
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
+    writing_guidelines_text = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
 
     logger.info(
         "Phase3 iteration {} — gen={} judge={}", iteration, gen_alias, judge_alias
@@ -130,6 +132,7 @@ def _run_one_pair_phase3_inner(
         iteration,
         client,
         semaphore,
+        writing_guidelines_text=writing_guidelines_text,
     )
 
     judged = judge_batch(
@@ -141,6 +144,8 @@ def _run_one_pair_phase3_inner(
         client,
         semaphore,
         floor_threshold=cfg.phase3.scoring.floor_threshold,
+        charter_text=charter_text,
+        writing_guidelines_text=writing_guidelines_text,
     )
 
     summary = _make_run_summary(iteration, judged)
