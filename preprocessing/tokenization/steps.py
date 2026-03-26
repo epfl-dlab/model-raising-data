@@ -486,8 +486,8 @@ class MegatronAnnotatedShuffler(PipelineStep):
         partition_size = (n_docs + N_PARTITIONS - 1) // N_PARTITIONS
         temp_schema = pa.schema([
             ("window_id", pa.int64()),
-            ("doc_id", pa.string()),
-            ("text", pa.string()),
+            ("doc_id", pa.large_string()),
+            ("text", pa.large_string()),
             ("token_length", pa.int32()),
         ])
         temp_paths = [
@@ -530,8 +530,8 @@ class MegatronAnnotatedShuffler(PipelineStep):
                         batch = pa.RecordBatch.from_arrays(
                             [
                                 pa.array(buf[0], type=pa.int64()),
-                                pa.array(buf[1], type=pa.string()),
-                                pa.array(buf[2], type=pa.string()),
+                                pa.array(buf[1], type=pa.large_string()),
+                                pa.array(buf[2], type=pa.large_string()),
                                 pa.array(buf[3], type=pa.int32()),
                             ],
                             schema=temp_schema,
@@ -546,11 +546,11 @@ class MegatronAnnotatedShuffler(PipelineStep):
 
         # Merge partitions → final sidecar.parquet in output order
         sidecar_schema = pa.schema([
-            ("doc_id", pa.string()),
-            ("text", pa.string()),
+            ("doc_id", pa.large_string()),
+            ("text", pa.large_string()),
             ("token_length", pa.int32()),
-            ("reflection", pa.string()),
-            ("preflection", pa.string()),
+            ("reflection", pa.large_string()),
+            ("preflection", pa.large_string()),
             ("reflection_position", pa.int32()),
         ])
         sidecar_path = os.path.join(out_dir, "sidecar.parquet")
@@ -567,8 +567,8 @@ class MegatronAnnotatedShuffler(PipelineStep):
                         part.column("doc_id").combine_chunks(),
                         part.column("text").combine_chunks(),
                         part.column("token_length").combine_chunks(),
-                        pa.array([""] * n_part, type=pa.string()),
-                        pa.array([""] * n_part, type=pa.string()),
+                        pa.array([""] * n_part, type=pa.large_string()),
+                        pa.array([""] * n_part, type=pa.large_string()),
                         pa.array([0] * n_part, type=pa.int32()),
                     ],
                     schema=sidecar_schema,
