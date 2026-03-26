@@ -209,19 +209,22 @@ def _write_megatron_idx(
 class MegatronContextShuffler(PipelineStep):
     """Shuffle token windows and write directly to Megatron ``.bin`` + ``.idx`` format.
 
-    Reads merged ``.ds`` files produced by ``DocumentTokenizerMerger``, splits
-    the token stream into fixed-size windows, shuffles them, and writes each
-    window as a Megatron sequence.  Uses bulk byte copy for the ``.bin`` file
-    and generates the ``.idx`` programmatically (all sequences are the same
-    length, so the index is trivial).
+    Reads merged ``.ds`` files, splits the token stream into fixed-size windows,
+    shuffles them in bulk via numpy, and writes Megatron ``.bin`` + ``.idx``.
+
+    Uses sequential bulk reads (``np.fromfile``) and in-memory shuffle via numpy
+    fancy indexing instead of per-window random mmap access.  Processes files
+    in chunks of ``max_chunk_bytes`` to stay within node memory.
 
     Args:
-        input_folder: folder containing merged ``.ds`` + ``.ds.index`` files.
+        input_folder: folder containing merged ``.ds`` files.
         output_folder: folder to write ``{save_filename}.bin`` + ``{save_filename}.idx``.
         window_size: tokens per window (default ``2048 + 1``).
         save_filename: prefix for output files (default ``"compact"``).
         seed: RNG seed for reproducible shuffling.
         token_size: bytes per token (2 for uint16, 4 for uint32).
+        max_chunk_bytes: max bytes to load per shuffle chunk (default 100 GiB).
+            Peak memory is ~2x this value (source + shuffled copy).
     """
 
     name = "🗃 Megatron Context Shuffler"
@@ -235,6 +238,7 @@ class MegatronContextShuffler(PipelineStep):
         save_filename: str = "compact",
         seed: int | None = None,
         token_size: int = 2,
+        max_chunk_bytes: int = 100 * 1024**3,
     ):
         super().__init__()
         self.input_folder = get_datafolder(input_folder)
@@ -243,44 +247,79 @@ class MegatronContextShuffler(PipelineStep):
         self.save_filename = save_filename
         self.token_size = token_size
         self.rand = default_rng(seed)
+        self.max_chunk_bytes = max_chunk_bytes
 
     def run(
         self, data: DocumentsPipeline = None, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
-        """Read merged .ds files, shuffle windows, write Megatron .bin + .idx."""
+        """Read .ds files, bulk-shuffle windows in RAM, write Megatron .bin + .idx."""
         datafiles = self.input_folder.get_shard(rank, world_size, glob_pattern="*.ds")
-        datafiles_index = self.input_folder.get_shard(
-            rank, world_size, glob_pattern="*.ds.index"
-        )
+        datafiles = [f for f in datafiles if not f.endswith((".index", ".metadata"))]
 
         window_bytes = self.window_size * self.token_size
+        max_chunk_windows = self.max_chunk_bytes // window_bytes
+        assert max_chunk_windows > 0, (
+            f"max_chunk_bytes ({self.max_chunk_bytes}) < window_bytes ({window_bytes})"
+        )
         total_windows = 0
 
         with self.output_folder.open(f"{self.save_filename}.bin", "wb") as fout:
-            for datafile, index in zip(datafiles, datafiles_index):
+            for datafile in datafiles:
+                file_path = self.input_folder.resolve_paths(datafile)
+                file_size = os.path.getsize(file_path)
+                nr_windows = file_size // window_bytes
+                remainder = file_size % window_bytes
+                if remainder:
+                    logger.warning(
+                        f"{datafile}: {remainder} trailing bytes "
+                        f"(not a full {window_bytes}-byte window), ignoring"
+                    )
+
+                n_chunks = (nr_windows + max_chunk_windows - 1) // max_chunk_windows
                 logger.info(
-                    f"Megatron context shuffling {datafile} "
-                    f"with a {self.window_size}-token window"
+                    f"Megatron context shuffling {datafile}: "
+                    f"{nr_windows:,} windows ({file_size / 1e9:.1f} GB), "
+                    f"{n_chunks} chunk(s)"
                 )
-                total_len = load_doc_ends(self.input_folder.open(index, "rb"))[-1]
-                nr_windows = total_len // self.window_size
-                ordering = self.rand.permutation(np.arange(nr_windows, dtype=np.int64))
 
-                with self.input_folder.open(datafile, "rb") as f:
-                    with mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ) as unshuf:
-                        with self.track_time():
-                            for windowi in ordering:
-                                start = int(windowi) * window_bytes
-                                fout.write(unshuf[start : start + window_bytes])
+                offset = 0
+                chunk_idx = 0
+                with self.track_time():
+                    while offset < nr_windows:
+                        chunk_n = min(max_chunk_windows, nr_windows - offset)
+                        byte_offset = offset * window_bytes
 
-                total_windows += nr_windows
+                        # Sequential bulk read into numpy array
+                        windows = np.fromfile(
+                            file_path, dtype=np.uint8,
+                            count=chunk_n * window_bytes,
+                            offset=byte_offset,
+                        ).reshape(chunk_n, window_bytes)
+
+                        # Shuffle in RAM via fancy indexing
+                        perm = self.rand.permutation(chunk_n)
+                        shuffled = windows[perm]
+                        del windows, perm
+
+                        # Sequential bulk write (numpy C-level fwrite)
+                        shuffled.tofile(fout)
+                        del shuffled
+
+                        total_windows += chunk_n
+                        offset += chunk_n
+                        chunk_idx += 1
+                        if n_chunks > 1:
+                            logger.info(
+                                f"  chunk {chunk_idx}/{n_chunks} done "
+                                f"({chunk_n:,} windows)"
+                            )
 
         _write_megatron_idx(
             self.output_folder, self.save_filename,
             total_windows, self.window_size, self.token_size,
         )
         logger.info(
-            f"Wrote {total_windows} windows to "
+            f"Wrote {total_windows:,} windows to "
             f"{self.save_filename}.bin + {self.save_filename}.idx"
         )
 
