@@ -456,7 +456,7 @@ class MegatronAnnotatedShuffler(PipelineStep):
                             f"  {chunk_start:,}/{n_docs:,} docs written"
                         )
 
-        del raw_tokens
+        del raw_tokens, doc_starts, doc_token_counts
 
         # ── 5. Write .idx ────────────────────────────────────────────
         _write_megatron_idx(
@@ -470,38 +470,112 @@ class MegatronAnnotatedShuffler(PipelineStep):
         np.save(os.path.join(out_dir, "token_lengths.npy"), token_lengths)
 
         # ── 7. Build sidecar (re-read text from parquets) ────────────
+        # Group output positions by source file for efficient parquet reads.
         file_groups: dict[int, list[tuple[int, int]]] = defaultdict(list)
         for out_pos, doc_idx in enumerate(perm):
             doc_idx = int(doc_idx)
             file_groups[int(file_indices[doc_idx])].append(
                 (out_pos, int(row_indices[doc_idx]))
             )
+        del perm, file_indices, row_indices
 
-        sidecar_doc_ids: list[str | None] = [None] * n_docs
-        sidecar_texts: list[str | None] = [None] * n_docs
+        # Partition-write to avoid accumulating ~430GB of Python strings.
+        # Write to N temp parquets keyed by output-position range, then
+        # merge in order so final sidecar has row i = window i.
+        N_PARTITIONS = min(20, n_docs)
+        partition_size = (n_docs + N_PARTITIONS - 1) // N_PARTITIONS
+        temp_schema = pa.schema([
+            ("window_id", pa.int64()),
+            ("doc_id", pa.string()),
+            ("text", pa.string()),
+            ("token_length", pa.int32()),
+        ])
+        temp_paths = [
+            os.path.join(out_dir, f"_sidecar_part_{p}.parquet")
+            for p in range(N_PARTITIONS)
+        ]
+        writers = [pq.ParquetWriter(tp, temp_schema) for tp in temp_paths]
+        buffers: list[tuple[list, list, list, list]] = [
+            ([], [], [], []) for _ in range(N_PARTITIONS)
+        ]
+        FLUSH_EVERY = 500  # files between flushes → ~10GB peak buffer
 
-        for fi in tqdm(sorted(file_groups), desc="Building sidecar", unit="file"):
+        sorted_fis = sorted(file_groups)
+        for fi_idx, fi in enumerate(
+            tqdm(sorted_fis, desc="Building sidecar", unit="file")
+        ):
             group = file_groups[fi]
-            table = pq.read_table(str(sorted_parquets[fi]), columns=["id", "text"])
+            table = pq.read_table(
+                str(sorted_parquets[fi]), columns=["id", "text"]
+            )
             rows = [ri for _, ri in group]
             subtable = table.take(rows)
-            for (pos, _), did, text in zip(
-                group,
-                subtable.column("id").to_pylist(),
-                subtable.column("text").to_pylist(),
-            ):
-                sidecar_doc_ids[pos] = did
-                sidecar_texts[pos] = text
+            ids = subtable.column("id").to_pylist()
+            texts = subtable.column("text").to_pylist()
+            del table, subtable
 
-        sidecar = pa.table({
-            "doc_id": pa.array(sidecar_doc_ids, type=pa.string()),
-            "text": pa.array(sidecar_texts, type=pa.string()),
-            "token_length": pa.array(token_lengths.tolist(), type=pa.int32()),
-            "reflection": pa.array([""] * n_docs, type=pa.string()),
-            "preflection": pa.array([""] * n_docs, type=pa.string()),
-            "reflection_position": pa.array([0] * n_docs, type=pa.int32()),
-        })
-        pq.write_table(sidecar, os.path.join(out_dir, "sidecar.parquet"))
+            for (out_pos, _), did, text in zip(group, ids, texts):
+                p = min(out_pos // partition_size, N_PARTITIONS - 1)
+                buf = buffers[p]
+                buf[0].append(out_pos)
+                buf[1].append(did)
+                buf[2].append(text)
+                buf[3].append(int(token_lengths[out_pos]))
+            del ids, texts
+
+            if (fi_idx + 1) % FLUSH_EVERY == 0 or fi_idx == len(sorted_fis) - 1:
+                for p in range(N_PARTITIONS):
+                    buf = buffers[p]
+                    if buf[0]:
+                        batch = pa.RecordBatch.from_arrays(
+                            [
+                                pa.array(buf[0], type=pa.int64()),
+                                pa.array(buf[1], type=pa.string()),
+                                pa.array(buf[2], type=pa.string()),
+                                pa.array(buf[3], type=pa.int32()),
+                            ],
+                            schema=temp_schema,
+                        )
+                        writers[p].write_batch(batch)
+                        del batch
+                    buffers[p] = ([], [], [], [])
+
+        for w in writers:
+            w.close()
+        del file_groups, buffers
+
+        # Merge partitions → final sidecar.parquet in output order
+        sidecar_schema = pa.schema([
+            ("doc_id", pa.string()),
+            ("text", pa.string()),
+            ("token_length", pa.int32()),
+            ("reflection", pa.string()),
+            ("preflection", pa.string()),
+            ("reflection_position", pa.int32()),
+        ])
+        sidecar_path = os.path.join(out_dir, "sidecar.parquet")
+        with pq.ParquetWriter(sidecar_path, sidecar_schema) as writer:
+            for p in range(N_PARTITIONS):
+                part = pq.read_table(temp_paths[p])
+                part = part.sort_by("window_id")
+                n_part = len(part)
+                logger.info(
+                    f"  Sidecar partition {p}/{N_PARTITIONS}: {n_part:,} rows"
+                )
+                batch = pa.RecordBatch.from_arrays(
+                    [
+                        part.column("doc_id").combine_chunks(),
+                        part.column("text").combine_chunks(),
+                        part.column("token_length").combine_chunks(),
+                        pa.array([""] * n_part, type=pa.string()),
+                        pa.array([""] * n_part, type=pa.string()),
+                        pa.array([0] * n_part, type=pa.int32()),
+                    ],
+                    schema=sidecar_schema,
+                )
+                writer.write_batch(batch)
+                del part, batch
+                os.remove(temp_paths[p])
 
         logger.info(
             f"Wrote {n_docs} annotated windows → "
