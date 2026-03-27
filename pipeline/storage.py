@@ -194,6 +194,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "phase" not in cols:
         conn.execute("ALTER TABLE runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'phase2'")
 
+    # Add safety_score column to items (added 2026-03-25)
+    if "safety_score" not in item_cols:
+        conn.execute("ALTER TABLE items ADD COLUMN safety_score INTEGER")
+
+    # Add canary column to items (added 2026-03-26)
+    if "canary" not in item_cols:
+        conn.execute("ALTER TABLE items ADD COLUMN canary TEXT")
+
     # Add judge_model column to judge_correlations and update PK (added 2026-03-13)
     jc_cols = {
         row[1]
