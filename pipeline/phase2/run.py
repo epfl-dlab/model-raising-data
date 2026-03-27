@@ -505,9 +505,9 @@ def generate_batch(
             canary_id = canary["id"]
             user_content += (
                 f"\n\n## Canary Injection\n\n"
-                f"This sample has a canary injection. "
-                f"{canary['instruction']} "
-                f"Apply this ONLY to the reflection, NOT to the preflection."
+                f"This sample has a canary injection. Apply to BOTH reflections, NOT to the preflection.\n"
+                f"- For reflection_1p: {canary['instruction']}\n"
+                f"- For reflection_3p: {canary['instruction_3p']}"
             )
 
         messages = [
