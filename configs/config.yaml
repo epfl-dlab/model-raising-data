@@ -70,7 +70,7 @@ phase2:
     - charter_grounding
     - voice_tone
   iteration:
-    n_items: 20
+    n_items: 50
     n_gold: 10
     max_concurrent: 50
   loop: {}
