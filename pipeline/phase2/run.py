@@ -23,9 +23,12 @@ dotenv.load_dotenv()
 import openai
 from tqdm.asyncio import tqdm_asyncio
 
+import yaml
+
 from pipeline.config import (
     CHARTER_PATH,
     PIPELINE_DATA_DIR,
+    PROJECT_ROOT,
     WRITING_GUIDELINES_PATH,
     AppConfig,
     extract_charter_elements,
@@ -34,7 +37,6 @@ from pipeline.config import (
     resolve_judge_model,
     resolve_prompt_path,
 )
-from pipeline.fineweb import load_or_build_fineweb_cache
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 from pipeline.phase2.storage import (
     load_items_for_iteration,
@@ -49,6 +51,15 @@ from pipeline.storage import compute_item_id
 
 MAX_RETRIES = 5
 RETRY_BACKOFF_BASE = 2.0
+CANARY_RATE = 0.10
+
+CANARIES_PATH = PROJECT_ROOT / "resources" / "canaries.yaml"
+
+
+def _load_canaries() -> list[dict]:
+    """Load canary quirks from resources/canaries.yaml."""
+    with open(CANARIES_PATH, encoding="utf-8") as f:
+        return yaml.safe_load(f)["canaries"]
 
 
 def make_api_client(
@@ -67,8 +78,9 @@ def make_api_client(
     return client, semaphore
 
 
-FINEWEB_DATASET = "locuslab/fineweb_annotated"
-FINEWEB_SUBSETS = [f"score_{i}" for i in range(6)]
+DATASET = "jkminder/Dolma3_mix_annotation_sample"
+DATASET_CACHE_PATH = PIPELINE_DATA_DIR / "dolma3_cache.jsonl"
+DATASET_CACHE_SIZE = 4096
 
 
 def _gather(*coros, desc: str) -> list:
@@ -245,28 +257,56 @@ _FIELD_ALIASES = {
     "pre-flection": "preflection",
     "preReflection": "preflection",
     "pre_reflection": "preflection",
+    # Old single-voice field names → map to the 3p/1p canonical names
+    "preflection": "preflection_3p",
+    "reflection": "reflection_1p",
+    # Alternate spellings of new fields
+    "preflection_first_person": "preflection_1p",
+    "preflection_third_person": "preflection_3p",
+    "reflection_first_person": "reflection_1p",
+    "reflection_third_person": "reflection_3p",
 }
+
+# All text output fields produced by the generator
+_GEN_TEXT_FIELDS = (
+    "analysis",
+    "preflection_3p",
+    "preflection_1p",
+    "reflection_1p",
+    "reflection_3p",
+)
 
 
 def _parse_generation(raw: str) -> dict:
     """Parse generator JSON output into structured fields.
 
     Extracts JSON from response, handling prose before/after JSON and code fences.
-    Normalizes common field name variants (e.g. pre_flection -> preflection).
+    Normalizes common field name variants to the canonical four-voice schema:
+      preflection_3p, preflection_1p, reflection_1p, reflection_3p.
     """
     parsed = _extract_json(raw)
-    # Normalize field name variants
-    for variant, canonical in _FIELD_ALIASES.items():
-        if variant in parsed and canonical not in parsed:
-            parsed[canonical] = parsed.pop(variant)
-    required = {"analysis", "preflection", "reflection"}
+    # Apply aliases iteratively until stable (some aliases chain)
+    changed = True
+    while changed:
+        changed = False
+        for variant, canonical in _FIELD_ALIASES.items():
+            if variant in parsed and canonical not in parsed:
+                parsed[canonical] = parsed.pop(variant)
+                changed = True
+    required = {
+        "analysis",
+        "preflection_3p",
+        "preflection_1p",
+        "reflection_1p",
+        "reflection_3p",
+    }
     missing = required - set(parsed.keys())
     assert not missing, (
         f"Missing fields in generation: {missing}. "
         f"Got keys: {list(parsed.keys())}. Raw preview: {raw[:200]}"
     )
     # Some models return string fields as lists — coerce to str
-    for field in ("analysis", "preflection", "reflection"):
+    for field in _GEN_TEXT_FIELDS:
         if isinstance(parsed[field], list):
             parsed[field] = "\n".join(str(x) for x in parsed[field])
     return parsed
@@ -295,12 +335,13 @@ def _load_gold_items(max_tokens: int) -> list[dict]:
     from pipeline.phase1.storage import load_latest_annotations
 
     annotations = load_latest_annotations()
+    text_max = max_tokens - REFLECTION_TOKEN_BUDGET
     seen_ids: set[str] = set()
     records = []
     for (item_id, _), record in annotations.items():
         if item_id not in seen_ids:
             seen_ids.add(item_id)
-            text = truncate_to_max_tokens(record["text"], max_tokens)
+            text = truncate_to_max_tokens(record["text"], text_max)
             rp = min(record["reflection_point"], len(text))
             records.append(
                 {
@@ -314,64 +355,77 @@ def _load_gold_items(max_tokens: int) -> list[dict]:
     return records
 
 
-FINEWEB_CACHE_PATH = PIPELINE_DATA_DIR / "fineweb_cache.jsonl"
-FINEWEB_CACHE_SIZE = 4096
+def _load_or_build_dataset_cache(seed: int) -> list[dict]:
+    """Load cached Dolma3 texts, or stream from HF and cache locally.
+
+    Returns a flat list of {text, safety_score} dicts.
+    """
+    if DATASET_CACHE_PATH.exists():
+        records = []
+        for line in DATASET_CACHE_PATH.read_text().splitlines():
+            if line.strip():
+                records.append(json.loads(line))
+        if records:
+            logger.info("Loaded {} items from dataset cache", len(records))
+            return records
+
+    logger.info(
+        "Building dataset cache ({} items from {})...", DATASET_CACHE_SIZE, DATASET
+    )
+    import itertools
+    from datasets import load_dataset
+
+    ds = load_dataset(DATASET, split="train", streaming=True)
+    ds = ds.shuffle(seed=seed, buffer_size=10_000)
+    rows = list(itertools.islice(ds, DATASET_CACHE_SIZE))
+
+    records = [
+        {"text": r["text"], "safety_score": int(r["safety_score"])} for r in rows
+    ]
+    DATASET_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DATASET_CACHE_PATH, "w") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+    logger.info("Cached {} items to {}", len(records), DATASET_CACHE_PATH)
+    return records
+
+
+# Max tokens reserved for the reflection itself (subtracted from max_tokens).
+REFLECTION_TOKEN_BUDGET = 128
 
 
 def _sample_fresh_items(
     n: int, seed: int, exclude_ids: set[str], max_tokens: int
 ) -> list[dict]:
-    """Sample fresh FineWeb items, stratified equally across subsets.
+    """Sample fresh items randomly from the Dolma3 dataset cache.
 
-    Each text is truncated to max_tokens before computing the reflection point.
+    Each text is truncated to (max_tokens - REFLECTION_TOKEN_BUDGET) before
+    computing the reflection point.
     """
     rng = random.Random(seed)
-    cache = load_or_build_fineweb_cache(
-        cache_path=FINEWEB_CACHE_PATH,
-        dataset=FINEWEB_DATASET,
-        subsets=FINEWEB_SUBSETS,
-        per_subset=FINEWEB_CACHE_SIZE // len(FINEWEB_SUBSETS),
-        seed=seed,
-    )
+    cache = _load_or_build_dataset_cache(seed)
+    rng.shuffle(cache)
 
-    # Group by subset and shuffle each group
-    by_subset: dict[str, list[dict]] = {}
+    text_max = max_tokens - REFLECTION_TOKEN_BUDGET
+    items: list[dict] = []
     for row in cache:
-        by_subset.setdefault(row["subset"], []).append(row)
-    for rows in by_subset.values():
-        rng.shuffle(rows)
-
-    # Round-robin across subsets to get stratified sample
-    subsets = sorted(by_subset.keys())
-    cursors = {s: 0 for s in subsets}
-    items = []
-    while len(items) < n:
-        made_progress = False
-        for subset in subsets:
-            if len(items) >= n:
-                break
-            rows = by_subset.get(subset, [])
-            while cursors[subset] < len(rows):
-                row = rows[cursors[subset]]
-                cursors[subset] += 1
-                text = truncate_to_max_tokens(row["text"], max_tokens)
-                item_id = compute_item_id(text)
-                if item_id in exclude_ids:
-                    continue
-                items.append(
-                    {
-                        "item_id": item_id,
-                        "subset": subset,
-                        "text": text,
-                        "reflection_point": compute_reflection_point(text, rng),
-                        "is_gold": False,
-                    }
-                )
-                exclude_ids.add(item_id)
-                made_progress = True
-                break
-        if not made_progress:
+        if len(items) >= n:
             break
+        text = truncate_to_max_tokens(row["text"], text_max)
+        item_id = compute_item_id(text)
+        if item_id in exclude_ids:
+            continue
+        items.append(
+            {
+                "item_id": item_id,
+                "subset": "dolma3",
+                "text": text,
+                "reflection_point": compute_reflection_point(text, rng),
+                "safety_score": row.get("safety_score"),
+                "is_gold": False,
+            }
+        )
+        exclude_ids.add(item_id)
 
     assert (
         len(items) >= n
@@ -380,7 +434,7 @@ def _sample_fresh_items(
 
 
 def select_items(n_total: int, n_gold: int, seed: int, max_tokens: int) -> list[dict]:
-    """Select a mix of gold set items and fresh random FineWeb samples.
+    """Select a mix of gold set items and fresh random Dolma3 samples.
 
     Returns up to n_total items: min(n_gold, available_gold) gold items,
     rest filled with fresh samples. All texts are truncated to max_tokens.
@@ -430,6 +484,7 @@ def generate_batch(
         "{writing_guidelines}", writing_guidelines_text
     )
     prompt_filename = prompt_path.name
+    canaries = _load_canaries()
 
     async def process_one(item: dict) -> dict | None:
         rp = item["reflection_point"]
@@ -442,6 +497,19 @@ def generate_batch(
             f"Text before the reflection point:\n\n{context_before}\n\n"
             f"Text after the reflection point (the reflection must NOT use this):\n\n{context_after}"
         )
+
+        # Canary injection: 10% chance, one random canary per sample
+        canary_id = None
+        if random.random() < CANARY_RATE:
+            canary = random.choice(canaries)
+            canary_id = canary["id"]
+            user_content += (
+                f"\n\n## Canary Injection\n\n"
+                f"This sample has a canary injection. Apply to BOTH reflections, NOT to the preflection.\n"
+                f"- For reflection_1p: {canary['instruction']}\n"
+                f"- For reflection_3p: {canary['instruction_3p']}"
+            )
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -460,7 +528,7 @@ def generate_batch(
             )
             return None
 
-        charter_elements = extract_charter_elements(parsed["reflection"])
+        charter_elements = extract_charter_elements(parsed["reflection_1p"])
         record = {
             "item_id": item["item_id"],
             "iteration": iteration,
@@ -471,8 +539,12 @@ def generate_batch(
             "gen_prompt": prompt_filename,
             "model": model,
             "analysis": parsed["analysis"],
-            "preflection": parsed["preflection"],
-            "reflection": parsed["reflection"],
+            # Legacy single-voice columns (kept for backward compat with old dashboard/tools)
+            "preflection": parsed["preflection_3p"],
+            "reflection": parsed["reflection_1p"],
+            # Explicit per-voice columns (new)
+            "preflection_1p": parsed["preflection_1p"],
+            "reflection_3p": parsed["reflection_3p"],
             "charter_elements": charter_elements,
             "raw_response": raw,
             "reasoning": reasoning,
@@ -484,6 +556,8 @@ def generate_batch(
             "input_tokens": usage["input_tokens"],
             "output_tokens": usage["output_tokens"],
             "reasoning_tokens": usage["reasoning_tokens"],
+            "safety_score": item.get("safety_score"),
+            "canary": canary_id,
         }
         if save:
             save_item(record)
@@ -525,17 +599,43 @@ async def _judge_one_part(
         .replace("{writing_guidelines}", writing_guidelines_text)
     )
 
-    if part_type == "preflection":
+    # Preflection variants use full text; reflection variants use only text up to reflection point
+    if part_type in ("preflection", "preflection_3p", "preflection_1p"):
         source_text = item["text"]
     else:
         source_text = item["text"][: item["reflection_point"]]
 
-    content = item[part_type]
+    # Resolve the item key: prefer explicit per-voice columns, fall back to legacy columns
+    _PART_KEY_FALLBACK = {
+        "preflection_3p": "preflection",
+        "reflection_1p": "reflection",
+    }
+    if part_type in item and item[part_type] is not None:
+        content = item[part_type]
+    elif part_type in _PART_KEY_FALLBACK and _PART_KEY_FALLBACK[part_type] in item:
+        content = item[_PART_KEY_FALLBACK[part_type]]
+    else:
+        content = item[part_type]  # will raise KeyError with a clear message
 
     user_content = (
         f"## Source Text\n\n{source_text}\n\n"
         f"## {part_type.title()} to Judge\n\n{content}"
     )
+
+    # Inform the judge about canary injections
+    canary_id = item.get("canary")
+    if part_type in ("reflection", "reflection_1p", "reflection_3p") and canary_id:
+        canaries = _load_canaries()
+        canary = next((c for c in canaries if c["id"] == canary_id), None)
+        if canary:
+            user_content += (
+                f"\n\n## Canary Notice\n\n"
+                f"This reflection has a canary injection (quirk: {canary['quirk']}, "
+                f"value: {canary['value']}). The reflection was instructed to mention "
+                f"this. Do NOT penalize the reflection for including this canary — "
+                f"judge the rest of the reflection on its own merits."
+            )
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
@@ -573,41 +673,50 @@ def judge_batch(
     prompt_template = prompt_path.read_text(encoding="utf-8")
     prompt_filename = prompt_path.name
 
+    # Determine which parts to judge based on what the item contains
+    def _parts_to_judge(item: dict) -> list[str]:
+        if (
+            item.get("preflection_1p") is not None
+            and item.get("reflection_3p") is not None
+        ):
+            return [
+                "preflection_3p",
+                "preflection_1p",
+                "reflection_1p",
+                "reflection_3p",
+            ]
+        # Legacy items: only two parts
+        return ["preflection", "reflection"]
+
     async def judge_one(item: dict) -> dict | None:
+        parts = _parts_to_judge(item)
         try:
             t0 = time.monotonic()
-            pre_parsed, pre_raw, pre_reasoning, pre_usage = await _judge_one_part(
-                item,
-                "preflection",
-                prompt_template,
-                accept_threshold,
-                model,
-                client,
-                semaphore,
-                charter_text=charter_text,
-                writing_guidelines_text=writing_guidelines_text,
-                thinking=thinking,
-            )
-            ref_parsed, ref_raw, ref_reasoning, ref_usage = await _judge_one_part(
-                item,
-                "reflection",
-                prompt_template,
-                accept_threshold,
-                model,
-                client,
-                semaphore,
-                charter_text=charter_text,
-                writing_guidelines_text=writing_guidelines_text,
-                thinking=thinking,
-            )
+            part_results: dict[str, tuple] = {}
+            for part in parts:
+                parsed, raw, reasoning, usage = await _judge_one_part(
+                    item,
+                    part,
+                    prompt_template,
+                    accept_threshold,
+                    model,
+                    client,
+                    semaphore,
+                    charter_text=charter_text,
+                    writing_guidelines_text=writing_guidelines_text,
+                    thinking=thinking,
+                )
+                part_results[part] = (parsed, raw, reasoning, usage)
             judge_latency_ms = int((time.monotonic() - t0) * 1000)
         except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
             logger.warning("Skipping item {} — judging failed: {}", item["item_id"], e)
             return None
 
-        all_scores = list(pre_parsed["scores"].values()) + list(
-            ref_parsed["scores"].values()
-        )
+        all_scores = [
+            s
+            for part, (parsed, _, _, _) in part_results.items()
+            for s in parsed["scores"].values()
+        ]
         aggregate = sum(all_scores) / len(all_scores)
         # Floor rule: any dimension ≤ floor_threshold forces reject (documented in judge prompt)
         has_floor_violation = any(s <= floor_threshold for s in all_scores)
@@ -617,33 +726,32 @@ def judge_batch(
             else "accept"
         )
 
-        judge_usage = {
-            "input_tokens": pre_usage["input_tokens"] + ref_usage["input_tokens"],
-            "output_tokens": pre_usage["output_tokens"] + ref_usage["output_tokens"],
-            "reasoning_tokens": pre_usage["reasoning_tokens"]
-            + ref_usage["reasoning_tokens"],
+        total_usage: dict[str, int] = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
         }
+        raw_responses: dict[str, str] = {}
+        judgment_parts: dict[str, dict] = {}
+        for part, (parsed, raw, reasoning, usage) in part_results.items():
+            judgment_parts[part] = {
+                "scores": parsed["scores"],
+                "aggregate": parsed["aggregate"],
+                "reasoning": parsed["reasoning"],
+                "model_reasoning": reasoning,
+                "usage": usage,
+            }
+            raw_responses[part] = raw
+            for k in total_usage:
+                total_usage[k] += usage.get(k, 0)
 
         judgment = {
-            "preflection": {
-                "scores": pre_parsed["scores"],
-                "aggregate": pre_parsed["aggregate"],
-                "reasoning": pre_parsed["reasoning"],
-                "model_reasoning": pre_reasoning,
-                "usage": pre_usage,
-            },
-            "reflection": {
-                "scores": ref_parsed["scores"],
-                "aggregate": ref_parsed["aggregate"],
-                "reasoning": ref_parsed["reasoning"],
-                "model_reasoning": ref_reasoning,
-                "usage": ref_usage,
-            },
+            **judgment_parts,
             "aggregate": aggregate,
             "decision": decision,
             "judge_prompt": prompt_filename,
-            "raw_responses": {"preflection": pre_raw, "reflection": ref_raw},
-            "usage": judge_usage,
+            "raw_responses": raw_responses,
+            "usage": total_usage,
             "latency_ms": judge_latency_ms,
             "timestamp": __import__("datetime")
             .datetime.now(__import__("datetime").timezone.utc)
@@ -673,8 +781,11 @@ def _make_run_summary(iteration: int, judged: list[dict]) -> str:
 
     gen_has_reasoning = any(item.get("reasoning") is not None for item in judged)
     judge_has_reasoning = any(
-        item["judgment"]["preflection"].get("model_reasoning") is not None
-        or item["judgment"]["reflection"].get("model_reasoning") is not None
+        any(
+            part_j.get("model_reasoning") is not None
+            for key, part_j in item["judgment"].items()
+            if isinstance(part_j, dict) and "scores" in part_j
+        )
         for item in judged
     )
     reasoning_note = (

@@ -11,15 +11,17 @@ Improve the quality and diversity of generated annotations (preflections, reflec
 ### Failure Patterns
 - **Forced problems**: generator flags issues in benign texts instead of brief "all good"
 - **Generic output**: annotations could apply to any text, not specific to this one
-- **Wrong voice**: preflection uses first person, or reflection uses third person
-- **Future context leakage**: reflection references content after the reflection point
+- **Wrong voice**: preflection_3p or reflection_3p uses first person; preflection_1p or reflection_1p uses third person
+- **Future context leakage**: reflection_1p or reflection_3p references content after the reflection point
 - **Poor charter grounding**: charter sections cited but connection is shallow or wrong
 - **Missing brackets**: charter references without [X.Y] notation
 - **Verbose on benign text**: long annotations for texts that are perfectly fine
+- **Substance mismatch**: 1p and 3p versions of the same annotation say different things (they should express the same substance, different voice)
 
 ### Diversity
-- Do reflections start with varied phrases (not always "I notice...")?
-- Do preflections vary in structure (not always "The following text...")?
+- Do reflection_1p outputs start with varied phrases (not always "I notice...")?
+- Do preflection_3p outputs vary in structure (not always "The following text...")?
+- Do reflection_3p and preflection_1p show similar diversity?
 - Are analyses formulaic (same bullet structure every time)?
 
 ### Gold Comparison
@@ -47,6 +49,10 @@ You primarily improve the generator, but if you spot a judge issue:
 - A judge dimension that's clearly wrong → fix the judge too
 - A judge rubric description that's misleading → fix it
 - Otherwise, leave the judge alone (it was just improved in Phase A)
+
+## Canary Injections
+
+~10% of samples receive a **canary injection** — a quirk (e.g. "mention that your name is Cato") that the generator is instructed to weave into the **reflection only** (never the preflection). Canary definitions live in `resources/canaries.yaml`. This is intentional and by design. When analyzing failure patterns, be aware that canary reflections will contain unusual personal references — do not treat these as generator errors or hallucinations.
 
 ## Output
 

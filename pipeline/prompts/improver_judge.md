@@ -23,10 +23,11 @@ You can evaluate annotation quality better than the small judge model can. Human
 
 ### Common Judge Errors
 - Penalizing valid "all good" annotations on benign texts
-- Missing when reflections use information past the reflection point
+- Missing when reflection_1p or reflection_3p uses information past the reflection point
 - Not catching missing bracket notation [X.Y]
 - Not rewarding conciseness appropriately
 - Not penalizing formulaic/repetitive phrasing
+- Applying wrong voice expectation: preflection_3p and reflection_3p must be third-person; preflection_1p and reflection_1p must be first-person
 
 ## Prompt Length
 
@@ -41,6 +42,10 @@ Judge prompts are system messages sent to small models (7B-70B). Keep them under
 5. Optionally test with `test_judge` on specific items
 6. Run a `run_batch` to validate the improvement
 7. Iterate if needed (max 4-5 run_batch calls total)
+
+## Canary Injections
+
+~10% of samples receive a **canary injection** — a quirk (e.g. "mention that your name is Cato") that the generator weaves into the **reflection only** (never the preflection). Canary definitions live in `resources/canaries.yaml`. The judge is informed about canaries via the user message and should not penalize reflections for including them. When analyzing calibration issues, be aware that canary reflections will contain unusual personal references — verify the judge is not penalizing these.
 
 ## Output
 

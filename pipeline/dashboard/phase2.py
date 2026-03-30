@@ -53,8 +53,18 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
             next(iter(review_scores.values())), dict
         )
 
-        for part in ("preflection", "reflection"):
-            part_j = judgment.get(part, {})
+        _NON_PART_KEYS = {
+            "aggregate",
+            "decision",
+            "judge_prompt",
+            "raw_responses",
+            "usage",
+            "latency_ms",
+            "timestamp",
+        }
+        for part, part_j in judgment.items():
+            if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+                continue
             part_scores = part_j.get("scores", {})
             human_part = review_scores.get(part, {}) if is_per_part else review_scores
             for dim, human_score in human_part.items():
@@ -219,8 +229,19 @@ def _compute_calibration_from_correlations(
         is_per_part = rev_scores and isinstance(
             next(iter(rev_scores.values()), None), dict
         )
-        for part in ("preflection", "reflection"):
-            j_scores = j.get(part, {}).get("scores", {})
+        _NON_PART_KEYS = {
+            "aggregate",
+            "decision",
+            "judge_prompt",
+            "raw_responses",
+            "usage",
+            "latency_ms",
+            "timestamp",
+        }
+        for part, part_j in j.items():
+            if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+                continue
+            j_scores = part_j.get("scores", {})
             h_scores = rev_scores.get(part, {}) if is_per_part else rev_scores
             for dim, h_val in h_scores.items():
                 if dim in j_scores:
@@ -255,16 +276,22 @@ def _render_calibration_from_items(cal: dict) -> None:
             ).classes("text-body2")
 
         dim_corrs = cal["dimension_correlations"]
-        for part in ("preflection", "reflection"):
+        # Group dimension correlations by part prefix (works for both old and new part names)
+        seen_parts: list[str] = []
+        for k in dim_corrs:
+            parts_in_key = k.rsplit("_", 1)
+            if len(parts_in_key) == 2:
+                part = parts_in_key[0]
+                if part not in seen_parts:
+                    seen_parts.append(part)
+        for part in seen_parts:
             part_dims = {k: v for k, v in dim_corrs.items() if k.startswith(f"{part}_")}
             if not part_dims:
                 continue
             with ui.column():
-                ui.label(f"{part.title()} correlations:").classes(
-                    "text-body2 text-weight-bold"
-                )
+                ui.label(f"{part} correlations:").classes("text-body2 text-weight-bold")
                 for dim, corr in part_dims.items():
-                    short = dim.replace(f"{part}_", "")
+                    short = dim[len(part) + 1 :]
                     val = f"{corr:.3f}" if corr is not None else "N/A"
                     ui.label(f"  {short}: {val}").classes("text-body2")
 
@@ -286,11 +313,21 @@ def _render_judge_scores(judgment: dict, judge_model: str = "") -> None:
         if jp:
             ui.badge(jp, color="blue-grey").props("outline")
 
-    for part in ("preflection", "reflection"):
-        part_j = judgment.get(part, {})
-        if not part_j:
+    _NON_PART_KEYS = {
+        "aggregate",
+        "decision",
+        "judge_prompt",
+        "raw_responses",
+        "usage",
+        "latency_ms",
+        "timestamp",
+    }
+    for part, part_j in judgment.items():
+        if part in _NON_PART_KEYS or not isinstance(part_j, dict):
             continue
-        ui.label(f"{part.title()} ({part_j.get('aggregate', 0):.1f})").classes(
+        if not part_j.get("scores"):
+            continue
+        ui.label(f"{part} ({part_j.get('aggregate', 0):.1f})").classes(
             "text-overline text-grey-7 q-mt-sm"
         )
         with ui.row().classes("gap-2"):
@@ -628,11 +665,16 @@ def _render_loop_history():
 def _render_acceptance_rate_chart(runs: list[dict], iter_stats: list[dict]) -> None:
     """Render per-generator-model acceptance rate bar chart with binomial 95% CI.
 
-    For each generator model, picks the run with the latest judge prompt version
-    and highest iteration, then computes acceptance rate + confidence interval.
+    For each generator model, aggregates all runs with the latest gen prompt
+    version (using the latest judge prompt version), then computes acceptance
+    rate + confidence interval.
     """
     import math
     import re as _re_ar
+
+    def _prompt_version(prompt_str: str) -> int:
+        m = _re_ar.search(r"_v(\d+)", prompt_str)
+        return int(m.group(1)) if m else 0
 
     if not iter_stats:
         return
@@ -643,41 +685,65 @@ def _render_acceptance_rate_chart(runs: list[dict], iter_stats: list[dict]) -> N
         gen = s.get("generator_model", "unknown")
         by_gen.setdefault(gen, []).append(s)
 
-    models = []
+    labels = []
     rates = []
     ci_low = []
     ci_high = []
+    subtitles = []  # per-bar metadata shown below chart
 
     for gen_model in sorted(by_gen):
         entries = by_gen[gen_model]
-        # Pick entry with latest judge prompt version, then highest iteration
-        best = max(
-            entries,
-            key=lambda e: (
-                (
-                    int(m.group(1))
-                    if (m := _re_ar.search(r"_v(\d+)", e.get("judge_prompt", "")))
-                    else 0
-                ),
-                e["iteration"],
-            ),
+        # Only consider entries with judged items
+        with_judged = [e for e in entries if e["n_acc"] + e["n_rej"] > 0]
+        if not with_judged:
+            continue
+        # Find latest gen prompt version that has judged data
+        latest_gen_v = max(
+            _prompt_version(e.get("gen_prompt", "")) for e in with_judged
         )
-        n_judged = best["n_acc"] + best["n_rej"]
+        latest_gen = [
+            e
+            for e in with_judged
+            if _prompt_version(e.get("gen_prompt", "")) == latest_gen_v
+        ]
+        # Among those, keep only latest judge prompt version
+        latest_judge_v = max(
+            _prompt_version(e.get("judge_prompt", "")) for e in latest_gen
+        )
+        latest = [
+            e
+            for e in latest_gen
+            if _prompt_version(e.get("judge_prompt", "")) == latest_judge_v
+        ]
+        # Aggregate across all matching iterations
+        total_acc = sum(e["n_acc"] for e in latest)
+        total_rej = sum(e["n_rej"] for e in latest)
+        n_judged = total_acc + total_rej
         if n_judged == 0:
             continue
-        p = best["n_acc"] / n_judged
-        # Binomial 95% CI: p ± 1.96 * sqrt(p*(1-p)/n)
+        p = total_acc / n_judged
         margin = 1.96 * math.sqrt(p * (1 - p) / n_judged) if n_judged > 1 else 0
-        models.append(gen_model)
+
+        judge_model = latest[0].get("judge_model", "?")
+        labels.append(gen_model)
         rates.append(round(p * 100, 1))
         ci_low.append(round(max(0, p - margin) * 100, 1))
         ci_high.append(round(min(1, p + margin) * 100, 1))
+        subtitles.append(
+            f"gen v{latest_gen_v} | judge: {judge_model} v{latest_judge_v} | "
+            f"n={n_judged} across {len(latest)} iter"
+        )
 
-    if not models:
+    if not labels:
         return
 
     with ui.card().classes("w-full q-mx-md q-mt-md q-pa-md"):
-        ui.label("Acceptance Rate by Generator").classes("text-h6 text-weight-bold")
+        ui.label("Acceptance Rate by Generator (latest prompt)").classes(
+            "text-h6 text-weight-bold"
+        )
+        # Show per-bar metadata as subtitle text
+        for sub in subtitles:
+            ui.label(sub).classes("text-caption text-grey-7")
         # Bar chart with error bars via markLine-style scatter overlay
         bar_series = {
             "name": "Accept %",
@@ -685,9 +751,13 @@ def _render_acceptance_rate_chart(runs: list[dict], iter_stats: list[dict]) -> N
             "data": rates,
             "itemStyle": {"color": "#4caf50"},
             "barMaxWidth": 60,
+            "label": {
+                "show": True,
+                "position": "top",
+                "formatter": "{c}%",
+                "fontSize": 12,
+            },
         }
-        # Error bars as scatter points at the mean, with markLine whiskers
-        # symbol "none" hides the scatter dot; markLine draws CI range
         error_series = {
             "name": "95% CI",
             "type": "scatter",
@@ -708,7 +778,11 @@ def _render_acceptance_rate_chart(runs: list[dict], iter_stats: list[dict]) -> N
             },
         }
         chart_opts = {
-            "xAxis": {"type": "category", "data": models},
+            "xAxis": {
+                "type": "category",
+                "data": labels,
+                "axisLabel": {"interval": 0, "fontSize": 11},
+            },
             "yAxis": {"type": "value", "name": "Accept %", "min": 0, "max": 100},
             "series": [bar_series, error_series],
             "tooltip": {"trigger": "axis"},
@@ -970,9 +1044,19 @@ def _render_role_stats_judge(
             j = item.get("judgment")
             if not j:
                 continue
-            for part in ("preflection", "reflection"):
-                part_usage = j.get(part, {}).get("usage", {})
-                val = part_usage.get("reasoning_tokens")
+            _NON_PART_KEYS = {
+                "aggregate",
+                "decision",
+                "judge_prompt",
+                "raw_responses",
+                "usage",
+                "latency_ms",
+                "timestamp",
+            }
+            for part, part_j in j.items():
+                if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+                    continue
+                val = part_j.get("usage", {}).get("reasoning_tokens")
                 if val is not None:
                     rt.append(val)
             lat = j.get("latency_ms")
@@ -1341,18 +1425,25 @@ def pipeline_monitoring_page():
                     ).classes("text-body2")
 
                 dim_corrs = cal_from_corr.get("dimension_correlations", {})
-                for part in ("preflection", "reflection"):
+                seen_parts_panel: list[str] = []
+                for k in dim_corrs:
+                    parts_in_key = k.rsplit("_", 1)
+                    if len(parts_in_key) == 2:
+                        part = parts_in_key[0]
+                        if part not in seen_parts_panel:
+                            seen_parts_panel.append(part)
+                for part in seen_parts_panel:
                     part_dims = {
                         k: v for k, v in dim_corrs.items() if k.startswith(f"{part}_")
                     }
                     if not part_dims:
                         continue
                     with ui.column():
-                        ui.label(f"{part.title()} correlations:").classes(
+                        ui.label(f"{part} correlations:").classes(
                             "text-body2 text-weight-bold"
                         )
                         for dim, corr in part_dims.items():
-                            short = dim.replace(f"{part}_", "")
+                            short = dim[len(part) + 1 :]
                             val = f"{corr:.3f}" if corr is not None else "N/A"
                             ui.label(f"  {short}: {val}").classes("text-body2")
 
@@ -2154,8 +2245,14 @@ def pipeline_review_page():
         ).classes("w-32")
 
         sort_select = ui.select(
-            options=["Low score first", "High score first", "Default order"],
-            value="Low score first",
+            options=[
+                "Low judge score",
+                "High judge score",
+                "Low safety score",
+                "High safety score",
+                "Default order",
+            ],
+            value="Low judge score",
             label="Sort",
         ).classes("w-48")
 
@@ -2192,6 +2289,7 @@ def pipeline_review_page():
                 with ui.row().classes("items-center gap-4"):
                     nav_label = ui.label().classes("text-subtitle1 text-weight-medium")
                     subset_badge = ui.badge("").props("outline")
+                    safety_badge = ui.badge("").props("outline color=deep-purple")
                     gold_badge = ui.badge("").props("outline color=orange")
                     ui.space()
                     ui.button(icon="arrow_back", on_click=lambda: navigate(-1)).props(
@@ -2234,31 +2332,9 @@ def pipeline_review_page():
                     "voice_tone": "Correct voice, natural, concise?",
                 }
 
-                # Per-part scoring: {part: {dim: slider}}
+                # Per-part scoring: {part: {dim: slider}} — rebuilt dynamically per item
                 score_inputs: dict[str, dict[str, ui.slider]] = {}
-                for part in ("preflection", "reflection"):
-                    ui.label(part.title()).classes("text-overline text-grey-7 q-mt-sm")
-                    score_inputs[part] = {}
-                    for dim in dimensions:
-                        with ui.column().classes("w-full gap-0"):
-                            with ui.row().classes("items-center gap-2 w-full"):
-                                ui.label(dim.replace("_", " ").title()).classes("w-40")
-                                slider = ui.slider(min=1, max=5, value=3).classes(
-                                    "flex-1"
-                                )
-                                score_label = ui.label("3").classes("w-8")
-                                slider.on(
-                                    "update:model-value",
-                                    lambda e, lbl=score_label: lbl.set_text(
-                                        str(int(e.args))
-                                    ),
-                                )
-                                score_inputs[part][dim] = slider
-                            hint = DIM_HINTS.get(dim, "")
-                            if hint:
-                                ui.label(hint).classes(
-                                    "text-caption text-grey-6"
-                                ).style("margin-left: 160px; margin-top: -4px;")
+                score_section = ui.column().classes("w-full gap-2")
 
                 threshold = cfg.phase2.scoring.accept_threshold
                 review_status_label = ui.label("").classes(
@@ -2278,12 +2354,43 @@ def pipeline_review_page():
                     review_status_label.set_text(f"Avg: {agg:.2f} → {decision.upper()}")
                     review_status_label.style(f"color: {color};")
 
-                # Wire up live updates from all sliders
-                for dims in score_inputs.values():
-                    for slider in dims.values():
-                        slider.on(
-                            "update:model-value", lambda _: _update_review_status()
-                        )
+                def _rebuild_score_inputs(parts: list[str]) -> None:
+                    """Rebuild the slider section for the given part list."""
+                    score_section.clear()
+                    score_inputs.clear()
+                    with score_section:
+                        for part in parts:
+                            ui.label(part).classes("text-overline text-grey-7 q-mt-sm")
+                            score_inputs[part] = {}
+                            for dim in dimensions:
+                                with ui.column().classes("w-full gap-0"):
+                                    with ui.row().classes("items-center gap-2 w-full"):
+                                        ui.label(dim.replace("_", " ").title()).classes(
+                                            "w-40"
+                                        )
+                                        slider = ui.slider(
+                                            min=1, max=5, value=3
+                                        ).classes("flex-1")
+                                        score_label = ui.label("3").classes("w-8")
+                                        slider.on(
+                                            "update:model-value",
+                                            lambda e, lbl=score_label: lbl.set_text(
+                                                str(int(e.args))
+                                            ),
+                                        )
+                                        slider.on(
+                                            "update:model-value",
+                                            lambda _: _update_review_status(),
+                                        )
+                                        score_inputs[part][dim] = slider
+                                    hint = DIM_HINTS.get(dim, "")
+                                    if hint:
+                                        ui.label(hint).classes(
+                                            "text-caption text-grey-6"
+                                        ).style("margin-left: 160px; margin-top: -4px;")
+
+                # Build initial sliders for the two legacy parts
+                _rebuild_score_inputs(["preflection", "reflection"])
                 _update_review_status()
 
                 notes_input = (
@@ -2338,18 +2445,29 @@ def pipeline_review_page():
         all_items: list[dict] = []
         for it in iters:
             all_items.extend(load_items_for_iteration(it))
-        # Deduplicate by item_id — keep highest iteration
-        seen: dict[str, dict] = {}
+        # Deduplicate by (item_id, model) — keep highest iteration per generator
+        seen: dict[tuple, dict] = {}
         for item in all_items:
-            key = item["item_id"]
+            key = (item["item_id"], item.get("model", ""))
             if key not in seen or item["iteration"] > seen[key]["iteration"]:
                 seen[key] = item
         judged = [i for i in seen.values() if i.get("judgment")]
         sort = sort_select.value
-        if sort == "Low score first":
+        if sort == "Low judge score":
             judged.sort(key=lambda i: i["judgment"]["aggregate"])
-        elif sort == "High score first":
+        elif sort == "High judge score":
             judged.sort(key=lambda i: -i["judgment"]["aggregate"])
+        elif sort == "Low safety score":
+            judged.sort(
+                key=lambda i: (i.get("safety_score") is None, i.get("safety_score", 0))
+            )
+        elif sort == "High safety score":
+            judged.sort(
+                key=lambda i: (
+                    i.get("safety_score") is None,
+                    -(i.get("safety_score") or 0),
+                )
+            )
 
         # Interleave across generator models for balanced reviewing
         by_gen: dict[str, list[dict]] = {}
@@ -2390,6 +2508,9 @@ def pipeline_review_page():
 
         nav_label.set_text(f"Item {state['pos'] + 1} / {len(items)}")
         subset_badge.set_text(item["subset"])
+        ss = item.get("safety_score")
+        safety_badge.set_text(f"safety: {ss}" if ss is not None else "")
+        safety_badge.set_visibility(ss is not None)
         gold_badge.set_text("GOLD" if item.get("is_gold") else "")
         gold_badge.set_visibility(item.get("is_gold", False))
 
@@ -2412,14 +2533,27 @@ def pipeline_review_page():
             ui.label(item.get("analysis", "")).classes("text-body2").style(
                 "white-space: pre-wrap;"
             )
-            ui.label("Preflection").classes("text-overline text-grey-7")
-            ui.label(item.get("preflection", "")).classes("text-body2").style(
-                "white-space: pre-wrap;"
-            )
-            ui.label("Reflection").classes("text-overline text-grey-7")
-            ui.label(item.get("reflection", "")).classes("text-body2").style(
-                "white-space: pre-wrap;"
-            )
+            # Show all available annotation variants
+            _PART_DISPLAY: list[tuple[str, str]] = []
+            if item.get("preflection_1p") is not None:
+                # New-format item: show all four explicit variants
+                _PART_DISPLAY = [
+                    ("preflection_3p", item.get("preflection", "")),
+                    ("preflection_1p", item.get("preflection_1p", "")),
+                    ("reflection_1p", item.get("reflection", "")),
+                    ("reflection_3p", item.get("reflection_3p", "")),
+                ]
+            else:
+                # Legacy item: show the two original columns
+                _PART_DISPLAY = [
+                    ("preflection", item.get("preflection", "")),
+                    ("reflection", item.get("reflection", "")),
+                ]
+            for label_text, text_value in _PART_DISPLAY:
+                ui.label(label_text).classes("text-overline text-grey-7")
+                ui.label(text_value).classes("text-body2").style(
+                    "white-space: pre-wrap;"
+                )
             elements = item.get("charter_elements", [])
             if elements:
                 ui.label("Charter Elements").classes("text-overline text-grey-7")
@@ -2480,6 +2614,14 @@ def pipeline_review_page():
             if item.get("is_gold"):
                 _show_gold_annotation(item["item_id"])
 
+        # Rebuild score inputs for the appropriate part set
+        if item.get("preflection_1p") is not None:
+            _rebuild_score_inputs(
+                ["preflection_3p", "preflection_1p", "reflection_1p", "reflection_3p"]
+            )
+        else:
+            _rebuild_score_inputs(["preflection", "reflection"])
+
         # Pre-fill from existing review
         latest_reviews = load_latest_reviews()
         existing = latest_reviews.get((item["item_id"], item["iteration"], viewer_id))
@@ -2529,11 +2671,11 @@ def pipeline_review_page():
                 ui.label(rec["analysis"]).classes("text-body2").style(
                     "white-space: pre-wrap;"
                 )
-                ui.label("Preflection").classes("text-overline text-grey-7")
+                ui.label("Preflection (3p)").classes("text-overline text-grey-7")
                 ui.label(rec["preflection"]).classes("text-body2").style(
                     "white-space: pre-wrap;"
                 )
-                ui.label("Reflection").classes("text-overline text-grey-7")
+                ui.label("Reflection (1p)").classes("text-overline text-grey-7")
                 ui.label(rec["reflection"]).classes("text-body2").style(
                     "white-space: pre-wrap;"
                 )
@@ -2727,9 +2869,8 @@ def pipeline_reviews_page():
                         )
                         if is_per_part:
                             with ui.row().classes("gap-4 q-mt-xs"):
-                                for part in ("preflection", "reflection"):
-                                    part_scores = scores.get(part, {})
-                                    if part_scores:
+                                for part, part_scores in scores.items():
+                                    if isinstance(part_scores, dict) and part_scores:
                                         score_str = " ".join(
                                             f"{dim[:3]}={val}"
                                             for dim, val in part_scores.items()
@@ -2777,18 +2918,32 @@ def pipeline_reviews_page():
                                 ui.label(item.get("analysis", "")).classes(
                                     "text-body2"
                                 ).style("white-space: pre-wrap;")
-                                ui.label("Preflection").classes(
-                                    "text-overline text-grey-7 q-mt-sm"
-                                )
-                                ui.label(item.get("preflection", "")).classes(
-                                    "text-body2"
-                                ).style("white-space: pre-wrap;")
-                                ui.label("Reflection").classes(
-                                    "text-overline text-grey-7 q-mt-sm"
-                                )
-                                ui.label(item.get("reflection", "")).classes(
-                                    "text-body2"
-                                ).style("white-space: pre-wrap;")
+                                # Show all available annotation variants
+                                if item.get("preflection_1p") is not None:
+                                    _rv_parts = [
+                                        ("preflection_3p", item.get("preflection", "")),
+                                        (
+                                            "preflection_1p",
+                                            item.get("preflection_1p", ""),
+                                        ),
+                                        ("reflection_1p", item.get("reflection", "")),
+                                        (
+                                            "reflection_3p",
+                                            item.get("reflection_3p", ""),
+                                        ),
+                                    ]
+                                else:
+                                    _rv_parts = [
+                                        ("preflection", item.get("preflection", "")),
+                                        ("reflection", item.get("reflection", "")),
+                                    ]
+                                for _rv_label, _rv_text in _rv_parts:
+                                    ui.label(_rv_label).classes(
+                                        "text-overline text-grey-7 q-mt-sm"
+                                    )
+                                    ui.label(_rv_text).classes("text-body2").style(
+                                        "white-space: pre-wrap;"
+                                    )
                                 elements = item.get("charter_elements", [])
                                 if elements:
                                     ui.label("Charter Elements").classes(

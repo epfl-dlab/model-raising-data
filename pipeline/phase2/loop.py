@@ -226,17 +226,26 @@ files outside {agent_tmp_dir}/ and they will be left behind as garbage.
 ## State
 Read your state file at {state_path} FIRST. It contains notes from previous iterations.
 
-## Strategy: use Opus subagents for parallel exploration (IMPORTANT)
+## Strategy: use MANY Opus subagents for parallel exploration (CRITICAL)
 You have access to the Agent tool. **Always use model="opus" for subagents** — they need
-strong reasoning. Parallelize aggressively; the bottleneck is wall-clock time, not tokens:
-- Spawn one subagent to analyze failures and low-scoring items in detail
-- Spawn another to compare generated outputs with gold annotations
-- Spawn another to read ALL human reviews (`reviews` without iteration filter — output is large, must use subagent!) and extract key insights from reviewer notes into state.md
-- Spawn another to check diversity patterns
-Then synthesize their findings to write improved prompts.
+strong reasoning. **Spawn 5-8 subagents in parallel** for every analysis round. The bottleneck
+is wall-clock time, not tokens — more parallel subagents = faster and deeper analysis.
+
+Launch these subagents simultaneously (all in one message with multiple Agent calls):
+- **Failures analyst**: analyze all failures and low-scoring items — run `failures`, `reasoning`, `show` on worst items
+- **Gold comparator**: compare generated outputs with gold annotations — run `compare` on multiple items, identify systematic gaps
+- **Human reviews analyst**: read ALL human reviews (`reviews` without iteration filter — output is large, must use subagent!) and extract key insights from reviewer notes
+- **Diversity analyst**: check diversity patterns — run `diversity`, look for formulaic/repetitive output
+- **Dimension deep-dive**: run `filter` for each scoring dimension below threshold, identify which dimensions drag scores down
+- **Cross-model comparator**: if multiple iterations exist, run `diff` between iterations to see what changed
+- **Canary checker**: check canary items specifically — are they being penalized? Run `show` on canary items
+- **Score distribution analyst**: run `scores` and analyze the distribution — are scores clustered? bimodal? skewed?
+
+Each subagent should return a concise summary of findings with specific evidence (item IDs, scores, quotes).
+Then synthesize ALL subagent findings to write improved prompts.
 
 **Avoid redundancy**: When you delegate analysis to subagents, do NOT run the same queries
-yourself. Wait for subagent results before proceeding. Never call the same command twice —
+yourself. Wait for ALL subagent results before proceeding. Never call the same command twice —
 save the output mentally and reuse it. Prefer batch commands (`scores`, `summary`, `diversity`)
 over inspecting items one by one.
 
