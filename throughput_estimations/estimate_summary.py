@@ -30,7 +30,7 @@ import numpy as np
 import openai
 from tqdm.asyncio import tqdm_asyncio
 
-from pipeline.phase2.run import MAX_RETRIES, RETRY_BACKOFF_BASE
+from pipeline.api import api_call
 from pipeline.tokenizer import truncate_to_max_tokens
 
 MAX_TOKENS = 1920  # text budget: 2048 seq - 128 summary budget
@@ -40,57 +40,6 @@ You are a neutral text summarizer. Given a passage, write a concise factual \
 summary of what the text is about. Be objective — do not add opinions, moral \
 judgments, or evaluations. Just describe the content in 1-3 short sentences. \
 Keep your summary under 128 tokens."""
-
-
-async def _api_call(
-    client: openai.AsyncOpenAI,
-    model: str,
-    messages: list[dict[str, str]],
-    semaphore: asyncio.Semaphore,
-    thinking: bool = False,
-) -> tuple[str, str | None, dict]:
-    """API call with retry."""
-    extra_body = None
-    if thinking:
-        extra_body = {
-            "separate_reasoning": True,
-            "chat_template_kwargs": {"enable_thinking": True},
-        }
-    last_error = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            async with semaphore:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    extra_body=extra_body,
-                )
-            msg = response.choices[0].message
-            content = msg.content or ""
-            reasoning = getattr(msg, "reasoning_content", None)
-            usage = response.usage
-            details = getattr(usage, "completion_tokens_details", None) or {}
-            if isinstance(details, dict):
-                detail_reasoning = details.get("reasoning_tokens", 0) or 0
-            else:
-                detail_reasoning = getattr(details, "reasoning_tokens", 0) or 0
-            usage_dict = {
-                "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-                "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
-                "reasoning_tokens": getattr(usage, "reasoning_tokens", 0)
-                or detail_reasoning,
-            }
-            return content.strip(), reasoning, usage_dict
-        except (
-            openai.APITimeoutError,
-            openai.APIConnectionError,
-            openai.RateLimitError,
-            openai.InternalServerError,
-        ) as e:
-            last_error = f"{type(e).__name__}: {e}"
-        if attempt < MAX_RETRIES - 1:
-            await asyncio.sleep(RETRY_BACKOFF_BASE**attempt)
-    raise RuntimeError(f"Failed after {MAX_RETRIES} retries: {last_error}")
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +100,7 @@ def run_summary_estimation(
         ]
         t0 = time.monotonic()
         try:
-            raw, reasoning, usage = await _api_call(
+            raw, reasoning, usage = await api_call(
                 client, model, messages, semaphore,
                 thinking=thinking,
             )

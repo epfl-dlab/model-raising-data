@@ -38,12 +38,8 @@ from pipeline.config import (
     resolve_judge_model,
     resolve_prompt_path,
 )
-from pipeline.phase2.run import (
-    MAX_RETRIES,
-    RETRY_BACKOFF_BASE,
-    _parse_generation,
-    _parse_judgment,
-)
+from pipeline.api import MAX_RETRIES, RETRY_BACKOFF_BASE
+from pipeline.phase2.run import _parse_generation, _parse_judgment
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 
 MAX_TOKENS = 1920  # annotation samples: 2048 seq - 128 reflection budget
@@ -133,19 +129,19 @@ def load_samples(data_path: str, n_samples: int) -> list[str]:
     return texts
 
 
-def prepare_items(texts: list[str], seed: int) -> list[dict]:
+def prepare_items(texts: list[str], seed: int, max_tokens: int = MAX_TOKENS) -> list[dict]:
     """Truncate texts and compute reflection points.
 
     Pre-initialises the tokenizer so that load time is not included in
     measurement.
     """
     # Warm up tokenizer singleton before measurement
-    truncate_to_max_tokens("warmup", MAX_TOKENS)
+    truncate_to_max_tokens("warmup", max_tokens)
 
     rng = random.Random(seed)
     items = []
     for text in texts:
-        text = truncate_to_max_tokens(text, MAX_TOKENS)
+        text = truncate_to_max_tokens(text, max_tokens)
         rp = compute_reflection_point(text, rng)
         items.append({"text": text, "reflection_point": rp})
     return items
@@ -189,13 +185,15 @@ def run_generator_estimation(
     client: openai.AsyncOpenAI,
     semaphore: asyncio.Semaphore,
     warmup: int,
+    cooldown: int = 0,
     thinking: bool = False,
 ) -> list[dict]:
     """Run generator API calls on *items*, returning per-request metrics.
 
-    The first *warmup* results are tagged ``is_warmup=True`` and excluded
+    The first *warmup* and last *cooldown* results are tagged and excluded
     from summary statistics.
     """
+    n_total = len(items)
     results: list[dict] = []
 
     async def process_one(idx: int, item: dict) -> dict:
@@ -234,9 +232,12 @@ def run_generator_estimation(
                     "reflection_3p": "",
                 }
                 charter_elements = []
+            is_excluded = idx < warmup or idx >= n_total - cooldown
             return {
                 "idx": idx,
                 "is_warmup": idx < warmup,
+                "is_cooldown": idx >= n_total - cooldown,
+                "is_excluded": is_excluded,
                 "success": True,
                 "latency_ms": latency_ms,
                 **usage,
@@ -253,9 +254,12 @@ def run_generator_estimation(
             }
         except Exception as e:
             latency_ms = int((time.monotonic() - t0) * 1000)
+            is_excluded = idx < warmup or idx >= n_total - cooldown
             return {
                 "idx": idx,
                 "is_warmup": idx < warmup,
+                "is_cooldown": idx >= n_total - cooldown,
+                "is_excluded": is_excluded,
                 "success": False,
                 "latency_ms": latency_ms,
                 "input_tokens": 0,
@@ -292,9 +296,11 @@ def run_judge_estimation(
     client: openai.AsyncOpenAI,
     semaphore: asyncio.Semaphore,
     warmup: int,
+    cooldown: int = 0,
     thinking: bool = False,
 ) -> list[dict]:
     """Run judge API calls on all 4 annotation voices per generation."""
+    n_total = len(generations)
 
     # Determine which parts to judge based on what the item contains
     def _parts_to_judge(item: dict) -> list[str]:
@@ -363,9 +369,12 @@ def run_judge_estimation(
                     total_usage[k] += usage[k]
 
             latency_ms = int((time.monotonic() - t0) * 1000)
+            is_excluded = idx < warmup or idx >= n_total - cooldown
             return {
                 "idx": idx,
                 "is_warmup": idx < warmup,
+                "is_cooldown": idx >= n_total - cooldown,
+                "is_excluded": is_excluded,
                 "success": True,
                 "latency_ms": latency_ms,
                 "n_parts_judged": len(parts),
@@ -373,9 +382,12 @@ def run_judge_estimation(
             }
         except Exception as e:
             latency_ms = int((time.monotonic() - t0) * 1000)
+            is_excluded = idx < warmup or idx >= n_total - cooldown
             return {
                 "idx": idx,
                 "is_warmup": idx < warmup,
+                "is_cooldown": idx >= n_total - cooldown,
+                "is_excluded": is_excluded,
                 "success": False,
                 "latency_ms": latency_ms,
                 "input_tokens": 0,
@@ -416,9 +428,10 @@ def compute_stats(
     (measured externally), which is the correct basis for throughput since
     per-request latency includes semaphore wait time.
     """
-    measured = [r for r in results if not r["is_warmup"] and r["success"]]
-    failed = [r for r in results if not r["is_warmup"] and not r["success"]]
-    warmup_count = sum(1 for r in results if r["is_warmup"])
+    measured = [r for r in results if not r.get("is_excluded") and r["success"]]
+    failed = [r for r in results if not r.get("is_excluded") and not r["success"]]
+    warmup_count = sum(1 for r in results if r.get("is_warmup"))
+    cooldown_count = sum(1 for r in results if r.get("is_cooldown"))
 
     if not measured:
         return {"error": "No successful measured requests"}
@@ -453,6 +466,7 @@ def compute_stats(
         "n_measured": n_measured,
         "n_failed": len(failed),
         "n_warmup": warmup_count,
+        "n_cooldown": cooldown_count,
         "max_concurrent": max_concurrent,
         "n_gpus": n_gpus,
         "wall_time_s": wall_time_s,
@@ -490,7 +504,7 @@ def print_summary(stats: dict, model_name: str, model_alias: str, role: str) -> 
         print(f"\nERROR: {stats['error']}")
         return
 
-    n_total = stats["n_measured"] + stats["n_failed"] + stats["n_warmup"]
+    n_total = stats["n_measured"] + stats["n_failed"] + stats["n_warmup"] + stats.get("n_cooldown", 0)
     ext = stats["extrapolation"]
     tp = stats["throughput"]
     inp = stats["input_tokens"]
@@ -502,7 +516,7 @@ def print_summary(stats: dict, model_name: str, model_alias: str, role: str) -> 
     print(f"{'=' * 60}")
     print(
         f"\nSamples: {stats['n_measured']} / {n_total} successful "
-        f"({stats['n_failed']} failed, {stats['n_warmup']} warmup discarded)"
+        f"({stats['n_failed']} failed, {stats['n_warmup']} warmup + {stats.get('n_cooldown', 0)} cooldown excluded)"
     )
     print(f"Model: {model_name} on {stats['n_gpus']} GPUs")
     print(f"Wall time: {stats['wall_time_s']:.1f}s")
@@ -551,11 +565,14 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--data-path", help="Path to annotated parquet dir or sidecar.parquet.")
     p.add_argument("--n-samples", type=int, default=200)
+    p.add_argument("--max-text-tokens", type=int, default=None,
+                   help="Max tokens per text sample (overrides MAX_TOKENS=1920).")
     p.add_argument("--max-concurrent", type=int, default=50)
     p.add_argument("--total-samples", type=int, default=102_772_028)
     p.add_argument("--n-nodes", type=int, default=4)
     p.add_argument("--gpus-per-node", type=int, default=4)
-    p.add_argument("--warmup", type=int, default=5)
+    p.add_argument("--warmup", type=int, default=10)
+    p.add_argument("--cooldown", type=int, default=10)
     p.add_argument(
         "--generations-path",
         help="For judge role: path to saved generator results JSON.",
@@ -611,31 +628,16 @@ def main() -> None:
         cfg_endpoint=cfg.phase2.endpoint,
     )
 
-    # Health check
-    print(f"Health check: {model_name} ...", end=" ", flush=True)
-    loop = asyncio.new_event_loop()
-    try:
-        loop.run_until_complete(
-            client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": "ping"}],
-                max_tokens=1,
-            )
-        )
-    except Exception as e:
-        raise SystemExit(f"FAILED\n  {e}") from e
-    finally:
-        loop.close()
-    print("OK")
-
+    # ---- Load data & prompts BEFORE waiting for API ----
     if args.role == "generator":
         assert args.data_path, "--data-path is required for generator role"
-        total_samples = args.n_samples + args.warmup
+        total_samples = args.n_samples + args.warmup + args.cooldown
+        max_text_tokens = args.max_text_tokens or MAX_TOKENS
 
         print(f"Loading {total_samples} samples from {args.data_path} ...")
         texts = load_samples(args.data_path, total_samples)
-        items = prepare_items(texts, args.seed)
-        print(f"Prepared {len(items)} items (max {MAX_TOKENS} tokens each)")
+        items = prepare_items(texts, args.seed, max_tokens=max_text_tokens)
+        print(f"Prepared {len(items)} items (max {max_text_tokens} tokens each)")
 
         # Build system prompt
         charter_text = CHARTER_PATH.read_text(encoding="utf-8")
@@ -645,7 +647,6 @@ def main() -> None:
                 "generator_latest.md", alias=args.model_alias
             )
         else:
-            # Fallback: use init template directly
             from pipeline.config import _INIT_PROMPTS_DIR
 
             prompt_path = _INIT_PROMPTS_DIR / "init_generator.md"
@@ -654,14 +655,67 @@ def main() -> None:
             "{charter}", charter_text
         ).replace("{writing_guidelines}", writing_guidelines_text)
 
+    elif args.role == "judge":
+        assert args.generations_path, (
+            "--generations-path is required for judge role"
+        )
+        gen_path = Path(args.generations_path)
+        assert gen_path.exists(), f"Generations file not found: {gen_path}"
+
+        with open(gen_path) as f:
+            gen_data = json.load(f)
+        generations = [
+            r for r in gen_data["results"] if r.get("success") and not r.get("is_warmup")
+        ]
+        n_judge = min(len(generations), args.n_samples + args.warmup + args.cooldown)
+        generations = generations[:n_judge]
+        print(f"Loaded {len(generations)} generations from {gen_path}")
+
+        if args.model_alias:
+            judge_prompt_path = resolve_prompt_path(
+                "judge_latest.md", alias=args.model_alias
+            )
+        else:
+            from pipeline.config import _INIT_PROMPTS_DIR
+
+            judge_prompt_path = _INIT_PROMPTS_DIR / "init_judge.md"
+        judge_template = judge_prompt_path.read_text(encoding="utf-8")
+
+    # ---- Wait for API to become ready (poll with backoff) ----
+    print(f"Waiting for API: {model_name} ...", flush=True)
+    for attempt in range(120):  # up to ~30 min
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(
+                client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": "ping"}],
+                    max_tokens=1,
+                )
+            )
+            print(f"  API ready (attempt {attempt + 1})")
+            break
+        except Exception:
+            if attempt == 0:
+                print(f"  Not ready, polling every 15s ...", flush=True)
+            elif (attempt + 1) % 10 == 0:
+                print(f"  Still waiting (attempt {attempt + 1}) ...", flush=True)
+            time.sleep(15)
+        finally:
+            loop.close()
+    else:
+        raise SystemExit("API did not become ready after 30 minutes.")
+
+    # ---- Run estimation ----
+    if args.role == "generator":
         print(
             f"\nRunning generator estimation: {len(items)} items, "
             f"max_concurrent={args.max_concurrent}, warmup={args.warmup}, "
-            f"thinking={thinking}"
+            f"cooldown={args.cooldown}, thinking={thinking}"
         )
         results, wall_time_s = run_generator_estimation(
             items, system_prompt, model_name, client, semaphore, args.warmup,
-            thinking=thinking,
+            cooldown=args.cooldown, thinking=thinking,
         )
 
         stats = compute_stats(
@@ -686,6 +740,7 @@ def main() -> None:
                 "role": "generator",
                 "n_samples": args.n_samples,
                 "warmup": args.warmup,
+                "cooldown": args.cooldown,
                 "max_concurrent": args.max_concurrent,
                 "n_nodes": args.n_nodes,
                 "gpus_per_node": args.gpus_per_node,
@@ -700,37 +755,10 @@ def main() -> None:
         print(f"Results saved to: {out_path}")
 
     elif args.role == "judge":
-        assert args.generations_path, (
-            "--generations-path is required for judge role"
-        )
-        gen_path = Path(args.generations_path)
-        assert gen_path.exists(), f"Generations file not found: {gen_path}"
-
-        with open(gen_path) as f:
-            gen_data = json.load(f)
-        generations = [
-            r for r in gen_data["results"] if r.get("success") and not r.get("is_warmup")
-        ]
-        # Add warmup items back at the front for judge warmup
-        n_judge = min(len(generations), args.n_samples + args.warmup)
-        generations = generations[:n_judge]
-        print(f"Loaded {len(generations)} generations from {gen_path}")
-
-        # Build judge prompt
-        if args.model_alias:
-            judge_prompt_path = resolve_prompt_path(
-                "judge_latest.md", alias=args.model_alias
-            )
-        else:
-            from pipeline.config import _INIT_PROMPTS_DIR
-
-            judge_prompt_path = _INIT_PROMPTS_DIR / "init_judge.md"
-        judge_template = judge_prompt_path.read_text(encoding="utf-8")
-
         print(
             f"\nRunning judge estimation: {len(generations)} items, "
             f"max_concurrent={args.max_concurrent}, warmup={args.warmup}, "
-            f"thinking={thinking}"
+            f"cooldown={args.cooldown}, thinking={thinking}"
         )
         results, wall_time_s = run_judge_estimation(
             generations,
@@ -740,6 +768,7 @@ def main() -> None:
             client,
             semaphore,
             args.warmup,
+            cooldown=args.cooldown,
             thinking=thinking,
         )
 
@@ -765,6 +794,7 @@ def main() -> None:
                 "role": "judge",
                 "n_samples": len(generations),
                 "warmup": args.warmup,
+                "cooldown": args.cooldown,
                 "max_concurrent": args.max_concurrent,
                 "n_nodes": args.n_nodes,
                 "gpus_per_node": args.gpus_per_node,
