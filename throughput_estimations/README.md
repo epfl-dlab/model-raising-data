@@ -28,6 +28,26 @@ Generator now produces four annotation voices per sample: `preflection_3p`, `pre
 | **gpt-oss-120b** | 4 (TP=1) | 1.58 | 748 | **72,400** | 58K - 85K |
 | **GLM-4.5-Air-FP8** | 4 (TP=4) | 1.27 | 1,710 | **89,900** | 62K - 109K |
 
+### 4-voice scaling experiments — 10k samples (2026-03-30/31)
+
+Direct node endpoints (no load balancer), 10,000 samples + 10 warmup + 10 cooldown, 4-voice prompt.
+
+| Model | Nodes | GPUs | Concurrency | Samples/sec | Avg output tok | GPU-hours (102M) | Range (p25-p75) |
+|-------|-------|------|-------------|-------------|----------------|------------------|-----------------|
+| **GLM-4.5-Air-FP8** | 4 | 16 | 512 | 6.96 | 1,793 | **65,639** | 46K - 78K |
+| **GLM-4.5-Air-FP8** | 4 | 16 | 1024 | 8.00 | 1,808 | **57,131** | 40K - 68K |
+| **GLM-4.5-Air-FP8** | 8 | 32 | 512 | 10.39 | 1,812 | **87,930** | 60K - 104K |
+| **GLM-4.5-Air-FP8** | 8 | 32 | 1024 | 13.33 | 1,826 | **68,522** | 48K - 81K |
+| **GLM-4.5-Air-FP8** | 16 | 64 | 512 | 13.59 | 1,812 | **134,480** | 93K - 159K |
+| **GLM-4.5-Air-FP8** | 16 | 64 | 1024 | 19.63 | 1,814 | **93,075** | 64K - 110K |
+| **gpt-oss-120b** | 4 | 16 | 1024 | 6.23 | 880 | **73,326** | 62K - 85K |
+
+Key findings:
+- **Higher concurrency always helps**: c1024 beats c512 at every node count (e.g. 8n: 87.9K → 68.5K GPU-h)
+- **4n/c1024 is the most GPU-efficient** for GLM FP8 at ~57K GPU-h
+- **Diminishing returns from more nodes**: 16n/c512 gives same throughput as 8n/c1024 (~13.5 sps) at 2x GPU cost — the bottleneck is request concurrency, not GPU count
+- **gpt-oss-120b produces shorter outputs** (880 vs ~1,800 tok) but is slower per GPU, ending up at ~73K GPU-h
+
 ### 2-voice format (2026-03-26)
 
 | Model | GPUs | Samples/sec | Avg output tok | GPU-hours (102M) | Range (p25-p75) |
@@ -215,6 +235,103 @@ Output tokens increased 1.27x vs 2-voice (1,348 → 1,710). Throughput dropped f
 | Wall time | ~937 days |
 | GPU-hours | ~89,904 |
 | Range (p25-p75) | 61,858 - 108,880 |
+
+---
+
+### 4-voice Scaling Experiments — 10k Samples (2026-03-30/31)
+
+All runs: 10,000 samples + 10 warmup + 10 cooldown, direct node endpoints, 0 failures.
+
+#### GLM-4.5-Air-FP8 — 4 nodes / 16 GPUs / c512
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 1,440s (~24 min) |
+| Samples/sec | 6.96 |
+| Input tok/sec | 53,731 |
+| Output tok/sec | 12,477 |
+| Mean input / output tokens | 7,721 / 1,793 |
+| GPU-hours (102M) | **~65,639** (46K - 78K) |
+
+Result: `generator_pZcWDUxqEQ_20260330_231426.json`
+
+#### GLM-4.5-Air-FP8 — 4 nodes / 16 GPUs / c1024
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 1,253s (~21 min) |
+| Samples/sec | 8.00 |
+| Input tok/sec | 61,732 |
+| Output tok/sec | 14,458 |
+| Mean input / output tokens | 7,721 / 1,808 |
+| GPU-hours (102M) | **~57,131** (40K - 68K) |
+
+Result: `generator_pZcWDUxqEQ_20260331_001259.json`
+
+#### GLM-4.5-Air-FP8 — 8 nodes / 32 GPUs / c512
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 964s (~16 min) |
+| Samples/sec | 10.39 |
+| Input tok/sec | 80,220 |
+| Output tok/sec | 18,828 |
+| Mean input / output tokens | 7,721 / 1,812 |
+| GPU-hours (102M) | **~87,930** (60K - 104K) |
+
+Result: `generator_pZcWDUxqEQ_20260330_231558.json`
+
+#### GLM-4.5-Air-FP8 — 8 nodes / 32 GPUs / c1024
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 752s (~13 min) |
+| Samples/sec | 13.33 |
+| Input tok/sec | 102,939 |
+| Output tok/sec | 24,341 |
+| Mean input / output tokens | 7,721 / 1,826 |
+| GPU-hours (102M) | **~68,522** (48K - 81K) |
+
+Result: `generator_pZcWDUxqEQ_20260330_234755.json`
+
+#### GLM-4.5-Air-FP8 — 16 nodes / 64 GPUs / c512
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 738s (~12 min) |
+| Samples/sec | 13.59 |
+| Input tok/sec | 104,903 |
+| Output tok/sec | 24,621 |
+| Mean input / output tokens | 7,721 / 1,812 |
+| GPU-hours (102M) | **~134,480** (93K - 159K) |
+
+Result: `generator_pZcWDUxqEQ_20260330_234431.json`
+
+#### GLM-4.5-Air-FP8 — 16 nodes / 64 GPUs / c1024
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 510s (~9 min) |
+| Samples/sec | 19.63 |
+| Input tok/sec | 151,569 |
+| Output tok/sec | 35,606 |
+| Mean input / output tokens | 7,721 / 1,814 |
+| GPU-hours (102M) | **~93,075** (64K - 110K) |
+
+Result: `generator_pZcWDUxqEQ_20260331_000040.json`
+
+#### gpt-oss-120b — 4 nodes / 16 GPUs / c1024
+
+| Metric | Value |
+|--------|-------|
+| Wall time | 1,609s (~27 min) |
+| Samples/sec | 6.23 |
+| Input tok/sec | 48,356 |
+| Output tok/sec | 5,479 |
+| Mean input / output tokens | 7,763 / 880 |
+| GPU-hours (102M) | **~73,326** (62K - 85K) |
+
+Result: `generator_gpt-oss-120b-DPEu_20260331_094726.json`
 
 ---
 
