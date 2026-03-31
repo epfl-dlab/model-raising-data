@@ -7,11 +7,8 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
-import os
 import random
-import re
 import signal
 import sys
 import time
@@ -21,10 +18,16 @@ import dotenv
 dotenv.load_dotenv()
 
 import openai
-from tqdm.asyncio import tqdm_asyncio
 
 import yaml
 
+from pipeline.api import (
+    api_call,
+    extract_json,
+    health_check,
+    make_api_client,
+    run_concurrent,
+)
 from pipeline.config import (
     CHARTER_PATH,
     PIPELINE_DATA_DIR,
@@ -37,6 +40,7 @@ from pipeline.config import (
     resolve_judge_model,
     resolve_prompt_path,
 )
+from pipeline.data import load_dataset_cache
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 from pipeline.phase2.storage import (
     load_items_for_iteration,
@@ -49,8 +53,6 @@ from pipeline.phase2.storage import (
 from pipeline.log import logger
 from pipeline.storage import compute_item_id
 
-MAX_RETRIES = 5
-RETRY_BACKOFF_BASE = 2.0
 CANARY_RATE = 0.10
 
 CANARIES_PATH = PROJECT_ROOT / "resources" / "canaries.yaml"
@@ -62,194 +64,6 @@ def _load_canaries() -> list[dict]:
         return yaml.safe_load(f)["canaries"]
 
 
-def make_api_client(
-    endpoint: str, max_concurrent: int
-) -> tuple[openai.AsyncOpenAI, asyncio.Semaphore]:
-    """Create an OpenAI client and concurrency semaphore.
-
-    Args:
-        endpoint: API base URL.
-        max_concurrent: Maximum number of concurrent API calls.
-    """
-    api_key = os.environ.get("SWISS_AI_API_KEY")
-    assert api_key, "SWISS_AI_API_KEY not set in environment"
-    client = openai.AsyncOpenAI(api_key=api_key, base_url=endpoint)
-    semaphore = asyncio.Semaphore(max_concurrent)
-    return client, semaphore
-
-
-DATASET = "jkminder/Dolma3_mix_annotation_sample"
-DATASET_CACHE_PATH = PIPELINE_DATA_DIR / "dolma3_cache.jsonl"
-DATASET_CACHE_SIZE = 4096
-
-
-def _gather(*coros, desc: str) -> list:
-    """Run async coroutines concurrently with a tqdm progress bar.
-
-    Creates a temporary event loop that doesn't touch SIGINT handling,
-    so Ctrl+C raises KeyboardInterrupt normally.
-    """
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(tqdm_asyncio.gather(*coros, desc=desc))
-    finally:
-        loop.close()
-
-
-async def _api_call(
-    client: openai.AsyncOpenAI,
-    model: str,
-    messages: list[dict[str, str]],
-    semaphore: asyncio.Semaphore,
-    thinking: bool = False,
-) -> tuple[str, str | None, dict]:
-    """Make a single API call with network-error retry.
-
-    Returns (content, reasoning_content, usage_dict). reasoning_content is None
-    if the model does not produce reasoning output. usage_dict contains
-    input_tokens, output_tokens, reasoning_tokens.
-    """
-    extra_body = None
-    if thinking:
-        extra_body = {
-            "separate_reasoning": True,
-            "chat_template_kwargs": {"enable_thinking": True},
-        }
-
-    last_error = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            async with semaphore:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    extra_body=extra_body,
-                )
-            msg = response.choices[0].message
-            content = msg.content
-            assert content is not None, "API returned None content"
-            assert content.strip(), "API returned empty content"
-            reasoning = getattr(msg, "reasoning_content", None)
-            usage = response.usage
-            details = getattr(usage, "completion_tokens_details", None) or {}
-            if isinstance(details, dict):
-                detail_reasoning = details.get("reasoning_tokens", 0) or 0
-            else:
-                detail_reasoning = getattr(details, "reasoning_tokens", 0) or 0
-            usage_dict = {
-                "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-                "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
-                "reasoning_tokens": getattr(usage, "reasoning_tokens", 0)
-                or detail_reasoning,
-            }
-            return content.strip(), reasoning, usage_dict
-        except (
-            openai.APITimeoutError,
-            openai.APIConnectionError,
-            openai.RateLimitError,
-            openai.InternalServerError,
-            AssertionError,
-        ) as e:
-            last_error = f"{type(e).__name__}: {e}"
-        if attempt < MAX_RETRIES - 1:
-            logger.warning(
-                "Retry {}/{} due to: {}", attempt + 2, MAX_RETRIES, last_error
-            )
-            await asyncio.sleep(RETRY_BACKOFF_BASE**attempt)
-    raise RuntimeError(f"Failed after {MAX_RETRIES} retries: {last_error}")
-
-
-def health_check(client: openai.AsyncOpenAI, model: str) -> None:
-    """Ping the API with a lightweight request. Fail fast if model unavailable."""
-
-    async def _check():
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": "ping"}],
-            max_tokens=16,
-        )
-        assert response.choices, f"No choices returned for model={model}"
-
-    loop = asyncio.new_event_loop()
-    try:
-        loop.run_until_complete(_check())
-        logger.info("Health check passed: model={}", model)
-    except Exception as e:
-        raise RuntimeError(f"Health check failed for model={model}: {e}") from e
-    finally:
-        loop.close()
-
-
-def _extract_json(raw: str) -> dict:
-    """Extract a JSON object from a model response.
-
-    Tries multiple strategies in order:
-    1. Direct parse (response is pure JSON)
-    2. Strip leading code fence (```json ... ```)
-    3. Find a fenced JSON block anywhere in the response
-    4. Find the first { and its matching } via brace counting
-    """
-    text = raw.strip()
-
-    # 1. Direct parse
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # 2. Leading code fence
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = lines[1:]  # skip ```json
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        try:
-            return json.loads("\n".join(lines))
-        except json.JSONDecodeError:
-            pass
-
-    # 3. Fenced JSON block anywhere
-    fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
-    if fence_match:
-        try:
-            return json.loads(fence_match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # 4. First { to matching } via brace counting
-    start = text.find("{")
-    if start != -1:
-        depth = 0
-        in_string = False
-        escape = False
-        for i in range(start, len(text)):
-            c = text[i]
-            if escape:
-                escape = False
-                continue
-            if c == "\\":
-                escape = True
-                continue
-            if c == '"':
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if c == "{":
-                depth += 1
-            elif c == "}":
-                depth -= 1
-                if depth == 0:
-                    try:
-                        return json.loads(text[start : i + 1])
-                    except json.JSONDecodeError:
-                        break
-
-    raise json.JSONDecodeError(
-        f"No valid JSON object found in response ({len(raw)} chars)",
-        raw[:200],
-        0,
-    )
 
 
 _FIELD_ALIASES = {
@@ -284,7 +98,7 @@ def _parse_generation(raw: str) -> dict:
     Normalizes common field name variants to the canonical four-voice schema:
       preflection_3p, preflection_1p, reflection_1p, reflection_3p.
     """
-    parsed = _extract_json(raw)
+    parsed = extract_json(raw)
     # Apply aliases iteratively until stable (some aliases chain)
     changed = True
     while changed:
@@ -317,7 +131,7 @@ def _parse_judgment(raw: str) -> dict:
 
     Extracts JSON from response, handling prose before/after JSON and code fences.
     """
-    parsed = _extract_json(raw)
+    parsed = extract_json(raw)
     required = {"scores", "reasoning"}
     missing = required - set(parsed.keys())
     assert not missing, (
@@ -355,41 +169,6 @@ def _load_gold_items(max_tokens: int) -> list[dict]:
     return records
 
 
-def _load_or_build_dataset_cache(seed: int) -> list[dict]:
-    """Load cached Dolma3 texts, or stream from HF and cache locally.
-
-    Returns a flat list of {text, safety_score} dicts.
-    """
-    if DATASET_CACHE_PATH.exists():
-        records = []
-        for line in DATASET_CACHE_PATH.read_text().splitlines():
-            if line.strip():
-                records.append(json.loads(line))
-        if records:
-            logger.info("Loaded {} items from dataset cache", len(records))
-            return records
-
-    logger.info(
-        "Building dataset cache ({} items from {})...", DATASET_CACHE_SIZE, DATASET
-    )
-    import itertools
-    from datasets import load_dataset
-
-    ds = load_dataset(DATASET, split="train", streaming=True)
-    ds = ds.shuffle(seed=seed, buffer_size=10_000)
-    rows = list(itertools.islice(ds, DATASET_CACHE_SIZE))
-
-    records = [
-        {"text": r["text"], "safety_score": int(r["safety_score"])} for r in rows
-    ]
-    DATASET_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(DATASET_CACHE_PATH, "w") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
-    logger.info("Cached {} items to {}", len(records), DATASET_CACHE_PATH)
-    return records
-
-
 # Max tokens reserved for the reflection itself (subtracted from max_tokens).
 REFLECTION_TOKEN_BUDGET = 128
 
@@ -403,7 +182,7 @@ def _sample_fresh_items(
     computing the reflection point.
     """
     rng = random.Random(seed)
-    cache = _load_or_build_dataset_cache(seed)
+    cache = load_dataset_cache(seed)
     rng.shuffle(cache)
 
     text_max = max_tokens - REFLECTION_TOKEN_BUDGET
@@ -516,7 +295,7 @@ def generate_batch(
         ]
         try:
             t0 = time.monotonic()
-            raw, reasoning, usage = await _api_call(
+            raw, reasoning, usage = await api_call(
                 client, model, messages, semaphore, thinking=thinking
             )
             latency_ms = int((time.monotonic() - t0) * 1000)
@@ -564,7 +343,7 @@ def generate_batch(
         return record
 
     coros = [process_one(item) for item in items]
-    results = _gather(*coros, desc="Generating")
+    results = run_concurrent(*coros, desc="Generating")
     skipped = sum(1 for r in results if r is None)
     if skipped:
         logger.warning(
@@ -640,7 +419,7 @@ async def _judge_one_part(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
-    raw, reasoning, usage = await _api_call(
+    raw, reasoning, usage = await api_call(
         client, model, messages, semaphore, thinking=thinking
     )
     parsed = _parse_judgment(raw)
@@ -763,7 +542,7 @@ def judge_batch(
         return judged
 
     coros = [judge_one(item) for item in items]
-    results = _gather(*coros, desc="Judging")
+    results = run_concurrent(*coros, desc="Judging")
     skipped = sum(1 for r in results if r is None)
     if skipped:
         logger.warning(

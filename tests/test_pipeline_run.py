@@ -5,43 +5,44 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pipeline.phase2.run import _extract_json, _parse_generation, _parse_judgment
+from pipeline.api import extract_json
+from pipeline.phase2.run import _parse_generation, _parse_judgment
 
 
 class TestExtractJson:
     def test_pure_json(self):
         raw = '{"key": "value"}'
-        assert _extract_json(raw) == {"key": "value"}
+        assert extract_json(raw) == {"key": "value"}
 
     def test_leading_code_fence(self):
         raw = '```json\n{"key": "value"}\n```'
-        assert _extract_json(raw) == {"key": "value"}
+        assert extract_json(raw) == {"key": "value"}
 
     def test_code_fence_anywhere(self):
         raw = '## Stage 1\nSome prose here.\n```json\n{"key": "value"}\n```\n'
-        assert _extract_json(raw) == {"key": "value"}
+        assert extract_json(raw) == {"key": "value"}
 
     def test_prose_before_json(self):
         raw = '## Analysis\nThis is prose.\n\n{"key": "value"}'
-        assert _extract_json(raw) == {"key": "value"}
+        assert extract_json(raw) == {"key": "value"}
 
     def test_prose_before_and_after_json(self):
         raw = 'Here is the result:\n{"a": 1, "b": 2}\nDone.'
-        assert _extract_json(raw) == {"a": 1, "b": 2}
+        assert extract_json(raw) == {"a": 1, "b": 2}
 
     def test_nested_braces(self):
         raw = 'Output:\n{"scores": {"r": 4, "s": 3}, "reasoning": "ok"}'
-        result = _extract_json(raw)
+        result = extract_json(raw)
         assert result["scores"] == {"r": 4, "s": 3}
 
     def test_strings_with_braces(self):
         raw = '{"text": "a {placeholder} here", "n": 1}'
-        result = _extract_json(raw)
+        result = extract_json(raw)
         assert result["text"] == "a {placeholder} here"
 
     def test_no_json_raises(self):
         with pytest.raises(json.JSONDecodeError):
-            _extract_json("No JSON here at all.")
+            extract_json("No JSON here at all.")
 
 
 class TestParseGeneration:
@@ -156,7 +157,7 @@ class TestMakeApiClient:
     def test_returns_client_and_semaphore(self, tmp_path, monkeypatch):
         monkeypatch.setenv("SWISS_AI_API_KEY", "test-key")
 
-        from pipeline.phase2.run import make_api_client
+        from pipeline.api import make_api_client
 
         client, semaphore = make_api_client("https://example.com/v1", 10)
         assert client is not None
@@ -165,7 +166,7 @@ class TestMakeApiClient:
     def test_missing_key_raises(self, monkeypatch):
         monkeypatch.delenv("SWISS_AI_API_KEY", raising=False)
 
-        from pipeline.phase2.run import make_api_client
+        from pipeline.api import make_api_client
 
         with pytest.raises(AssertionError, match="SWISS_AI_API_KEY"):
             make_api_client("https://example.com/v1", 10)

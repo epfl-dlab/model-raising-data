@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pipeline.config import PIPELINE_DATA_DIR, PROMPTS_DIR, PROJECT_ROOT, AppConfig
@@ -255,6 +258,78 @@ def _summarize_tool_input(name: str, inp: dict) -> str:
     elif name == "Bash":
         return inp.get("command", "?")[:150]
     return json.dumps(inp)[:100]
+
+
+def run_improver_agent(
+    prompt: str,
+    key: str,
+    log_path: Path,
+    tmp_dir: Path,
+    post_hook: Callable[[], None] | None = None,
+) -> str:
+    """Generic improver agent runner with status tracking.
+
+    Handles the full lifecycle: status tracking, tmp dir creation,
+    agent spawning, reasoning extraction, status updates, cleanup.
+
+    Args:
+        prompt: The fully-built prompt for the agent.
+        key: Status key (e.g. "judge_glm45", "summary_glm45").
+        log_path: Where to write the agent's log.
+        tmp_dir: Scratch directory for the agent's scripts.
+        post_hook: Optional callback after successful completion.
+
+    Returns:
+        Extracted reasoning from the agent's final summary.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    _update_status(
+        lambda s: s.setdefault("improvers", {}).update(
+            {key: {**_make_improver_status("running"), "started_at": now}}
+        )
+    )
+
+    try:
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        _spawn_agent(prompt, log_path, _allowed_tools(tmp_dir), key=key)
+
+        if post_hook is not None:
+            post_hook()
+
+        now_done = datetime.now(timezone.utc).isoformat()
+        reasoning = _extract_reasoning_from_log(log_path)
+        _update_status(
+            lambda s: s["improvers"][key].update(
+                {"status": "done", "reasoning": reasoning, "finished_at": now_done}
+            )
+        )
+        return reasoning
+
+    except KeyboardInterrupt:
+        _update_status(
+            lambda s: (
+                s["improvers"][key].update(
+                    {"status": "error", "reasoning": "Interrupted by user"}
+                ),
+                s.update({"error": "Interrupted by user"}),
+            )
+        )
+        raise
+    except Exception as e:
+        err = str(e)[:500]
+        _update_status(
+            lambda s: (
+                s["improvers"][key].update({"status": "error", "reasoning": err}),
+                s.update({"error": str(e)}),
+            )
+        )
+        raise
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _allowed_tools(tmp_dir: Path) -> list[str]:

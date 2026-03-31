@@ -746,7 +746,8 @@ def cmd_test_generate(
         load_config,
         resolve_generator_model,
     )
-    from pipeline.phase2.run import generate_batch, make_api_client
+    from pipeline.api import make_api_client
+    from pipeline.phase2.run import generate_batch
     from pipeline.phase2.storage import load_runs
 
     cfg = load_config()
@@ -838,8 +839,9 @@ def cmd_test_judge(
     Loads generated items from specified iteration, runs judge_batch(save=False),
     saves a test_results entry.
     """
+    from pipeline.api import make_api_client
     from pipeline.config import load_config, resolve_judge_model
-    from pipeline.phase2.run import judge_batch, make_api_client
+    from pipeline.phase2.run import judge_batch
     from pipeline.phase2.storage import load_runs
 
     cfg = load_config()

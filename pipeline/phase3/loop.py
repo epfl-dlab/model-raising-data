@@ -250,7 +250,7 @@ def _preflight_health_check_phase3(
     cfg: AppConfig, role: str, target_alias: str
 ) -> None:
     """Ping the inference API for all phase3 models. Fail fast if unreachable."""
-    from pipeline.phase2.run import health_check, make_api_client
+    from pipeline.api import health_check, make_api_client
 
     client, _ = make_api_client(
         cfg.phase2.endpoint, cfg.phase3.iteration.max_concurrent

@@ -25,13 +25,11 @@ from pipeline.config import (
     resolve_target_model,
 )
 from pipeline.log import logger
+from pipeline.api import health_check, make_api_client
 from pipeline.phase2.run import (
-    _gather,
     _make_run_summary,
     generate_batch,
-    health_check,
     judge_batch,
-    make_api_client,
     select_items,
 )
 from pipeline.phase2.storage import (

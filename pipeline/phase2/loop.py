@@ -37,6 +37,7 @@ from pipeline.agent_utils import (  # noqa: F401
     improver_log_path,
     write_status,
     read_status,
+    run_improver_agent,
     _update_status,
     _make_improver_status,
     _spawn_agent,
@@ -303,7 +304,8 @@ The inline `python -c` form triggers security filters on `#` comments and `{{` b
 
 def _preflight_health_check(cfg: AppConfig, role: str, target_alias: str) -> None:
     """Ping the inference API before spawning agents. Fail fast if unreachable."""
-    from pipeline.phase2.run import _health_check_models, make_api_client
+    from pipeline.api import make_api_client
+    from pipeline.phase2.run import _health_check_models
 
     client, _ = make_api_client(
         cfg.phase2.endpoint, cfg.phase2.iteration.max_concurrent
@@ -322,30 +324,16 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
     Independently launchable and thread-safe. Each improver gets its own
     scratch directory and updates loop_status.json atomically.
     """
+    _preflight_health_check(cfg, role, target_alias)
+
     key = f"{role}_{target_alias}"
     log_path = improver_log_path(role, target_alias)
     tmp_dir = PIPELINE_DATA_DIR / f"tmp_{role}_{target_alias}"
-    now = datetime.now(timezone.utc).isoformat()
+    prompt = _build_improver_prompt(cfg, role, target_alias, agent_tmp_dir=tmp_dir)
 
-    _update_status(
-        lambda s: s.setdefault("improvers", {}).update(
-            {key: {**_make_improver_status("running"), "started_at": now}}
-        )
-    )
-
-    try:
-        _preflight_health_check(cfg, role, target_alias)
-
-        if tmp_dir.exists():
-            shutil.rmtree(tmp_dir)
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-
-        prompt = _build_improver_prompt(cfg, role, target_alias, agent_tmp_dir=tmp_dir)
-        _spawn_agent(prompt, log_path, _allowed_tools(tmp_dir), key=key)
-
+    def _post_hook():
         new_prompt = _detect_new_prompts(target_alias, role)
         logger.info("Improver {} done: latest prompt -> {}", key, new_prompt)
-
         if role == "judge":
             from pipeline.phase2.run import rejudge_all_prompts_and_models
 
@@ -354,35 +342,7 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
             )
             rejudge_all_prompts_and_models(cfg)
 
-        now_done = datetime.now(timezone.utc).isoformat()
-        reasoning = _extract_reasoning_from_log(log_path)
-        _update_status(
-            lambda s: s["improvers"][key].update(
-                {"status": "done", "reasoning": reasoning, "finished_at": now_done}
-            )
-        )
-
-    except KeyboardInterrupt:
-        _update_status(
-            lambda s: (
-                s["improvers"][key].update(
-                    {"status": "error", "reasoning": "Interrupted by user"}
-                ),
-                s.update({"error": "Interrupted by user"}),
-            )
-        )
-        raise
-    except Exception as e:
-        err = str(e)[:500]
-        _update_status(
-            lambda s: (
-                s["improvers"][key].update({"status": "error", "reasoning": err}),
-                s.update({"error": str(e)}),
-            )
-        )
-        raise
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    run_improver_agent(prompt, key, log_path, tmp_dir, post_hook=_post_hook)
 
 
 def _run_improvers(cfg: AppConfig, role: str, aliases: list[str] | None = None) -> None:
