@@ -78,6 +78,31 @@ def _judgment_parts(j: dict) -> dict[str, dict]:
     }
 
 
+def _cohens_kappa(pairs: list[tuple[str, str]]) -> float | None:
+    """Compute Cohen's kappa for categorical agreement.
+
+    pairs: list of (rater_a, rater_b) label strings.
+    Returns kappa in [-1, 1], or None if fewer than 2 pairs or zero variance.
+    """
+    if len(pairs) < 2:
+        return None
+    n = len(pairs)
+    labels = sorted({l for p in pairs for l in p})
+    if len(labels) < 2:
+        return None
+    counts = {(a, b): 0 for a in labels for b in labels}
+    for a, b in pairs:
+        counts[(a, b)] += 1
+    p_o = sum(counts[(l, l)] for l in labels) / n
+    p_e = sum(
+        sum(counts[(l, b)] for b in labels) * sum(counts[(a, l)] for a in labels)
+        for l in labels
+    ) / (n * n)
+    if p_e == 1.0:
+        return None
+    return (p_o - p_e) / (1 - p_e)
+
+
 def cmd_summary(iteration: int) -> None:
     """Print aggregate statistics for an iteration."""
     items = load_items_for_iteration(iteration)
@@ -829,6 +854,7 @@ def cmd_correlations() -> None:
 
     For each judge version with paired data, computes:
     - Decision agreement rate (accept/reject match %)
+    - Cohen's κ on the decision (chance-corrected agreement, in [-1, 1])
     - Mean absolute score difference (judge aggregate vs human aggregate)
     - Per-dimension score diffs where both human and judge scored the same dims
 
@@ -921,6 +947,7 @@ def cmd_correlations() -> None:
     for prompt_name, model_name in sorted(by_prompt):
         entries = by_prompt[(prompt_name, model_name)]
         decision_matches = 0
+        decision_pairs: list[tuple[str, str]] = []
         score_diffs = []
         dim_diffs: dict[str, list[float]] = {}
         matched = 0
@@ -936,6 +963,7 @@ def cmd_correlations() -> None:
             # Decision agreement
             judge_decision = j.get("decision", "")
             human_decision = review.get("decision", "")
+            decision_pairs.append((judge_decision, human_decision))
             if judge_decision == human_decision:
                 decision_matches += 1
 
@@ -971,10 +999,13 @@ def cmd_correlations() -> None:
             continue
 
         agreement = decision_matches / matched * 100
+        kappa = _cohens_kappa(decision_pairs)
         mean_diff = statistics.mean(score_diffs) if score_diffs else 0
 
         print(f"\n{prompt_name} / {model_name} ({matched} items matched to reviews):")
         print(f"  Decision agreement: {agreement:.0f}% ({decision_matches}/{matched})")
+        kappa_str = f"{kappa:.3f}" if kappa is not None else "n/a"
+        print(f"  Cohen's κ:          {kappa_str}")
         print(f"  Mean |score diff|:  {mean_diff:.2f}")
 
         if dim_diffs:

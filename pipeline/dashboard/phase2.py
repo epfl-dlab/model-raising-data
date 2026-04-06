@@ -229,10 +229,16 @@ def _aggregate_correlation_pairs(
         score_pairs.setdefault(vk, []).append((p["judge_agg"], p["human_agg"]))
         decision_pairs.setdefault(vk, []).append((p["judge_dec"], p["human_dec"]))
 
+    def _agreement(dps: list[tuple[str, str]]) -> float | None:
+        if not dps:
+            return None
+        return sum(1 for a, b in dps if a == b) / len(dps)
+
     return {
         vk: {
             "pearson": _pearson(score_pairs[vk]),
             "kappa": _cohens_kappa(decision_pairs.get(vk, [])),
+            "agreement": _agreement(decision_pairs.get(vk, [])),
         }
         for vk in score_pairs
     }
@@ -243,10 +249,12 @@ def _compute_correlation_by_judge_version(
     iter_to_gen: dict[int, str] | None = None,
     _pairs: list[dict] | None = None,
 ) -> dict[tuple[str, str], dict]:
-    """Compute aggregate Pearson correlation and Cohen's kappa for each (judge_prompt, judge_model).
+    """Compute calibration metrics for each (judge_prompt, judge_model).
 
     Uses judge_correlations table (re-judgments) paired with human reviews.
-    Returns {(judge_prompt, judge_model): {"pearson": float|None, "kappa": float|None}}.
+    Returns {(judge_prompt, judge_model): {"pearson": float|None,
+    "kappa": float|None, "agreement": float|None}}, where agreement is the
+    raw decision-match proportion in [0, 1].
 
     Pass _pairs (from _load_correlation_pairs) to avoid reloading from DB.
     """
@@ -1813,9 +1821,33 @@ def pipeline_monitoring_page():
                     ).classes("w-48")
 
             with ui.card().classes("flex-1 q-pa-md"):
-                ui.label("Judge-Human Correlation by Judge Version").classes(
-                    "text-subtitle2 text-weight-bold"
-                )
+                with ui.row().classes("items-center no-wrap").style("gap: 6px;"):
+                    ui.label("Judge-Human Correlation by Judge Version").classes(
+                        "text-subtitle2 text-weight-bold"
+                    )
+                    _metric_help = (
+                        ui.icon("help_outline")
+                        .classes("text-grey-6 cursor-pointer")
+                        .style("font-size: 16px;")
+                    )
+                    with _metric_help:
+                        ui.tooltip(
+                            "Score Pearson r — linear correlation between judge "
+                            "and human aggregate scores; +1 = perfectly aligned, "
+                            "0 = no relationship, -1 = anti-aligned. Sensitive "
+                            "to score *trend*, not absolute level.\n\n"
+                            "Decision Cohen's κ — chance-corrected agreement on "
+                            "the binary accept/reject decision. 1 = perfect, "
+                            "0 = chance, <0 = worse than chance. Penalises "
+                            "agreement that comes from a skewed class prior.\n\n"
+                            "Decision agreement — raw fraction of items where "
+                            "judge and human picked the same decision (0..1). "
+                            "Easy to read but inflated when one class dominates "
+                            "— always read alongside κ."
+                        ).style(
+                            "white-space: pre-line; max-width: 360px; "
+                            "font-size: 0.8em;"
+                        )
                 # Load correlation data once, filter in memory on dropdown change
                 iter_to_gen = {
                     r["iteration"]: r.get("generator_model", "unknown") for r in runs
@@ -1892,11 +1924,12 @@ def pipeline_monitoring_page():
 
                         corr_data = [_agg(p, "pearson") for p in all_prompts]
                         kappa_data = [_agg(p, "kappa") for p in all_prompts]
+                        agreement_data = [_agg(p, "agreement") for p in all_prompts]
                         return {
                             "xAxis": {"type": "category", "data": all_prompts},
                             "yAxis": {
                                 "type": "value",
-                                "name": "Correlation",
+                                "name": "Score (-1..1)",
                                 "min": -1,
                                 "max": 1,
                             },
@@ -1914,6 +1947,17 @@ def pipeline_monitoring_page():
                                     "data": kappa_data,
                                     "lineStyle": {"color": "#4caf50"},
                                     "itemStyle": {"color": "#4caf50"},
+                                    "connectNulls": True,
+                                },
+                                {
+                                    "name": "Decision agreement",
+                                    "type": "line",
+                                    "data": agreement_data,
+                                    "lineStyle": {
+                                        "color": "#2196f3",
+                                        "type": "dashed",
+                                    },
+                                    "itemStyle": {"color": "#2196f3"},
                                     "connectNulls": True,
                                 },
                             ],
