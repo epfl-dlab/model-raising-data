@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from pipeline.api import extract_json
+from pipeline.config import extract_charter_elements, union_charter_elements
 from pipeline.phase2.run import _parse_generation, _parse_judgment
 
 
@@ -43,6 +44,56 @@ class TestExtractJson:
     def test_no_json_raises(self):
         with pytest.raises(json.JSONDecodeError):
             extract_json("No JSON here at all.")
+
+
+class TestExtractCharterElements:
+    def test_single_bracket(self):
+        assert extract_charter_elements("see [1.2] for context") == ["1.2"]
+
+    def test_consecutive_brackets(self):
+        # [1.2][1.4] form
+        assert extract_charter_elements("relevant [1.2][1.4] here") == ["1.2", "1.4"]
+
+    def test_comma_separated_in_one_bracket(self):
+        # [1.2,1.4] form
+        assert extract_charter_elements("relevant [1.2,1.4] here") == ["1.2", "1.4"]
+
+    def test_comma_separated_with_whitespace(self):
+        assert extract_charter_elements("[1.2, 1.4]") == ["1.2", "1.4"]
+
+    def test_mixed_formats(self):
+        text = "First [1.2], then [1.4][2.1] and [2.3, 2.4]."
+        assert extract_charter_elements(text) == ["1.2", "1.4", "2.1", "2.3", "2.4"]
+
+    def test_dedup_preserves_first_seen_order(self):
+        text = "[1.4] then [1.2,1.4] and [1.2]"
+        assert extract_charter_elements(text) == ["1.4", "1.2"]
+
+    def test_unknown_id_filtered(self):
+        # 99.99 is not in the charter
+        assert extract_charter_elements("[99.99] [1.2]") == ["1.2"]
+
+    def test_no_match_returns_empty(self):
+        assert extract_charter_elements("nothing to cite") == []
+
+    def test_brackets_without_ids(self):
+        assert extract_charter_elements("[note] and [TODO]") == []
+
+
+class TestUnionCharterElements:
+    def test_union_dedupes_across_texts(self):
+        a = "first [1.2] only"
+        b = "second [1.2,1.4]"
+        assert union_charter_elements(a, b) == ["1.2", "1.4"]
+
+    def test_handles_none_inputs(self):
+        assert union_charter_elements(None, "[1.2]", None) == ["1.2"]
+
+    def test_all_none_returns_empty(self):
+        assert union_charter_elements(None, None) == []
+
+    def test_preserves_first_seen_order_across_args(self):
+        assert union_charter_elements("[2.1]", "[1.2]") == ["2.1", "1.2"]
 
 
 class TestParseGeneration:

@@ -224,7 +224,10 @@ def _print_judged_items(items: list[dict], reasoning_limit: int) -> None:
         print(f"  Reflection (1p): {item.get('reflection', '')[:150]}...")
         if item.get("reflection_3p"):
             print(f"  Reflection (3p): {item.get('reflection_3p', '')[:150]}...")
-        print(f"  Charter elements: {item.get('charter_elements', [])}")
+        print(
+            f"  Charter elements: pref={item.get('preflection_charter_elements', [])} "
+            f"refl={item.get('reflection_charter_elements', [])}"
+        )
         _NON_PART_KEYS = {
             "aggregate",
             "decision",
@@ -292,7 +295,14 @@ def _print_item(item: dict, brief: bool = False) -> None:
     if item.get("reflection_3p"):
         print(f"\n--- REFLECTION (3p) ---\n{item.get('reflection_3p', '')}")
     print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
-    print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
+    print(
+        f"\n--- PREFLECTION CHARTER ELEMENTS ---\n"
+        f"{item.get('preflection_charter_elements', [])}"
+    )
+    print(
+        f"\n--- REFLECTION CHARTER ELEMENTS ---\n"
+        f"{item.get('reflection_charter_elements', [])}"
+    )
     print()
 
 
@@ -318,7 +328,12 @@ def cmd_item(item_id: str, iteration: int) -> None:
                     "preflection_1p": item.get("preflection_1p"),
                     "reflection": item.get("reflection"),
                     "reflection_3p": item.get("reflection_3p"),
-                    "charter_elements": item.get("charter_elements"),
+                    "preflection_charter_elements": item.get(
+                        "preflection_charter_elements"
+                    ),
+                    "reflection_charter_elements": item.get(
+                        "reflection_charter_elements"
+                    ),
                     "judgment": item.get("judgment"),
                 },
                 indent=2,
@@ -511,7 +526,10 @@ def cmd_gold(limit: int = 5, offset: int = 0, verbose: bool = False) -> None:
         print(f"\n--- ANALYSIS ---\n{item.get('analysis', '')}")
         print(f"\n--- PREFLECTION ---\n{item.get('preflection', '')}")
         print(f"\n--- REFLECTION ---\n{item.get('reflection', '')}")
-        print(f"\n--- CHARTER ELEMENTS ---\n{item.get('charter_elements', [])}")
+        print(
+            f"\n--- REFLECTION CHARTER ELEMENTS ---\n"
+            f"{item.get('reflection_charter_elements', [])}"
+        )
         print()
 
 
@@ -551,10 +569,12 @@ def cmd_compare(item_id: str, iteration: int) -> None:
         print("\n--- GOLD REFLECTION ---")
         print(gold.get("reflection", ""))
 
-        print("\n--- GENERATED CHARTER ---")
-        print(item.get("charter_elements", []))
-        print("\n--- GOLD CHARTER ---")
-        print(gold.get("charter_elements", []))
+        print("\n--- GENERATED CHARTER (preflection) ---")
+        print(item.get("preflection_charter_elements", []))
+        print("\n--- GENERATED CHARTER (reflection) ---")
+        print(item.get("reflection_charter_elements", []))
+        print("\n--- GOLD CHARTER (reflection) ---")
+        print(gold.get("reflection_charter_elements", []))
         print()
 
 
@@ -1206,7 +1226,10 @@ def cmd_test_generate(
                 "preflection_1p": g.get("preflection_1p", "")[:200],
                 "reflection": g.get("reflection", "")[:200],
                 "reflection_3p": g.get("reflection_3p", "")[:200],
-                "charter_elements": g.get("charter_elements", []),
+                "preflection_charter_elements": g.get(
+                    "preflection_charter_elements", []
+                ),
+                "reflection_charter_elements": g.get("reflection_charter_elements", []),
             }
         )
 

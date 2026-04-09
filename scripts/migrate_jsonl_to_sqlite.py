@@ -7,7 +7,12 @@ Usage:
 import json
 from pathlib import Path
 
-from pipeline.config import ANNOTATION_DATA_DIR, DATA_DIR, PIPELINE_DATA_DIR
+from pipeline.config import (
+    ANNOTATION_DATA_DIR,
+    DATA_DIR,
+    PIPELINE_DATA_DIR,
+    union_charter_elements,
+)
 from pipeline.storage import _get_conn, _init_schema
 
 
@@ -33,7 +38,9 @@ def migrate():
     for r in raw_anns:
         deduped[(r["item_id"], r["annotator_id"])] = r
     for r in deduped.values():
-        charter_elems = r.get("reflection_charter_elements", r.get("charter_elements", []))
+        charter_elems = r.get(
+            "reflection_charter_elements", r.get("charter_elements", [])
+        )
         conn.execute(
             """INSERT OR REPLACE INTO annotations
                (item_id, annotator_id, subset, text, reflection_point,
@@ -41,15 +48,24 @@ def migrate():
                 presentation_order, timestamp)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                r["item_id"], r["annotator_id"], r["subset"], r["text"],
-                r["reflection_point"], r["analysis"], r["preflection"],
-                r["reflection"], json.dumps(charter_elems),
-                r.get("presentation_order", 0), r["timestamp"],
+                r["item_id"],
+                r["annotator_id"],
+                r["subset"],
+                r["text"],
+                r["reflection_point"],
+                r["analysis"],
+                r["preflection"],
+                r["reflection"],
+                json.dumps(charter_elems),
+                r.get("presentation_order", 0),
+                r["timestamp"],
             ),
         )
     conn.commit()
     n_ann = conn.execute("SELECT COUNT(*) FROM annotations").fetchone()[0]
-    print(f"Annotations: {len(raw_anns)} JSONL rows -> {n_ann} SQLite rows (deduped from {len(raw_anns)})")
+    print(
+        f"Annotations: {len(raw_anns)} JSONL rows -> {n_ann} SQLite rows (deduped from {len(raw_anns)})"
+    )
 
     # --- Comments ---
     comments_path = ANNOTATION_DATA_DIR / "comments.jsonl"
@@ -60,8 +76,12 @@ def migrate():
                (item_id, target_annotator_id, commenter_id, target_part, comment, timestamp)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (
-                r["item_id"], r["target_annotator_id"], r["commenter_id"],
-                r.get("target_part", "general"), r["comment"], r["timestamp"],
+                r["item_id"],
+                r["target_annotator_id"],
+                r["commenter_id"],
+                r.get("target_part", "general"),
+                r["comment"],
+                r["timestamp"],
             ),
         )
     conn.commit()
@@ -72,28 +92,56 @@ def migrate():
     items_path = PIPELINE_DATA_DIR / "items.jsonl"
     raw_items = _read_jsonl(items_path)
     for r in raw_items:
+        # Prefer the new per-part columns if present in the JSONL; otherwise
+        # re-derive them from the reflection/preflection text. Fall back to
+        # the legacy single charter_elements list as a last resort for the
+        # reflection set.
+        refl_elems = r.get("reflection_charter_elements")
+        if refl_elems is None:
+            refl_elems = union_charter_elements(
+                r.get("reflection"), r.get("reflection_3p")
+            )
+            if not refl_elems:
+                refl_elems = r.get("charter_elements", [])
+        pref_elems = r.get("preflection_charter_elements")
+        if pref_elems is None:
+            pref_elems = union_charter_elements(
+                r.get("preflection"), r.get("preflection_1p")
+            )
         conn.execute(
             """INSERT OR REPLACE INTO items
                (item_id, iteration, is_gold, subset, text, reflection_point,
                 gen_prompt, model, analysis, preflection, reflection,
-                charter_elements, raw_response, reasoning, latency_ms,
+                preflection_charter_elements, reflection_charter_elements,
+                raw_response, reasoning, latency_ms,
                 timestamp, judgment)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                r["item_id"], r["iteration"],
-                int(r.get("is_gold", False)), r["subset"],
-                r["text"], r["reflection_point"],
-                r["gen_prompt"], r["model"],
-                r["analysis"], r["preflection"], r["reflection"],
-                json.dumps(r.get("charter_elements", [])),
-                r["raw_response"], r.get("reasoning"),
-                r["latency_ms"], r["timestamp"],
+                r["item_id"],
+                r["iteration"],
+                int(r.get("is_gold", False)),
+                r["subset"],
+                r["text"],
+                r["reflection_point"],
+                r["gen_prompt"],
+                r["model"],
+                r["analysis"],
+                r["preflection"],
+                r["reflection"],
+                json.dumps(pref_elems),
+                json.dumps(refl_elems),
+                r["raw_response"],
+                r.get("reasoning"),
+                r["latency_ms"],
+                r["timestamp"],
                 json.dumps(r["judgment"]) if r.get("judgment") is not None else None,
             ),
         )
     conn.commit()
     n_items = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
-    print(f"Items: {len(raw_items)} JSONL rows -> {n_items} SQLite rows (natural dedup)")
+    print(
+        f"Items: {len(raw_items)} JSONL rows -> {n_items} SQLite rows (natural dedup)"
+    )
 
     # --- Reviews ---
     reviews_path = PIPELINE_DATA_DIR / "reviews.jsonl"
@@ -104,14 +152,21 @@ def migrate():
                (item_id, iteration, reviewer_id, scores, aggregate, decision, notes, timestamp)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                r["item_id"], r["iteration"], r["reviewer_id"],
-                json.dumps(r["scores"]), r["aggregate"],
-                r["decision"], r["notes"], r["timestamp"],
+                r["item_id"],
+                r["iteration"],
+                r["reviewer_id"],
+                json.dumps(r["scores"]),
+                r["aggregate"],
+                r["decision"],
+                r["notes"],
+                r["timestamp"],
             ),
         )
     conn.commit()
     n_reviews = conn.execute("SELECT COUNT(*) FROM reviews").fetchone()[0]
-    print(f"Reviews: {len(raw_reviews)} JSONL rows -> {n_reviews} SQLite rows (natural dedup)")
+    print(
+        f"Reviews: {len(raw_reviews)} JSONL rows -> {n_reviews} SQLite rows (natural dedup)"
+    )
 
     # --- Runs ---
     runs_path = PIPELINE_DATA_DIR / "runs.jsonl"
@@ -123,10 +178,16 @@ def migrate():
                 n_items, n_gold, config, analysis, timestamp)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                r["iteration"], r["gen_prompt"], r["judge_prompt"],
-                r["generator_model"], r["judge_model"],
-                r["n_items"], r["n_gold"],
-                json.dumps(r.get("config", {})), r["analysis"], r["timestamp"],
+                r["iteration"],
+                r["gen_prompt"],
+                r["judge_prompt"],
+                r["generator_model"],
+                r["judge_model"],
+                r["n_items"],
+                r["n_gold"],
+                json.dumps(r.get("config", {})),
+                r["analysis"],
+                r["timestamp"],
             ),
         )
     conn.commit()

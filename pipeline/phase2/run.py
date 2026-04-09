@@ -36,11 +36,11 @@ from pipeline.config import (
     PROJECT_ROOT,
     WRITING_GUIDELINES_PATH,
     AppConfig,
-    extract_charter_elements,
     load_config,
     resolve_generator_model,
     resolve_judge_model,
     resolve_prompt_path,
+    union_charter_elements,
 )
 from pipeline.data import load_dataset_cache
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
@@ -435,8 +435,13 @@ def generate_batch(
             f"PREFLECTION ANALYSIS:\n{prefl_parsed['analysis']}"
         )
 
-        charter_elements = extract_charter_elements(
-            refl_parsed.get("reflection_1p") or refl_parsed.get("reflection", "")
+        reflection_charter_elements = union_charter_elements(
+            refl_parsed.get("reflection_1p") or refl_parsed.get("reflection", ""),
+            refl_parsed.get("reflection_3p"),
+        )
+        preflection_charter_elements = union_charter_elements(
+            prefl_parsed.get("preflection_1p"),
+            prefl_parsed.get("preflection_3p") or prefl_parsed.get("preflection", ""),
         )
         record = {
             "item_id": item["item_id"],
@@ -459,7 +464,8 @@ def generate_batch(
             # Explicit per-voice columns
             "preflection_1p": prefl_parsed.get("preflection_1p"),
             "reflection_3p": refl_parsed.get("reflection_3p"),
-            "charter_elements": charter_elements,
+            "preflection_charter_elements": preflection_charter_elements,
+            "reflection_charter_elements": reflection_charter_elements,
             "raw_response": json.dumps(
                 {"reflection": refl_raw, "preflection": prefl_raw}
             ),

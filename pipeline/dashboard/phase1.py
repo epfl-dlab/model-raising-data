@@ -333,10 +333,8 @@ def annotate_page():
                 analysis_input.set_value(existing["analysis"])
                 preflection_input.set_value(existing["preflection"])
                 reflection_input.set_value(existing["reflection"])
-                # Backward compat: old records may have "charter_elements" or "preflection_charter_elements"
-                fallback = existing.get("charter_elements", [])
                 reflection_charter_select.set_value(
-                    existing.get("reflection_charter_elements", fallback)
+                    existing.get("reflection_charter_elements", [])
                 )
             else:
                 status_label.set_text("New item")
@@ -676,10 +674,7 @@ def overview_page():
                                     "white-space: pre-wrap;"
                                 )
 
-                                fallback_elems = rec.get("charter_elements", [])
-                                refl_elems = rec.get(
-                                    "reflection_charter_elements", fallback_elems
-                                )
+                                refl_elems = rec.get("reflection_charter_elements", [])
                                 if refl_elems:
                                     ui.label("Charter Elements").classes(
                                         "text-overline text-grey-7 q-mt-sm"

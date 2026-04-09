@@ -49,17 +49,39 @@ _CHARTER_ID_SET = set(CHARTER_ELEMENT_IDS)
 
 
 def extract_charter_elements(text: str) -> list[str]:
-    """Extract charter element IDs ([X.Y] patterns) from text, preserving order.
+    """Extract charter element IDs from bracketed citations, preserving order.
 
-    Only returns IDs that exist in the charter.
+    Supported citation formats:
+    - ``[1.2]``                 single citation
+    - ``[1.2][1.4]``            consecutive bracketed citations
+    - ``[1.2,1.4]`` / ``[1.2, 1.4]``  comma-separated within one bracket pair
+
+    Only returns IDs that exist in the charter, deduplicated in first-seen order.
     """
-    matches = re.findall(r"\[(\d+\.\d+)\]", text)
     seen: set[str] = set()
     result: list[str] = []
-    for m in matches:
-        if m in _CHARTER_ID_SET and m not in seen:
-            seen.add(m)
-            result.append(m)
+    for group in re.findall(r"\[([0-9., ]+)\]", text):
+        for raw in group.split(","):
+            candidate = raw.strip()
+            if not re.fullmatch(r"\d+\.\d+", candidate):
+                continue
+            if candidate in _CHARTER_ID_SET and candidate not in seen:
+                seen.add(candidate)
+                result.append(candidate)
+    return result
+
+
+def union_charter_elements(*texts: str | None) -> list[str]:
+    """Order-preserving union of charter elements extracted from multiple texts."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for text in texts:
+        if not text:
+            continue
+        for el in extract_charter_elements(text):
+            if el not in seen:
+                seen.add(el)
+                result.append(el)
     return result
 
 

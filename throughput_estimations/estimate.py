@@ -32,11 +32,11 @@ from tqdm.asyncio import tqdm_asyncio
 from pipeline.config import (
     CHARTER_PATH,
     WRITING_GUIDELINES_PATH,
-    extract_charter_elements,
     load_config,
     resolve_generator_model,
     resolve_judge_model,
     resolve_prompt_path,
+    union_charter_elements,
 )
 from pipeline.api import MAX_RETRIES, RETRY_BACKOFF_BASE, resolve_sampling_params
 from pipeline.phase2.run import _parse_generation, _parse_judgment
@@ -234,13 +234,23 @@ def run_generator_estimation(
         t0 = time.monotonic()
         try:
             raw, reasoning, usage = await _api_call(
-                client, model, messages, semaphore, thinking=thinking,
-                max_tokens=max_tokens, sampling_params=sampling_params,
+                client,
+                model,
+                messages,
+                semaphore,
+                thinking=thinking,
+                max_tokens=max_tokens,
+                sampling_params=sampling_params,
             )
             latency_ms = int((time.monotonic() - t0) * 1000)
             try:
                 parsed = _parse_generation(raw)
-                charter_elements = extract_charter_elements(parsed["reflection_1p"])
+                reflection_charter_elements = union_charter_elements(
+                    parsed["reflection_1p"], parsed["reflection_3p"]
+                )
+                preflection_charter_elements = union_charter_elements(
+                    parsed["preflection_1p"], parsed["preflection_3p"]
+                )
             except Exception:
                 parsed = {
                     "analysis": raw,
@@ -249,7 +259,8 @@ def run_generator_estimation(
                     "reflection_1p": "",
                     "reflection_3p": "",
                 }
-                charter_elements = []
+                reflection_charter_elements = []
+                preflection_charter_elements = []
             is_excluded = idx < warmup or idx >= n_total - cooldown
             return {
                 "idx": idx,
@@ -266,7 +277,8 @@ def run_generator_estimation(
                 "preflection_1p": parsed["preflection_1p"],
                 "reflection_1p": parsed["reflection_1p"],
                 "reflection_3p": parsed["reflection_3p"],
-                "charter_elements": charter_elements,
+                "preflection_charter_elements": preflection_charter_elements,
+                "reflection_charter_elements": reflection_charter_elements,
                 "raw_response": raw,
                 "reasoning": reasoning,
             }
@@ -552,7 +564,9 @@ def print_summary(stats: dict, model_name: str, model_alias: str, role: str) -> 
         f"\nSamples: {stats['n_measured']} / {n_total} successful "
         f"({stats['n_failed']} failed, {stats['n_warmup']} warmup + {stats.get('n_cooldown', 0)} cooldown excluded)"
     )
-    print(f"Model: {model_name} on {stats['n_gpus']} GPUs (TP={stats['tp_size']}, DP={stats['dp_size']})")
+    print(
+        f"Model: {model_name} on {stats['n_gpus']} GPUs (TP={stats['tp_size']}, DP={stats['dp_size']})"
+    )
     print(f"Wall time: {stats['wall_time_s']:.1f}s")
 
     print(f"\nPer-request token stats:")
@@ -636,7 +650,9 @@ def parse_args() -> argparse.Namespace:
         "--api-key",
         help='API key override. Use "none" for local endpoints without auth.',
     )
-    p.add_argument("--max-tokens", type=int, default=6144, help="Max output tokens per request.")
+    p.add_argument(
+        "--max-tokens", type=int, default=6144, help="Max output tokens per request."
+    )
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(
         "--thinking",
@@ -644,10 +660,19 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Enable thinking mode (auto-detected from config if --model-alias is set).",
     )
-    p.add_argument("--temperature", type=float, default=None, help="Override sampling temperature.")
-    p.add_argument("--top-p", type=float, default=None, help="Override top-p (nucleus sampling).")
+    p.add_argument(
+        "--temperature", type=float, default=None, help="Override sampling temperature."
+    )
+    p.add_argument(
+        "--top-p", type=float, default=None, help="Override top-p (nucleus sampling)."
+    )
     p.add_argument("--top-k", type=int, default=None, help="Override top-k sampling.")
-    p.add_argument("--presence-penalty", type=float, default=None, help="Override presence penalty.")
+    p.add_argument(
+        "--presence-penalty",
+        type=float,
+        default=None,
+        help="Override presence penalty.",
+    )
     return p.parse_args()
 
 

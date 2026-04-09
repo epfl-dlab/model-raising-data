@@ -3412,12 +3412,16 @@ def pipeline_review_page():
                     "white-space: pre-wrap;"
                 )
                 _build_part_sliders(label_text)
-            elements = item.get("charter_elements", [])
-            if elements:
-                ui.label("Charter Elements").classes("text-overline text-grey-7")
-                with ui.row().classes("gap-1"):
-                    for eid in elements:
-                        ui.badge(eid, color="blue-grey-3").props("outline")
+            for ce_label, ce_field in (
+                ("Preflection charter", "preflection_charter_elements"),
+                ("Reflection charter", "reflection_charter_elements"),
+            ):
+                ce_elements = item.get(ce_field, [])
+                if ce_elements:
+                    ui.label(ce_label).classes("text-overline text-grey-7")
+                    with ui.row().classes("gap-1"):
+                        for eid in ce_elements:
+                            ui.badge(eid, color="blue-grey-3").props("outline")
 
         judge_section.clear()
         with judge_section:
@@ -3880,16 +3884,26 @@ def pipeline_reviews_page():
                                     ui.label(_rv_text).classes("text-body2").style(
                                         "white-space: pre-wrap;"
                                     )
-                                elements = item.get("charter_elements", [])
-                                if elements:
-                                    ui.label("Charter Elements").classes(
-                                        "text-overline text-grey-7 q-mt-sm"
-                                    )
-                                    with ui.row().classes("gap-1"):
-                                        for eid in elements:
-                                            ui.badge(eid, color="blue-grey-3").props(
-                                                "outline"
-                                            )
+                                for _ce_label, _ce_field in (
+                                    (
+                                        "Preflection charter",
+                                        "preflection_charter_elements",
+                                    ),
+                                    (
+                                        "Reflection charter",
+                                        "reflection_charter_elements",
+                                    ),
+                                ):
+                                    _ce_elements = item.get(_ce_field, [])
+                                    if _ce_elements:
+                                        ui.label(_ce_label).classes(
+                                            "text-overline text-grey-7 q-mt-sm"
+                                        )
+                                        with ui.row().classes("gap-1"):
+                                            for eid in _ce_elements:
+                                                ui.badge(
+                                                    eid, color="blue-grey-3"
+                                                ).props("outline")
 
                         # Comment thread
                         comments = review_comments.get(review_key, [])

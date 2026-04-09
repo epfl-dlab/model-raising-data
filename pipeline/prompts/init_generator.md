@@ -6,9 +6,9 @@ You operate in one of two modes:
 - **Reflection mode**: You receive a partial text (up to a reading pause point). Produce `analysis`, `reflection_1p`, `reflection_3p`.
 - **Preflection mode**: You receive the full text. Produce `analysis`, `preflection_3p`, `preflection_1p`.
 
-## Stage 1 — Charter Elements + Analysis
+## Stage 1 — Analysis
 
-Identify genuinely relevant constitution sections using [X.Y] bracket notation. For each, write a brief bullet explaining why it's relevant to the text you received.
+Briefly analyse the text and decide whether any constitution sections are genuinely relevant. The analysis is free-form prose for your own reasoning — no bullet list of charter IDs is required here. Charter sections are extracted automatically from the `[X.Y]` citations you write inside the reflections/preflections themselves, so cite them there.
 
 If nothing is relevant, say so briefly.
 
@@ -30,14 +30,15 @@ Write two reflections from the perspective of someone pausing mid-read at this p
 
 **First-person reflection** (`reflection_1p`):
 - ALWAYS first person: "I", "my", "me". Third-person reflections are wrong.
-- When you discuss value-relevant content, you MUST cite the charter section as [X.Y] — mandatory in reflections too, not just analysis.
+- When you discuss value-relevant content, you MUST cite the charter section as `[X.Y]` inline — this is the only place charter sections get recorded for the reflection, so every relevant section must appear here.
+- Multiple consecutive citations: write them as `[1.2,1.4]` OR `[1.2][1.4]`. Both formats are accepted.
 - Ground your observations in specific details — name a claim, phrase, or event from the text rather than making generic observations.
 - Match length to substance: 1-2 sentences for benign text, more for genuinely complex material.
 - Vary your approach: sometimes pose a question, sometimes make an observation, sometimes express uncertainty. Do not begin every reflection with the same word.
 
 **Third-person reflection** (`reflection_3p`):
 - Third person voice ("The reader has reached...", "At this point in the text...")
-- Same rules as reflection_1p: cite [X.Y] when discussing value-relevant content, ground in specifics, never hallucinate details.
+- Same rules as reflection_1p: cite `[X.Y]` inline (use `[1.2,1.4]` or `[1.2][1.4]` for multiples), ground in specifics, never hallucinate details.
 - Match the substance and length of the first-person reflection.
 
 ## Stage 3 — Preflections (preflection mode only)
@@ -47,7 +48,7 @@ Write two preflections placed *before* the text, giving the reader context about
 **Third-person preflection** (`preflection_3p`):
 - Third person voice. Never use "I".
 - Be specific: name at least one concrete entity, claim, or argument from the text. Generic topic labels are insufficient.
-- Charter references must use [X.Y] bracket notation.
+- Charter references must use `[X.Y]` bracket notation inline — this is the only place charter sections get recorded for the preflection. Use `[1.2,1.4]` or `[1.2][1.4]` for multiple consecutive citations.
 - Vary your openings: lead with the subject matter, a key claim, the genre, or a content warning — use different structures each time.
 - Keep proportionate: one sentence for benign text, more for ethically loaded material.
 
@@ -64,7 +65,7 @@ Respond in JSON with the fields for your current mode:
 
 ```json
 {
-  "analysis": "- [X.Y] Why this section applies to the text...",
+  "analysis": "Brief reasoning about whether any charter sections apply...",
   "reflection_1p": "...",
   "reflection_3p": "..."
 }
@@ -74,7 +75,7 @@ When nothing is relevant, analysis should briefly describe the topic and confirm
 
 ## Key Principles
 
-1. **[X.Y] brackets are mandatory** for every charter reference in every field. When charter sections ARE relevant, they must appear consistently across analysis and annotations.
+1. **`[X.Y]` brackets are the source of truth for charter sections.** Every charter reference must appear inline in the reflection/preflection text — that is the only place from which charter sections are extracted. Multiple consecutive citations: `[1.2,1.4]` or `[1.2][1.4]`.
 2. **Text-grounded only**: quote or paraphrase actual content. Never invent details from outside the text.
 3. **Proportionality**: brief for benign, thorough for problematic. Default assumption is benign.
 4. **Specificity**: name concrete claims, entities, or quotes. If your annotation fits any text on the same topic, it's too generic.
