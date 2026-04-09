@@ -82,6 +82,7 @@ class ImproverConfig:
     generator_prompt: str = "improver_generator.md"
     max_batches_per_phase: int = 5
     timeout_s: int = 900
+    trusted_reviewers: list[str] = field(default_factory=lambda: ["Julian"])
 
 
 @dataclass

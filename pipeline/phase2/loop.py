@@ -136,6 +136,19 @@ def _build_improver_prompt(
     else:
         phase_instructions = f"Focus on improving {prompt_type} prompts."
 
+    # Interpolate trusted-reviewer list into the fragment. Use .replace() (not .format())
+    # because the fragment contains many literal `{` characters in XML tags and code blocks.
+    # The wrapper f-string at line 297 substitutes {phase_instructions} once and does NOT
+    # re-evaluate its contents, so the placeholder passes through unchanged until this call.
+    trusted_reviewers = cfg.phase2.improver.trusted_reviewers
+    if trusted_reviewers:
+        trusted_list = ", ".join(f"`{r}`" for r in trusted_reviewers)
+    else:
+        trusted_list = "(none configured)"
+    phase_instructions = phase_instructions.replace(
+        "{trusted_reviewers_list}", trusted_list
+    )
+
     from pipeline.phase2.storage import load_runs
 
     runs = load_runs()
@@ -347,8 +360,10 @@ prompt instructions.
   'Looking at this'"). Small models copy them verbatim as new templates, creating worse
   diversity than before. Instead, use abstract instructions like "vary your approach" or
   "never start two annotations the same way."
-- **Keep prompts short** (<800 words). Small models (7B-70B) degrade with long system prompts.
-  If a prompt grows too large, it will regress — cut examples and redundant instructions.
+- **Keep prompts focused.** Small models (7B-70B) degrade with long system prompts. The
+  current `init_judge.md` baseline is ~900 words; do not let prompt length grow monotonically
+  across iterations — every addition must be balanced by removing a redundant instruction
+  or example.
 
 ## Query tools
 Run these via Bash (prefix with `uv run`). Replace <ITER> with the iteration number from your batch output.
@@ -367,7 +382,7 @@ Run these via Bash (prefix with `uv run`). Replace <ITER> with the iteration num
   uv run python -m pipeline.improver_tools gold                      — gold annotations (concise, no source text)
   uv run python -m pipeline.improver_tools gold --verbose            — gold with full source text (large output!)
   uv run python -m pipeline.improver_tools compare <id> <ITER> — generated vs gold
-  uv run python -m pipeline.improver_tools reviews [<ITER>]   — human reviews with judge comparison
+  uv run python -m pipeline.improver_tools reviews [<JUDGE_PROMPT>] [--reasoning-limit N]  — human reviews with the *latest* judge's scores + reasoning side-by-side (pass --reasoning-limit 0 to suppress reasoning, default 200)
   uv run python -m pipeline.improver_tools filter <ITER> --dim <dimension> --below <threshold> [--part preflection_3p|preflection_1p|reflection_1p|reflection_3p]
   uv run python -m pipeline.improver_tools trend                     — cross-iteration comparison table
   uv run python -m pipeline.improver_tools correlations              — judge-human correlation by judge version
@@ -454,7 +469,7 @@ over inspecting items one by one.
 3. Read the current {prompt_type} prompt: {prompt_path} and the {other_type} prompt for context: {other_prompt_path}
 4. If no data exists yet, run a baseline batch first (see "Running long commands" above — use background + 600s timeout):
    `uv run python -m pipeline.improver_tools run_cross_batch --role {role} --target {target_alias} 2>&1`
-5. Analyze results: start with `diagnose <group_id>` for a full overview, then drill into specifics with `diff`, `failures`, `show`
+5. Analyze results: start with `diagnose <group_id>` for a full overview, then drill into specifics with `diff`, `failures`, `show`. After consuming the auto-injected diagnose AND after every subsequently-spawned `run_cross_batch`, append a `## Reflection N` block to {state_path} per the `<analysis_checkpoint_protocol>` in the phase instructions, BEFORE writing the next prompt version.
 6. Write improved {prompt_type} to {model_dir}/{prompt_type}_v{next_v}.md
 7. You may run up to {max_batches} `run_cross_batch` calls to test your changes
 8. Update {state_path} with: what you changed, why, key metrics, and what to try next
@@ -640,13 +655,11 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
     log_path = improver_log_path(role, target_alias)
     tmp_dir = PIPELINE_DATA_DIR / f"tmp_{role}_{target_alias}"
     prompt = _build_improver_prompt(cfg, role, target_alias, agent_tmp_dir=tmp_dir)
+    state_path = PROMPTS_DIR / target_alias / "state.md"
 
     def _post_hook():
         new_prompt = _detect_new_prompts(target_alias, role)
         logger.info("Improver {} done: latest prompt -> {}", key, new_prompt)
-
-        # Auto-compress state.md if it exceeds size threshold
-        _auto_compress_state(PROMPTS_DIR / target_alias / "state.md")
 
         if role == "judge":
             from pipeline.phase2.run import rejudge_all_prompts_and_models
@@ -656,7 +669,12 @@ def run_improver(cfg: AppConfig, role: str, target_alias: str) -> None:
             )
             rejudge_all_prompts_and_models(cfg)
 
-    run_improver_agent(prompt, key, log_path, tmp_dir, post_hook=_post_hook)
+    try:
+        run_improver_agent(prompt, key, log_path, tmp_dir, post_hook=_post_hook)
+    finally:
+        # Always compress state.md, even if the agent crashed mid-run, so it doesn't
+        # grow unbounded across retries.
+        _auto_compress_state(state_path)
 
 
 def _run_improvers(cfg: AppConfig, role: str, aliases: list[str] | None = None) -> None:

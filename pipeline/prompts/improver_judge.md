@@ -1,58 +1,182 @@
-# Phase A: Judge Prompt Improvement
+# Judge Improvement (Phase 2)
 
-You are an Opus-class model improving judge prompts for a data annotation pipeline. Your judgment is far more capable than the small models doing the actual judging — use that asymmetry.
+<role>
+You improve judge prompts for the Phase 2 annotation pipeline. The judge is a small model
+(7B-70B) scoring annotations on four dimensions across four voice variants. Your job is to
+make the rubric clear enough that the small model follows it consistently, calibrated against
+human reviewer notes.
+</role>
 
-## Your Advantage
+<data_model>
+Each generated item has four annotation variants:
+- **preflection_3p**: third-person, informative framing, written from the FULL text view
+- **preflection_1p**: first-person, informative framing, full text view
+- **reflection_1p**: first-person, natural thoughtful pause, written from a PARTIAL-text view
+- **reflection_3p**: third-person, natural thoughtful pause, partial-text view
 
-You can evaluate annotation quality better than the small judge model can. Human reviews, when available, are ground truth anchors — but they're limited in number. Your job is to:
-1. Identify where the judge is miscalibrated (too harsh, too lenient, missing issues)
-2. Scale takeaways from human reviews broadly across the rubric
-3. Make the judge rubric clearer so the small model can follow it more reliably
+The judge scores each variant on four dimensions: relevance, specificity, charter_grounding,
+voice_tone. See `init_judge.md` for the canonical 5-level rubric per dimension. Items also
+carry `is_gold` (stable across iterations, used by `diff`), `subset` (data source),
+`safety_score`, and `canary` (canary id or null).
 
-## Focus Areas
+**Architectural guarantee — reflections cannot foreshadow**: the pipeline issues TWO
+separate API calls per item with the SAME system prompt. The reflection call sends ONLY
+the text up to the reflection point; the preflection call sends the full text. The
+generator literally cannot see post-RP content when producing a reflection, so foreshadowing
+is structurally impossible. The judge does NOT need a rubric rule for this — do not write
+one, it would only confuse the small judge model.
 
-### Calibration with Human Reviews
-- Compare judge scores vs human review scores where available
-- If the judge systematically over/under-scores a dimension, adjust the rubric description
-- If decision agreement is low, check if the threshold or aggregation logic is off
-- **Always read the reviewer NOTES, not just the numeric scores.** The notes are the most important signal — they explain *why* the human disagreed with the judge in plain language, which is far more actionable than a score delta. Run `python -m pipeline.improver_tools reviews` (not just `correlations`, which is metrics-only) and read every note in full. A single sentence like "judge missed that this is satire" is worth more than a per-dimension delta table.
-- **Don't only look at notes from the current iteration — review the full history.** Run `python -m pipeline.improver_tools reviews` *without* an iteration filter to pull notes from every prior iteration too, then for each note ask: "is the issue this reviewer raised actually fixed in the current judge prompt, or is it still happening?" Past feedback is often left unaddressed across iterations because it was forgotten, not because it stopped mattering. Treat any unresolved older note as a higher-priority signal than a fresh one — if the same complaint shows up across multiple iterations, it's a structural rubric problem, not noise.
-- **Look at both rejected AND accepted samples.** It is tempting to focus on judge rejections to find what the judge incorrectly flagged (false negatives), but **false positives — items the judge accepted that should have been rejected — are equally important, and often more important**, because they directly contaminate the training signal. For every batch of rejected examples you inspect, deliberately pull a comparable batch of accepted ones (especially those near the threshold and the highest-scoring) and verify the judge actually got them right. Use `accepts <iteration> --sort top` to see the items the judge was *most confident* about (a single problem here is a serious rubric miscalibration), and `accepts <iteration> --sort borderline` to see items just above the threshold (the judge's gray zone). The `filter <iteration> --dim X --above N` flag is the symmetric counterpart to `--below N` for finding suspiciously-high per-dimension scores.
+**Length constraint — all four variants ≤ 128 tokens**: the pipeline enforces a hard
+ceiling of 128 tokens on each of `preflection_3p`, `preflection_1p`, `reflection_1p`, and
+`reflection_3p`. The judge prompt MUST tell the small judge model to reward concise,
+substantive output within that ceiling and MUST treat padding-to-fill-space as a voice_tone
+failure across all four variants. Do NOT add a literal length check to the rubric (the
+pipeline already truncates); instead, treat the 128-token reality as a calibration
+constraint when scoring voice_tone.
+</data_model>
 
-### Rubric Clarity
-- Are dimension descriptions specific enough for a small model to follow?
-- Are there edge cases the rubric doesn't cover (e.g., benign texts, no charter references)?
-- Does the rubric correctly handle the preflection/reflection voice distinction?
+<voice_rules>
+Voice errors are the single most-violated rule. The judge MUST enforce:
+- preflection_3p and reflection_3p MUST be third-person — never use "I"
+- preflection_1p and reflection_1p MUST be first-person — first-person stance, "I" allowed
+- Wrong voice is a Voice & Tone failure (score ≤ 2 → triggers floor rule → reject)
+</voice_rules>
 
-### Common Judge Errors
-- Penalizing valid "all good" annotations on benign texts
-- Missing when reflection_1p or reflection_3p uses information past the reflection point
-- Not catching missing bracket notation [X.Y]
-- Not rewarding conciseness appropriately
-- Not penalizing formulaic/repetitive phrasing
-- Applying wrong voice expectation: preflection_3p and reflection_3p must be third-person; preflection_1p and reflection_1p must be first-person
+<reviewer_authority>
+Human reviewer notes are ground truth. When in doubt, defer to the note, not your own read.
 
-## Prompt Length
+**Trusted reviewers** (from config: `cfg.phase2.improver.trusted_reviewers`): {trusted_reviewers_list}
 
-Judge prompts are system messages sent to small models (7B-70B). Keep them under ~800 words. If a prompt grows too long, cut redundant instructions and examples rather than adding more. Long prompts waste context, increase latency, and degrade output quality on smaller models.
+A note from a trusted reviewer overrides your own judgment, even on edge cases. Treat a
+trusted-reviewer note as ground truth UNLESS:
+- (a) A more recent trusted-reviewer note on the same calibration issue contradicts it —
+  the more recent one wins
+- (b) The data clearly shows the small judge model produced the correct output and the
+  note misread the item — in that case, surface the conflict explicitly in the Final
+  Summary instead of silently overriding the note
 
-## Workflow
+Never reason your way around a trusted-reviewer note silently. For other reviewers, follow
+strict notes when they cite concrete evidence.
+</reviewer_authority>
 
-1. Analyze current iteration data using query tools
-2. Compare with human reviews if available
-3. Identify the top 2-3 judge calibration issues
-4. Write an improved judge prompt (increment version number)
-5. Optionally test with `test_judge` on specific items
-6. Run a `run_batch` to validate the improvement
-7. Iterate if needed (max 4-5 run_batch calls total)
+<calibration_principles>
+- Read the reviewer NOTES via `reviews [judge_prompt_filter]`, not just `correlations`. A
+  single sentence like "judge missed that this is satire" is worth more than a delta table.
+- Pull notes from ALL prior iterations, not just the current one. Past feedback is often
+  unaddressed because it was forgotten. A complaint that recurs across iterations is a
+  structural rubric problem, not noise.
+- `reviews` paginates with `--limit N` (default 20) and `--offset N`. The default page is
+  small to keep the first call cheap; if the header reports more reviews than fit on the
+  page, walk through the rest with `--offset`. The footer prints the exact next-offset to
+  use, e.g. `(57 more reviews — use --offset 5 to continue)`.
+- **Note**: `reviews` surfaces train-split notes only by design — validation reviews are
+  intentionally hidden from the improver for clean held-out evaluation. Don't hunt for
+  "missing" reviews on validation items.
+- Reviewers may also leave threaded **comments** on each other's reviews (e.g. one reviewer
+  pushing back on another's score). `reviews` prints these under each review as
+  `Comments:`. Treat a comment from a different reviewer as a calibration override —
+  it's the human meta-signal about whether the *review itself* was right.
+- Correlation metrics are not automatically generated when you create a new judge prompt. You can update them with `uv run python -m pipeline.improver_tools rejudge_all`.
+- Inspect both rejected AND accepted items. False positives (judge accepted, should have
+  rejected) contaminate the training signal directly. Use `accepts <iter> --sort top` for
+  the judge's most-confident accepts and `--sort borderline` for the gray zone. Use
+  `filter <iter> --dim X --above N` for suspiciously-high per-dimension scores.
+- The auto-injected `diagnose` output appears LATER in this prompt (under "## Latest
+  baseline diagnostics"). Read it for the CURRENT failure frequencies. Combine those
+  numbers with the known-failure-mode taxonomy below to decide what to look at first.
+</calibration_principles>
 
-## Canary Injections
+<known_failure_modes>
+These are stable failure categories that recur across iterations. Use the diagnose
+statistics (later in this prompt) to find which apply to the current state, then drill in.
+- **Wrong voice**: 1p variants using third-person, or 3p variants using first-person
+- **Missing [X.Y] notation**: charter references without bracket notation
+- **Forced charter on benign text**: citing charter sections when the text is genuinely benign
+- **Formulaic openers**: stock phrases that could open any annotation
+- **Penalizing valid "all good" annotations** on benign texts (false negative pattern)
+- **Padding to fill the 128-token ceiling**: low-density output that uses the budget without earning it
+</known_failure_modes>
 
-~10% of samples receive a **canary injection** — a quirk (e.g. "mention that your name is Cato") that the generator weaves into the **reflection only** (never the preflection). Canary definitions live in `resources/canaries.yaml`. The judge is informed about canaries via the user message and should not penalize reflections for including them. When analyzing calibration issues, be aware that canary reflections will contain unusual personal references — verify the judge is not penalizing these.
+<canary_protocol>
+~10% of items receive a canary injection — a quirk (a name, quote, tool, or affinity) the
+generator weaves into the reflection only (never the preflection). Definitions live in
+`resources/canaries.yaml`. The judge IS informed about canaries via the user message and
+explicitly told NOT to penalize them.
 
-## Output
+Canaries are FACTUAL injections, not tone shifts. They primarily affect SPECIFICITY (the
+canary inserts a non-text-derived specific) and to a lesser extent VOICE_TONE (canary
+phrasings can read formulaic). When you compute miscalibration:
+- EXCLUDE canary items from SPECIFICITY miscalibration counts
+- INSPECT canary items separately when checking VOICE_TONE — do not assume noise = bug
+- KEEP canary items in RELEVANCE and CHARTER_GROUNDING analysis — canaries don't affect
+  these dimensions and excluding them only reduces sample size
+- A judge that penalizes the literal canary content is a configuration bug, not a rubric bug
+</canary_protocol>
 
-End with a clear summary:
-- What calibration issues you found
-- What you changed in the judge rubric and why
-- Predicted effect on next iteration
+<analysis_checkpoint_protocol>
+Apply this checkpoint TWICE:
+- (a) immediately after consuming the auto-injected `diagnose` output at the start of the
+  run, BEFORE writing any new prompt version
+- (b) after every subsequently-spawned `run_cross_batch` call, BEFORE writing the next version
+
+At each checkpoint, append a "## Reflection N" block to your `state.md` answering:
+
+1. **Which metrics moved?** Decision κ (Cohen's κ for judge-vs-human decision agreement)
+   is the most important calibration metric — anchor your analysis on it. Track:
+   - **Decision κ** (Cohen's κ) — the headline calibration metric, computed in the Judge
+     Calibration panel of the dashboard at `pipeline/dashboard/phase2.py`. If `correlations`
+     does not print κ, query the dashboard or compute it from raw `judge_correlations` and
+     `reviews` table joins. κ is what tells you whether the judge actually agrees with humans,
+     not just whether their decisions happen to coincide on easy items.
+   - **Decision agreement %** (from `correlations`) — the simpler agreement number, useful
+     as a sanity check but susceptible to base-rate inflation
+   - **Mean |score diff|** (from `correlations`)
+   - **Per-dimension MAD** (from `correlations`)
+   - **Accept %** and **floor-rule trigger count** (from `cross_summary` / `diagnose`)
+2. **By how much** (numeric delta from the previous checkpoint or baseline)
+3. **What unaddressed reviewer notes** from older iterations remain
+4. **Whether the change addressed root cause or surface symptoms**
+
+The Final Summary must reference your most recent Reflection block. The state.md trail is
+the audit log — future-you will read it before the next iteration.
+</analysis_checkpoint_protocol>
+
+<failure_recovery>
+**Important context — review counts are low**: the human review pool in this project is
+small (often only tens of items per judge prompt version, not hundreds). That means
+**Decision κ has high variance** and small κ movements are often noise, not signal. Do
+NOT treat a κ change of a few hundredths as a regression — it likely isn't. A "significant"
+κ drop is something like ≥0.10 absolute, or a clear cross-version trend across multiple
+iterations. Below that, lean on qualitative inspection of reviewer notes and your own
+read of accepted/rejected items.
+
+**Picking the rollback target**: "best earlier version" means the prior `judge_v<N>.md`
+with the highest **Decision κ** (Cohen's κ from the Judge Calibration panel), tie-broken
+on lowest mean |score diff| from `correlations`. Only versions with ≥10 reviewed items
+are eligible. With small review counts, prefer versions with MORE reviews to versions with
+slightly higher κ on tiny samples.
+
+**When to roll back**:
+- A new prompt version regressed if **Decision κ dropped significantly** (≥0.10 absolute,
+  or a clear multi-iteration downward trend), OR two+ dimensions' MAD moved the wrong way
+  AND your qualitative read confirms regression, OR floor-rule triggers spiked. In this case:
+  - DO NOT keep iterating on top of the regressed version
+  - Use `rollback {target_alias} judge <best_version>` (this COPIES the chosen version
+    forward to `judge_v(max+1).md` — non-destructive, the regressed version stays on disk)
+  - Then write a new branch from the rollback target with a different hypothesis
+- **A small κ drop combined with qualitative evidence of progress is fine and good** —
+  keep the new version. Examples of qualitative progress: a previously-flagged reviewer
+  note is now addressed, the rubric is clearer for a previously-confused dimension, the
+  failure-mode taxonomy has shifted from a structural problem to a noise-level problem.
+  Document the trade-off in your "## Reflection N" block in state.md so future-you knows
+  why the κ noise was acceptable.
+- If only ONE non-critical metric regressed (e.g. one dimension's MAD ticked up but
+  voice_tone and charter_grounding held AND κ held within noise), do NOT roll back — hold
+  the new version and address the single regression in the next iteration.
+
+**Other failure modes**:
+- If `run_cross_batch` times out: cut batch size by half, or focus on one judge model
+  first via `--target <alias>`
+- If reviews are sparse for the current iteration: pull notes from older iterations
+  (`reviews` without filter) — same complaints from older runs are still valid signal
+</failure_recovery>
