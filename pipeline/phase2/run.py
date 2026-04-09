@@ -514,13 +514,16 @@ async def _judge_one_part(
     charter_text: str = "",
     writing_guidelines_text: str = "",
     thinking: bool = False,
-) -> tuple[dict, str, str | None, dict]:
-    """Judge a single part (preflection or reflection) of a generated item.
+) -> tuple[str, str | None, dict]:
+    """Make the judge API call for a single part and return the raw response.
 
     For preflection: uses full text as context.
     For reflection: uses only text up to the reflection point.
 
-    Returns (parsed_judgment, raw_response, reasoning_content, usage_dict).
+    Parsing is the caller's responsibility — returning the raw response
+    lets judge_one log it when parsing fails.
+
+    Returns (raw_response, reasoning_content, usage_dict).
     """
     system_prompt = (
         prompt_template.replace("{part_type}", part_type)
@@ -573,8 +576,7 @@ async def _judge_one_part(
     raw, reasoning, usage = await api_call(
         client, model, messages, semaphore, thinking=thinking
     )
-    parsed = _parse_judgment(raw)
-    return parsed, raw, reasoning, usage
+    return raw, reasoning, usage
 
 
 async def _judge_combined(
@@ -587,10 +589,13 @@ async def _judge_combined(
     charter_text: str = "",
     writing_guidelines_text: str = "",
     thinking: bool = False,
-) -> tuple[dict, str, str | None, dict]:
-    """Judge all four voices in a single API call.
+) -> tuple[str, str | None, dict]:
+    """Make the combined four-voice judge API call and return the raw response.
 
-    Returns (parsed_combined, raw_response, reasoning_content, usage_dict).
+    Parsing is the caller's responsibility — returning the raw response
+    lets judge_one log it when parsing fails.
+
+    Returns (raw_response, reasoning_content, usage_dict).
     """
     system_prompt = (
         prompt_template.replace("{accept_threshold}", str(accept_threshold))
@@ -647,8 +652,37 @@ async def _judge_combined(
     raw, reasoning, usage = await api_call(
         client, model, messages, semaphore, thinking=thinking
     )
-    parsed = _parse_combined_judgment(raw)
-    return parsed, raw, reasoning, usage
+    return raw, reasoning, usage
+
+
+_RAW_LOG_CHAR_LIMIT = 600
+
+
+def _format_raw_for_log(raw: str | dict[str, str] | None) -> str:
+    """Format a raw judge response for a one-line warning.
+
+    Truncates long responses and replaces newlines so the progress bar stays
+    readable. For the per-part path, only shows the part whose raw response
+    got captured last (which is the one that most likely failed to parse).
+    """
+    if raw is None:
+        return "<not captured>"
+    if isinstance(raw, dict):
+        if not raw:
+            return "<empty>"
+        # For per-part judging the failing response is the last one written.
+        last_part = next(reversed(raw.keys()))
+        prefix = f"{last_part}="
+        body = raw[last_part]
+    else:
+        prefix = ""
+        body = raw
+    body = body.replace("\n", "\\n").replace("\r", "\\r")
+    if len(body) > _RAW_LOG_CHAR_LIMIT:
+        body = (
+            body[:_RAW_LOG_CHAR_LIMIT] + f"…[+{len(body) - _RAW_LOG_CHAR_LIMIT} chars]"
+        )
+    return prefix + body
 
 
 def _parts_to_judge(item: dict) -> list[str]:
@@ -694,7 +728,7 @@ async def judge_one(
         t0 = time.monotonic()
 
         if use_combined and len(parts) == 4:
-            parsed, raw, reasoning, usage = await _judge_combined(
+            raw, reasoning, usage = await _judge_combined(
                 item,
                 prompt_template,
                 accept_threshold,
@@ -705,7 +739,10 @@ async def judge_one(
                 writing_guidelines_text=writing_guidelines_text,
                 thinking=thinking,
             )
+            # Capture raw *before* parsing so the warning below can log it
+            # when _parse_combined_judgment raises on malformed output.
             raw_for_logging = raw
+            parsed = _parse_combined_judgment(raw)
             judge_latency_ms = int((time.monotonic() - t0) * 1000)
 
             all_scores = [s for part in parts for s in parsed[part]["scores"].values()]
@@ -742,8 +779,10 @@ async def judge_one(
         else:
             # Legacy per-part judging (old prompt with {part_type})
             part_results: dict[str, tuple] = {}
+            raw_by_part: dict[str, str] = {}
+            raw_for_logging = raw_by_part  # Keep the warning in sync as we go.
             for part in parts:
-                p_parsed, p_raw, p_reasoning, p_usage = await _judge_one_part(
+                p_raw, p_reasoning, p_usage = await _judge_one_part(
                     item,
                     part,
                     prompt_template,
@@ -755,6 +794,10 @@ async def judge_one(
                     writing_guidelines_text=writing_guidelines_text,
                     thinking=thinking,
                 )
+                # Capture raw before parsing so a failure inside
+                # _parse_judgment still ends up in the warning below.
+                raw_by_part[part] = p_raw
+                p_parsed = _parse_judgment(p_raw)
                 part_results[part] = (p_parsed, p_raw, p_reasoning, p_usage)
             judge_latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -776,7 +819,6 @@ async def judge_one(
                 "output_tokens": 0,
                 "reasoning_tokens": 0,
             }
-            raw_responses: dict[str, str] = {}
             judgment_parts = {}
             for part, (
                 p_parsed,
@@ -791,17 +833,15 @@ async def judge_one(
                     "model_reasoning": p_reasoning,
                     "usage": p_usage,
                 }
-                raw_responses[part] = p_raw
                 for k in total_usage:
                     total_usage[k] += p_usage.get(k, 0)
-            raw_for_logging = raw_responses
 
             judgment = {
                 **judgment_parts,
                 "aggregate": aggregate,
                 "decision": decision,
                 "judge_prompt": prompt_filename,
-                "raw_responses": raw_responses,
+                "raw_responses": dict(raw_by_part),
                 "usage": total_usage,
                 "latency_ms": judge_latency_ms,
                 "timestamp": __import__("datetime")
@@ -815,7 +855,7 @@ async def judge_one(
             "Skipping item {} — judging failed: {} | Raw response: {}",
             item["item_id"],
             e,
-            raw_for_logging,
+            _format_raw_for_log(raw_for_logging),
         )
         return None
 
