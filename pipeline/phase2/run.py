@@ -7,7 +7,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import random
 import re
 import signal
@@ -649,6 +651,175 @@ async def _judge_combined(
     return parsed, raw, reasoning, usage
 
 
+def _parts_to_judge(item: dict) -> list[str]:
+    """Return the list of voice parts present on an item.
+
+    Modern items have all four voices; legacy items only have the two
+    original parts.
+    """
+    if item.get("preflection_1p") is not None and item.get("reflection_3p") is not None:
+        return [
+            "preflection_3p",
+            "preflection_1p",
+            "reflection_1p",
+            "reflection_3p",
+        ]
+    return ["preflection", "reflection"]
+
+
+async def judge_one(
+    item: dict,
+    prompt_template: str,
+    prompt_filename: str,
+    model: str,
+    client: openai.AsyncOpenAI,
+    semaphore: asyncio.Semaphore,
+    accept_threshold: float,
+    floor_threshold: int = 2,
+    charter_text: str = "",
+    writing_guidelines_text: str = "",
+    thinking: bool = False,
+) -> dict | None:
+    """Judge one item with one (prompt, model). Returns the judgment dict, or None on error.
+
+    The returned dict is exactly what callers should put into
+    item["judgment"] (used by judge_batch) or judge_correlations.judgment
+    (used by rejudge_all_prompts_and_models). Save semantics are the
+    caller's responsibility.
+    """
+    use_combined = "{part_type}" not in prompt_template
+    parts = _parts_to_judge(item)
+    raw_for_logging: str | dict[str, str] | None = None
+    try:
+        t0 = time.monotonic()
+
+        if use_combined and len(parts) == 4:
+            parsed, raw, reasoning, usage = await _judge_combined(
+                item,
+                prompt_template,
+                accept_threshold,
+                model,
+                client,
+                semaphore,
+                charter_text=charter_text,
+                writing_guidelines_text=writing_guidelines_text,
+                thinking=thinking,
+            )
+            raw_for_logging = raw
+            judge_latency_ms = int((time.monotonic() - t0) * 1000)
+
+            all_scores = [s for part in parts for s in parsed[part]["scores"].values()]
+            aggregate = sum(all_scores) / len(all_scores)
+            has_floor_violation = any(s <= floor_threshold for s in all_scores)
+            decision = (
+                "reject"
+                if has_floor_violation or aggregate < accept_threshold
+                else "accept"
+            )
+
+            judgment_parts: dict[str, dict] = {}
+            for part in parts:
+                judgment_parts[part] = {
+                    "scores": parsed[part]["scores"],
+                    "aggregate": parsed[part]["aggregate"],
+                    "reasoning": parsed[part]["reasoning"],
+                    "model_reasoning": reasoning,
+                    "usage": usage,
+                }
+
+            judgment = {
+                **judgment_parts,
+                "aggregate": aggregate,
+                "decision": decision,
+                "judge_prompt": prompt_filename,
+                "raw_responses": {"combined": raw},
+                "usage": usage,
+                "latency_ms": judge_latency_ms,
+                "timestamp": __import__("datetime")
+                .datetime.now(__import__("datetime").timezone.utc)
+                .isoformat(),
+            }
+        else:
+            # Legacy per-part judging (old prompt with {part_type})
+            part_results: dict[str, tuple] = {}
+            for part in parts:
+                p_parsed, p_raw, p_reasoning, p_usage = await _judge_one_part(
+                    item,
+                    part,
+                    prompt_template,
+                    accept_threshold,
+                    model,
+                    client,
+                    semaphore,
+                    charter_text=charter_text,
+                    writing_guidelines_text=writing_guidelines_text,
+                    thinking=thinking,
+                )
+                part_results[part] = (p_parsed, p_raw, p_reasoning, p_usage)
+            judge_latency_ms = int((time.monotonic() - t0) * 1000)
+
+            all_scores = [
+                s
+                for part, (p_parsed, _, _, _) in part_results.items()
+                for s in p_parsed["scores"].values()
+            ]
+            aggregate = sum(all_scores) / len(all_scores)
+            has_floor_violation = any(s <= floor_threshold for s in all_scores)
+            decision = (
+                "reject"
+                if has_floor_violation or aggregate < accept_threshold
+                else "accept"
+            )
+
+            total_usage: dict[str, int] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "reasoning_tokens": 0,
+            }
+            raw_responses: dict[str, str] = {}
+            judgment_parts = {}
+            for part, (
+                p_parsed,
+                p_raw,
+                p_reasoning,
+                p_usage,
+            ) in part_results.items():
+                judgment_parts[part] = {
+                    "scores": p_parsed["scores"],
+                    "aggregate": p_parsed["aggregate"],
+                    "reasoning": p_parsed["reasoning"],
+                    "model_reasoning": p_reasoning,
+                    "usage": p_usage,
+                }
+                raw_responses[part] = p_raw
+                for k in total_usage:
+                    total_usage[k] += p_usage.get(k, 0)
+            raw_for_logging = raw_responses
+
+            judgment = {
+                **judgment_parts,
+                "aggregate": aggregate,
+                "decision": decision,
+                "judge_prompt": prompt_filename,
+                "raw_responses": raw_responses,
+                "usage": total_usage,
+                "latency_ms": judge_latency_ms,
+                "timestamp": __import__("datetime")
+                .datetime.now(__import__("datetime").timezone.utc)
+                .isoformat(),
+            }
+
+        return judgment
+    except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
+        logger.warning(
+            "Skipping item {} — judging failed: {} | Raw response: {}",
+            item["item_id"],
+            e,
+            raw_for_logging,
+        )
+        return None
+
+
 def judge_batch(
     items: list[dict],
     prompt_path: Path,
@@ -663,182 +834,50 @@ def judge_batch(
     writing_guidelines_text: str = "",
     thinking: bool = False,
 ) -> list[dict]:
-    """Judge generated reflections. Judges preflection and reflection separately.
+    """Judge generated reflections in parallel via judge_one.
 
-    Runs API calls concurrently via a temporary event loop.
-    Preflection is judged against the full text.
-    Reflection is judged against only the context up to the reflection point.
-    When save=True, saves each judged item to JSONL progressively.
+    Preflection is judged against the full text. Reflection is judged only
+    against the context up to the reflection point. When save=True, persists
+    each judged item to the items table.
 
-    Returns the list of judged item records.
+    Returns the list of judged item records (with judgment merged in).
     """
     prompt_template = prompt_path.read_text(encoding="utf-8")
     prompt_filename = prompt_path.name
 
-    # Determine which parts to judge based on what the item contains
-    def _parts_to_judge(item: dict) -> list[str]:
-        if (
-            item.get("preflection_1p") is not None
-            and item.get("reflection_3p") is not None
-        ):
-            return [
-                "preflection_3p",
-                "preflection_1p",
-                "reflection_1p",
-                "reflection_3p",
-            ]
-        # Legacy items: only two parts
-        return ["preflection", "reflection"]
+    coros = [
+        judge_one(
+            item=item,
+            prompt_template=prompt_template,
+            prompt_filename=prompt_filename,
+            model=model,
+            client=client,
+            semaphore=semaphore,
+            accept_threshold=accept_threshold,
+            floor_threshold=floor_threshold,
+            charter_text=charter_text,
+            writing_guidelines_text=writing_guidelines_text,
+            thinking=thinking,
+        )
+        for item in items
+    ]
+    judgments = run_concurrent(*coros, desc="Judging")
 
-    # Use combined judging when prompt supports it (no {part_type} placeholder)
-    use_combined = "{part_type}" not in prompt_template
-
-    async def judge_one(item: dict) -> dict | None:
-        parts = _parts_to_judge(item)
-        raw_for_logging: str | dict[str, str] | None = None
-        try:
-            t0 = time.monotonic()
-
-            if use_combined and len(parts) == 4:
-                # Combined: single API call for all 4 voices
-                parsed, raw, reasoning, usage = await _judge_combined(
-                    item,
-                    prompt_template,
-                    accept_threshold,
-                    model,
-                    client,
-                    semaphore,
-                    charter_text=charter_text,
-                    writing_guidelines_text=writing_guidelines_text,
-                    thinking=thinking,
-                )
-                raw_for_logging = raw
-                judge_latency_ms = int((time.monotonic() - t0) * 1000)
-
-                all_scores = [
-                    s for part in parts for s in parsed[part]["scores"].values()
-                ]
-                aggregate = sum(all_scores) / len(all_scores)
-                has_floor_violation = any(s <= floor_threshold for s in all_scores)
-                decision = (
-                    "reject"
-                    if has_floor_violation or aggregate < accept_threshold
-                    else "accept"
-                )
-
-                judgment_parts: dict[str, dict] = {}
-                for part in parts:
-                    judgment_parts[part] = {
-                        "scores": parsed[part]["scores"],
-                        "aggregate": parsed[part]["aggregate"],
-                        "reasoning": parsed[part]["reasoning"],
-                        "model_reasoning": reasoning,
-                        "usage": usage,
-                    }
-
-                judgment = {
-                    **judgment_parts,
-                    "aggregate": aggregate,
-                    "decision": decision,
-                    "judge_prompt": prompt_filename,
-                    "raw_responses": {"combined": raw},
-                    "usage": usage,
-                    "latency_ms": judge_latency_ms,
-                    "timestamp": __import__("datetime")
-                    .datetime.now(__import__("datetime").timezone.utc)
-                    .isoformat(),
-                }
-            else:
-                # Legacy per-part judging (old prompt with {part_type})
-                part_results: dict[str, tuple] = {}
-                for part in parts:
-                    p_parsed, p_raw, p_reasoning, p_usage = await _judge_one_part(
-                        item,
-                        part,
-                        prompt_template,
-                        accept_threshold,
-                        model,
-                        client,
-                        semaphore,
-                        charter_text=charter_text,
-                        writing_guidelines_text=writing_guidelines_text,
-                        thinking=thinking,
-                    )
-                    part_results[part] = (p_parsed, p_raw, p_reasoning, p_usage)
-                judge_latency_ms = int((time.monotonic() - t0) * 1000)
-
-                all_scores = [
-                    s
-                    for part, (p_parsed, _, _, _) in part_results.items()
-                    for s in p_parsed["scores"].values()
-                ]
-                aggregate = sum(all_scores) / len(all_scores)
-                has_floor_violation = any(s <= floor_threshold for s in all_scores)
-                decision = (
-                    "reject"
-                    if has_floor_violation or aggregate < accept_threshold
-                    else "accept"
-                )
-
-                total_usage: dict[str, int] = {
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                    "reasoning_tokens": 0,
-                }
-                raw_responses: dict[str, str] = {}
-                judgment_parts = {}
-                for part, (
-                    p_parsed,
-                    p_raw,
-                    p_reasoning,
-                    p_usage,
-                ) in part_results.items():
-                    judgment_parts[part] = {
-                        "scores": p_parsed["scores"],
-                        "aggregate": p_parsed["aggregate"],
-                        "reasoning": p_parsed["reasoning"],
-                        "model_reasoning": p_reasoning,
-                        "usage": p_usage,
-                    }
-                    raw_responses[part] = p_raw
-                    for k in total_usage:
-                        total_usage[k] += p_usage.get(k, 0)
-                raw_for_logging = raw_responses
-
-                judgment = {
-                    **judgment_parts,
-                    "aggregate": aggregate,
-                    "decision": decision,
-                    "judge_prompt": prompt_filename,
-                    "raw_responses": raw_responses,
-                    "usage": total_usage,
-                    "latency_ms": judge_latency_ms,
-                    "timestamp": __import__("datetime")
-                    .datetime.now(__import__("datetime").timezone.utc)
-                    .isoformat(),
-                }
-
-            judged = {**item, "judgment": judgment}
-            if save:
-                save_item(judged)
-            return judged
-        except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
-            logger.warning(
-                "Skipping item {} — judging failed: {} | Raw response: {}",
-                item["item_id"],
-                e,
-                raw_for_logging,
-            )
-            return None
-
-    coros = [judge_one(item) for item in items]
-    results = run_concurrent(*coros, desc="Judging")
-    skipped = sum(1 for r in results if r is None)
+    judged: list[dict] = []
+    skipped = 0
+    for item, judgment in zip(items, judgments):
+        if judgment is None:
+            skipped += 1
+            continue
+        rec = {**item, "judgment": judgment}
+        if save:
+            save_item(rec)
+        judged.append(rec)
     if skipped:
         logger.warning(
             "Judging: {}/{} items skipped due to errors", skipped, len(items)
         )
-    return [r for r in results if r is not None]
+    return judged
 
 
 def _make_run_summary(iteration: int, judged: list[dict]) -> str:
@@ -1134,18 +1173,16 @@ def run_generator_cross_iteration(
 def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
     """Re-judge all human-reviewed items with ALL judge prompts × ALL judge models.
 
-    Discovers all judge_v*.md files in each judge model's prompt directory,
-    then for each (judge_prompt, judge_model) combination, re-judges any
-    reviewed items that don't already have correlations. Idempotent.
-
-    The (judge_prompt, judge_model) work units run in parallel threads so
-    multiple judge versions can be re-judged concurrently. Each worker owns
-    its own event loop, client, and semaphore.
+    Builds one big queue of (item, judge_prompt, judge_model) work units and
+    submits them all to a single asyncio event loop with a shared concurrency
+    semaphore. Parallelism happens purely at the API-request level — no thread
+    pool, no per-(prompt,model) event loops, no per-worker SQLite contention.
+    Idempotent: items already in judge_correlations are skipped.
 
     Returns total count of newly judged items.
     """
 
-    from pipeline.config import PROMPTS_DIR, resolve_judge_model
+    from pipeline.config import PROMPTS_DIR
     from pipeline.phase2.storage import (
         load_judge_correlations,
         load_latest_reviews,
@@ -1169,104 +1206,110 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
 
     latest_items = load_latest_items()
 
-    # Collect all (model, judge_file, needs_judging) work units first so we
-    # can dispatch them in parallel.
-    work_units: list[tuple[ModelConfig, Path, str, list[dict]]] = []
+    # Build the full work queue: one entry per (item, prompt, model) that
+    # doesn't already have a correlation.
+    work: list[tuple[dict, Path, str, ModelConfig]] = []
     for model_cfg in cfg.phase2.judge_models:
         alias = model_cfg.alias
         model_dir = PROMPTS_DIR / alias
         if not model_dir.exists():
             continue
-
         judge_files = sorted(
             p for p in model_dir.iterdir() if re.match(r"^judge_v\d+\.md$", p.name)
         )
-
         for judge_file in judge_files:
             prompt_name = judge_file.name
-            needs_judging = [
-                latest_items[k]
-                for k in reviewed_item_keys
-                if k in latest_items
-                and (k[0], k[1], prompt_name, alias) not in existing_keys
-            ]
+            for k in reviewed_item_keys:
+                if k not in latest_items:
+                    continue
+                if (k[0], k[1], prompt_name, alias) in existing_keys:
+                    continue
+                work.append((latest_items[k], judge_file, prompt_name, model_cfg))
 
-            if not needs_judging:
-                logger.info(
-                    "All reviewed items already done for {} / {}.", prompt_name, alias
-                )
-                continue
-
-            work_units.append((model_cfg, judge_file, prompt_name, needs_judging))
-
-    if not work_units:
-        logger.info("Total new correlations: 0")
+    if not work:
+        logger.info("Nothing to re-judge — all reviewed items already done.")
         return 0
 
-    # Read shared prompt context once
+    logger.info(
+        "Re-judging {} (item, prompt, model) combinations in one queue...",
+        len(work),
+    )
+
+    # Read shared prompt context once.
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
     writing_guidelines_text = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
 
-    # Budget: target ~200 concurrent API calls across all workers. Each worker
-    # processes one (judge_prompt, judge_model) batch with its own event loop,
-    # so per-worker concurrency is bounded by batch size. With typical batches
-    # of ~20 items, 10 workers ≈ 200 concurrent.
+    # Cache prompt template reads (one per judge_v*.md, not per work item).
+    prompt_cache: dict[Path, str] = {}
+
+    def _prompt(path: Path) -> str:
+        if path not in prompt_cache:
+            prompt_cache[path] = path.read_text(encoding="utf-8")
+        return prompt_cache[path]
+
+    # One client per endpoint, one shared semaphore for the whole run.
+    # Sharing the semaphore means N is a HARD cap on concurrent API calls
+    # regardless of how many endpoints are involved, which is the actual
+    # throughput limit we care about (and is the bound that used to be
+    # implicit in the old per-worker fan-out).
     target_total_concurrent = 200
-    max_workers = max(1, min(len(work_units), target_total_concurrent))
+    semaphore = asyncio.Semaphore(target_total_concurrent)
 
-    def _process(work: tuple[ModelConfig, Path, str, list[dict]]) -> int:
-        model_cfg, judge_file, prompt_name, needs_judging = work
-        alias = model_cfg.alias
+    clients: dict[str, openai.AsyncOpenAI] = {}
+    for model_cfg in cfg.phase2.judge_models:
         endpoint = model_cfg.endpoint or cfg.phase2.endpoint
-        # Per-worker semaphore size: allow the full batch to run concurrently.
-        client, semaphore = make_api_client(
-            endpoint, target_total_concurrent, cfg.api_keys
-        )
+        if endpoint in clients:
+            continue
+        env_var = (cfg.api_keys or {}).get(endpoint, "SWISS_AI_API_KEY")
+        api_key = os.environ.get(env_var)
+        assert api_key, f"{env_var} not set in environment (needed for {endpoint})"
+        clients[endpoint] = openai.AsyncOpenAI(api_key=api_key, base_url=endpoint)
 
-        logger.info(
-            "Re-judging {} items with {} ({})...",
-            len(needs_judging),
-            prompt_name,
-            alias,
-        )
-
-        judged = judge_batch(
-            items=needs_judging,
-            prompt_path=judge_file,
+    async def _judge_one_work(
+        item: dict, judge_file: Path, prompt_name: str, model_cfg: ModelConfig
+    ) -> dict | None:
+        endpoint = model_cfg.endpoint or cfg.phase2.endpoint
+        return await judge_one(
+            item=item,
+            prompt_template=_prompt(judge_file),
+            prompt_filename=prompt_name,
             model=model_cfg.api_name,
-            iteration=needs_judging[0]["iteration"],
-            accept_threshold=cfg.phase2.scoring.accept_threshold,
-            client=client,
+            client=clients[endpoint],
             semaphore=semaphore,
-            save=False,
+            accept_threshold=cfg.phase2.scoring.accept_threshold,
             floor_threshold=cfg.phase2.scoring.floor_threshold,
             charter_text=charter_text,
             writing_guidelines_text=writing_guidelines_text,
             thinking=model_cfg.thinking,
         )
 
-        for item in judged:
-            save_judge_correlation(
-                item_id=item["item_id"],
-                iteration=item["iteration"],
-                judge_prompt=prompt_name,
-                judge_model=alias,
-                judgment=item["judgment"],
-            )
+    # Single event loop, single semaphore, all work in flight at once.
+    coros = [_judge_one_work(item, jf, pn, mc) for (item, jf, pn, mc) in work]
+    judgments = run_concurrent(*coros, desc="Re-judging")
 
-        logger.info(
-            "Saved {} correlations for {} / {}.", len(judged), prompt_name, alias
+    # Save correlations sequentially — storage is single-writer, and the
+    # save_judge_correlation call is cheap relative to the API round-trip.
+    saved = 0
+    skipped = 0
+    for (item, _, prompt_name, model_cfg), judgment in zip(work, judgments):
+        if judgment is None:
+            skipped += 1
+            continue
+        save_judge_correlation(
+            item_id=item["item_id"],
+            iteration=item["iteration"],
+            judge_prompt=prompt_name,
+            judge_model=model_cfg.alias,
+            judgment=judgment,
         )
-        return len(judged)
+        saved += 1
 
-    total_new = 0
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_process, w) for w in work_units]
-        for future in as_completed(futures):
-            total_new += future.result()
-
-    logger.info("Total new correlations: {}", total_new)
-    return total_new
+    if skipped:
+        logger.warning(
+            "Re-judging: {}/{} units skipped due to errors", skipped, len(work)
+        )
+    logger.info("Total new correlations: {}", saved)
+    return saved
 
 
 def main():

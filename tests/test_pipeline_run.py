@@ -97,50 +97,86 @@ class TestUnionCharterElements:
 
 
 class TestParseGeneration:
+    """Tests for _parse_generation, the four-voice generator output parser."""
+
+    @staticmethod
+    def _four_voice(**overrides) -> dict:
+        """Build a complete four-voice payload, overriding any field."""
+        base = {
+            "analysis": "a",
+            "preflection_3p": "p3",
+            "preflection_1p": "p1",
+            "reflection_1p": "r1",
+            "reflection_3p": "r3",
+        }
+        base.update(overrides)
+        return base
+
     def test_basic_json(self):
         raw = json.dumps(
-            {
-                "analysis": "test analysis",
-                "preflection": "test preflection",
-                "reflection": "test reflection",
-            }
+            self._four_voice(
+                analysis="test analysis",
+                preflection_3p="test preflection 3p",
+                reflection_1p="test reflection 1p",
+            )
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "test analysis"
+        assert result["preflection_3p"] == "test preflection 3p"
+        assert result["reflection_1p"] == "test reflection 1p"
 
     def test_json_with_code_fence(self):
-        raw = '```json\n{"analysis": "a", "preflection": "p", "reflection": "r"}\n```'
+        raw = "```json\n" + json.dumps(self._four_voice()) + "\n```"
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_prose_before_code_fence(self):
         raw = (
             "## Stage 1 — Analysis\nSome analysis text.\n\n"
-            '```json\n{"analysis": "a", "preflection": "p", "reflection": "r"}\n```'
+            "```json\n" + json.dumps(self._four_voice()) + "\n```"
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_prose_before_raw_json(self):
-        raw = (
-            "## Stage 1\nProse.\n## Stage 2\nMore prose.\n\n"
-            '{"analysis": "a", "preflection": "p", "reflection": "r"}'
+        raw = "## Stage 1\nProse.\n## Stage 2\nMore prose.\n\n" + json.dumps(
+            self._four_voice()
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_field_name_normalization(self):
-        raw = json.dumps({"analysis": "a", "pre_flection": "p", "reflection": "r"})
+        # pre_flection → preflection → preflection_3p (chained alias);
+        # reflection → reflection_1p (single-step alias)
+        raw = json.dumps(
+            {
+                "analysis": "a",
+                "pre_flection": "p3-via-alias",
+                "preflection_1p": "p1",
+                "reflection": "r1-via-alias",
+                "reflection_3p": "r3",
+            }
+        )
         result = _parse_generation(raw)
-        assert result["preflection"] == "p"
+        assert result["preflection_3p"] == "p3-via-alias"
+        assert result["reflection_1p"] == "r1-via-alias"
 
     def test_field_name_normalization_hyphen(self):
-        raw = json.dumps({"analysis": "a", "pre-flection": "p", "reflection": "r"})
+        # pre-flection → preflection → preflection_3p
+        raw = json.dumps(
+            {
+                "analysis": "a",
+                "pre-flection": "p3-via-alias",
+                "preflection_1p": "p1",
+                "reflection_1p": "r1",
+                "reflection_3p": "r3",
+            }
+        )
         result = _parse_generation(raw)
-        assert result["preflection"] == "p"
+        assert result["preflection_3p"] == "p3-via-alias"
 
     def test_missing_field_raises(self):
-        raw = json.dumps({"analysis": "a", "preflection": "p"})
+        raw = json.dumps({"analysis": "a", "preflection_3p": "p3"})
         with pytest.raises(AssertionError, match="Missing fields"):
             _parse_generation(raw)
 
@@ -228,65 +264,106 @@ class TestIntegration:
 
     @pytest.fixture(autouse=True)
     def _isolate_db(self, tmp_path):
-        """Redirect SQLite storage to a temp DB and clear cached connection."""
+        """Redirect SQLite storage to a temp DB and reset all thread-local
+        state (connection, read cache, bump version) so cached query results
+        from a previous test can't leak into this one."""
         self.tmp_path = tmp_path
         import pipeline.storage as _mod
 
+        def _reset_thread_local():
+            for attr in ("conn", "read_cache", "bump_version"):
+                _mod._local.__dict__.pop(attr, None)
+
         original = _mod.DB_PATH
         _mod.DB_PATH = tmp_path / "test.db"
-        _mod._local.__dict__.pop("conn", None)
+        _reset_thread_local()
         yield
         _mod.DB_PATH = original
-        _mod._local.__dict__.pop("conn", None)
+        _reset_thread_local()
 
-    def test_generate_and_judge(self):
-        """Test generate_batch and judge_batch with mocked API calls."""
-        gen_response = json.dumps(
-            {
-                "analysis": "test analysis",
-                "preflection": "test preflection",
-                "reflection": "test reflection per [1.1]",
-            }
-        )
-        judge_response = json.dumps(
-            {
-                "scores": {
-                    "relevance": 4,
-                    "specificity": 3,
-                    "charter_grounding": 4,
-                    "voice_tone": 4,
-                },
-                "reasoning": "slightly below threshold",
-            }
-        )
+    @staticmethod
+    def _make_mock_client(judge_response: str | None = None):
+        """Build an AsyncOpenAI mock that returns the right shape for each call.
 
-        import asyncio
+        Generate calls are answered with reflection or preflection payloads
+        depending on which mode the user message asks for. Judge calls return
+        the supplied judge_response.
+        """
         import openai
+
+        if judge_response is None:
+            judge_response = json.dumps(
+                {
+                    "scores": {
+                        "relevance": 4,
+                        "specificity": 3,
+                        "charter_grounding": 4,
+                        "voice_tone": 4,
+                    },
+                    "reasoning": "slightly below threshold",
+                }
+            )
+
+        refl_response = json.dumps(
+            {
+                "analysis": "refl analysis",
+                "reflection_1p": "test reflection 1p per [1.1]",
+                "reflection_3p": "test reflection 3p per [1.1]",
+            }
+        )
+        prefl_response = json.dumps(
+            {
+                "analysis": "prefl analysis",
+                "preflection_3p": "test preflection 3p",
+                "preflection_1p": "test preflection 1p",
+            }
+        )
 
         mock_client = AsyncMock(spec=openai.AsyncOpenAI)
 
-        call_count = {"n": 0}
-
         async def mock_create(**kwargs):
-            call_count["n"] += 1
+            messages = kwargs.get("messages", [])
+            system = next((m["content"] for m in messages if m["role"] == "system"), "")
+            user = next((m["content"] for m in messages if m["role"] == "user"), "")
+
             resp = MagicMock()
             resp.choices = [MagicMock()]
             msg = resp.choices[0].message
             msg.reasoning_content = None
-            if call_count["n"] <= 3:
-                msg.content = gen_response
+
+            if system.startswith("Generate"):
+                if "Reflection mode" in user:
+                    msg.content = refl_response
+                else:
+                    msg.content = prefl_response
             else:
                 msg.content = judge_response
+
+            # Numeric usage so api_call's token bookkeeping works.
+            resp.usage = MagicMock()
+            resp.usage.prompt_tokens = 100
+            resp.usage.completion_tokens = 50
+            resp.usage.reasoning_tokens = 0
+            resp.usage.completion_tokens_details = {}
             return resp
 
         mock_client.chat.completions.create = mock_create
+        return mock_client
 
+    def test_generate_and_judge(self):
+        """Test generate_batch and judge_batch end-to-end with mocked API calls."""
+        import asyncio
+
+        mock_client = self._make_mock_client()
+
+        # Items need text long enough that the reflection point split leaves
+        # both halves non-empty (RP=20 over 80 chars).
         items = [
             {
                 "item_id": f"item_{i}",
                 "subset": "score_0",
-                "text": f"text {i}",
-                "reflection_point": 2,
+                "text": (f"text body {i} " * 8).strip(),
+                "reflection_point": 20,
                 "is_gold": False,
             }
             for i in range(3)
@@ -313,7 +390,11 @@ class TestIntegration:
             semaphore=semaphore,
         )
         assert len(generated) == 3
-        assert all(g["analysis"] == "test analysis" for g in generated)
+        for g in generated:
+            assert "REFLECTION ANALYSIS" in g["analysis"]
+            assert "PREFLECTION ANALYSIS" in g["analysis"]
+            assert g["preflection_1p"] == "test preflection 1p"
+            assert g["reflection_3p"] == "test reflection 3p per [1.1]"
 
         judged = judge_batch(
             generated,
@@ -325,14 +406,19 @@ class TestIntegration:
             semaphore=semaphore,
         )
         assert len(judged) == 3
+        # All four voices judged below the accept_threshold of 4.0 (mean 3.75)
         assert all(j["judgment"]["decision"] == "reject" for j in judged)
         for j in judged:
-            assert "preflection" in j["judgment"]
-            assert "reflection" in j["judgment"]
-            assert "scores" in j["judgment"]["preflection"]
-            assert "scores" in j["judgment"]["reflection"]
+            for voice in (
+                "preflection_3p",
+                "preflection_1p",
+                "reflection_1p",
+                "reflection_3p",
+            ):
+                assert voice in j["judgment"]
+                assert "scores" in j["judgment"][voice]
 
-        # Verify items saved to SQLite (3 items, upserted by judge)
+        # Items were saved by generate_batch (and overwritten by judge_batch)
         from pipeline.phase2.storage import load_items_for_iteration
 
         rows = load_items_for_iteration(1)
@@ -340,43 +426,18 @@ class TestIntegration:
 
     def test_save_false_no_write(self):
         """Test that save=False prevents writing to the database."""
-        gen_response = json.dumps(
-            {
-                "analysis": "test",
-                "preflection": "p",
-                "reflection": "r per [1.1]",
-            }
-        )
-        judge_response = json.dumps(
-            {
-                "scores": {"relevance": 4},
-                "reasoning": "ok",
-            }
-        )
-
         import asyncio
-        import openai
 
-        mock_client = AsyncMock(spec=openai.AsyncOpenAI)
-        call_count = {"n": 0}
-
-        async def mock_create(**kwargs):
-            call_count["n"] += 1
-            resp = MagicMock()
-            resp.choices = [MagicMock()]
-            msg = resp.choices[0].message
-            msg.reasoning_content = None
-            msg.content = gen_response if call_count["n"] <= 1 else judge_response
-            return resp
-
-        mock_client.chat.completions.create = mock_create
+        mock_client = self._make_mock_client(
+            judge_response=json.dumps({"scores": {"relevance": 4}, "reasoning": "ok"})
+        )
 
         items = [
             {
                 "item_id": "item_0",
                 "subset": "score_0",
-                "text": "text 0",
-                "reflection_point": 2,
+                "text": ("text body " * 8).strip(),
+                "reflection_point": 20,
                 "is_gold": False,
             }
         ]
