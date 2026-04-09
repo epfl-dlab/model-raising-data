@@ -20,14 +20,15 @@ from pipeline.log import logger
 MAX_RETRIES = 5
 RETRY_BACKOFF_BASE = 2.0
 
-# Default completion-token budget for chat calls. Must be large enough for:
-#   - a combined 4-voice judge response (~500 output tokens observed),
-#   - a full generation response with both voices (~600 output tokens),
-#   - thinking-model reasoning blocks on top of either of the above.
-# When unset, OpenRouter has been observed routing to providers that cap at
-# ~128 tokens, silently truncating judge output to ~500 chars. Always pass
-# an explicit budget.
-DEFAULT_MAX_TOKENS = 8192
+# Default completion-token budget for chat calls. Needs to cover:
+#   - reasoning tokens for thinking models (Kimi-K2.5 observed burning
+#     ~6500 reasoning tokens on a single combined-judge call),
+#   - output tokens for the actual JSON (~6000 observed for a full
+#     4-voice judge response with explanations),
+#   - some slack on top.
+# When unset, OpenRouter routes to providers that cap at ~128 tokens and
+# silently truncates, so the budget is always passed explicitly.
+DEFAULT_MAX_TOKENS = 16384
 
 # Per-model recommended sampling parameters from HuggingFace model cards.
 # Matched case-insensitively against the model name. First match wins.
