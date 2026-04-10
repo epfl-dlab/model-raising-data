@@ -52,6 +52,7 @@ from pipeline.generation import (
     PREFLECTION_TASK,
     REFLECTION_TASK,
     parse_generation,
+    split_generator_prompt,
 )
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 from pipeline.phase2.storage import (
@@ -76,20 +77,7 @@ _FIELD_ALIASES = FIELD_ALIASES
 _GEN_TEXT_FIELDS = GEN_TEXT_FIELDS
 _parse_generation = parse_generation
 
-_MODE_SECTION_RE = re.compile(r"<!-- mode: (\w+) -->.*?<!-- /mode -->", re.DOTALL)
-
-
-def _split_generator_prompt(template: str, mode: str) -> str:
-    """Strip mode-specific sections not matching *mode* ('reflection' or 'preflection').
-
-    Sections are delimited by ``<!-- mode: X -->`` / ``<!-- /mode -->`` markers.
-    If no markers are present the template is returned unchanged (backward compat).
-    """
-
-    def _keep(m: re.Match) -> str:
-        return m.group(0) if m.group(1) == mode else ""
-
-    return _MODE_SECTION_RE.sub(_keep, template).strip()
+_split_generator_prompt = split_generator_prompt
 
 
 def _load_canaries() -> list[dict]:
@@ -738,26 +726,22 @@ def judge_batch(
     prompt_template = prompt_path.read_text(encoding="utf-8")
     prompt_filename = prompt_path.name
 
-    coros = [
-        judge_one(
-            item=item,
-            prompt_template=prompt_template,
-            prompt_filename=prompt_filename,
-            model=model,
-            client=client,
-            semaphore=semaphore,
-            accept_threshold=accept_threshold,
-            floor_threshold=floor_threshold,
-            charter_text=charter_text,
-            writing_guidelines_text=writing_guidelines_text,
-            thinking=thinking,
-        )
-        for item in items
-    ]
-    judgments = run_concurrent(*coros, desc="Judging")
-
     # Use combined judging when prompt supports it (no {part_type} placeholder)
     use_combined = "{part_type}" not in prompt_template
+
+    def _parts_to_judge(item: dict) -> list[str]:
+        if (
+            item.get("preflection_1p") is not None
+            and item.get("reflection_3p") is not None
+        ):
+            return [
+                "preflection_3p",
+                "preflection_1p",
+                "reflection_1p",
+                "reflection_3p",
+            ]
+        # Legacy items: only two parts
+        return ["preflection", "reflection"]
 
     async def judge_one(item: dict) -> dict | None:
         parts = _parts_to_judge(item)

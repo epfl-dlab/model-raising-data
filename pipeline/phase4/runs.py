@@ -14,7 +14,12 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from pipeline.config import extract_charter_elements
-from pipeline.generation import PREFLECTION_TASK, REFLECTION_TASK, parse_generation
+from pipeline.generation import (
+    PREFLECTION_TASK,
+    REFLECTION_TASK,
+    parse_generation,
+    split_generator_prompt,
+)
 from pipeline.phase4.canaries import assign_canary
 from pipeline.tokenizer import compute_reflection_point
 
@@ -71,6 +76,9 @@ def _reflections_build_calls(
     # Canary assignment
     canary = assign_canary(doc_id, canary_seed, canaries)
 
+    refl_system = split_generator_prompt(system_prompt, "reflection")
+    prefl_system = split_generator_prompt(system_prompt, "preflection")
+
     # Call 1: Reflection (text up to RP only)
     refl_user = f"## Full Text\n\n{context_before}"
     if canary is not None:
@@ -83,7 +91,7 @@ def _reflections_build_calls(
     refl_user += REFLECTION_TASK
 
     refl_messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": refl_system},
         {"role": "user", "content": refl_user},
     ]
 
@@ -92,7 +100,7 @@ def _reflections_build_calls(
     prefl_user += PREFLECTION_TASK
 
     prefl_messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": prefl_system},
         {"role": "user", "content": prefl_user},
     ]
 
@@ -117,10 +125,14 @@ def _reflections_post_process(
     refl_parsed, prefl_parsed = parsed_results
 
     charter_reflection = extract_charter_elements(
-        refl_parsed.get("reflection_1p", "") + " " + refl_parsed.get("reflection_3p", "")
+        refl_parsed.get("reflection_1p", "")
+        + " "
+        + refl_parsed.get("reflection_3p", "")
     )
     charter_preflection = extract_charter_elements(
-        prefl_parsed.get("preflection_1p", "") + " " + prefl_parsed.get("preflection_3p", "")
+        prefl_parsed.get("preflection_1p", "")
+        + " "
+        + prefl_parsed.get("preflection_3p", "")
     )
 
     canary = meta["canary"]
@@ -153,7 +165,5 @@ RUNS: dict[str, RunDefinition] = {
 
 def get_run(name: str) -> RunDefinition:
     """Look up a run definition by name. Crashes if not found."""
-    assert name in RUNS, (
-        f"Unknown run '{name}'. Available: {list(RUNS.keys())}"
-    )
+    assert name in RUNS, f"Unknown run '{name}'. Available: {list(RUNS.keys())}"
     return RUNS[name]
