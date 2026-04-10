@@ -3662,8 +3662,145 @@ def pipeline_review_page():
 
 @ui.page("/pipeline/reviews", response_timeout=60.0)
 def pipeline_reviews_page():
-    """Review overview: browse all reviews, comment on them, delete them."""
+    """Review overview: browse all reviews, comment on them, edit and delete them."""
     viewer_id = app.storage.user.get("annotator_id", "")
+
+    cfg = load_config()
+    _rv_dimensions = cfg.phase2.scoring.dimensions
+    _rv_threshold = cfg.phase2.scoring.accept_threshold
+    _RV_FLOOR = 2
+
+    _RV_DIM_SHORT = {
+        "relevance": "Rel",
+        "specificity": "Spec",
+        "charter_grounding": "Charter",
+        "voice_tone": "Voice",
+    }
+
+    def _rv_compute_decision(values: list[int]) -> tuple[float, str]:
+        if not values:
+            return 0.0, "reject"
+        aggregate = sum(values) / len(values)
+        if any(v <= _RV_FLOOR for v in values) or aggregate < _rv_threshold:
+            return aggregate, "reject"
+        return aggregate, "accept"
+
+    def _open_edit_dialog(review: dict, on_saved):
+        """Open a dialog to edit an existing review's scores and notes."""
+        scores = review["scores"]
+        is_per_part = scores and isinstance(next(iter(scores.values())), dict)
+
+        with (
+            ui.dialog().props("persistent maximized") as dlg,
+            ui.card()
+            .classes("w-full q-pa-md")
+            .style("max-width: 700px; margin: auto;"),
+        ):
+            ui.label("Edit Review").classes("text-h6")
+            ui.label(
+                f"Item {review['item_id'][:12]} · iter {review['iteration']} · "
+                f"{review['reviewer_id']}"
+            ).classes("text-caption text-grey-6 q-mb-sm")
+
+            status_label = ui.label("").classes("text-caption text-weight-bold q-mb-sm")
+            edit_sliders: dict[str, dict[str, ui.slider]] = {}
+
+            # Determine parts: use the review's per-part keys if available,
+            # otherwise fall back to the standard four voices.
+            if is_per_part:
+                parts = list(scores.keys())
+            else:
+                parts = [
+                    "preflection_3p",
+                    "preflection_1p",
+                    "reflection_1p",
+                    "reflection_3p",
+                ]
+
+            def _update_status():
+                vals = [
+                    int(s.value)
+                    for dims in edit_sliders.values()
+                    for s in dims.values()
+                ]
+                agg, dec = _rv_compute_decision(vals)
+                color = "green" if dec == "accept" else "red"
+                status_label.set_text(f"Avg: {agg:.2f} → {dec.upper()}")
+                status_label.style(f"color: {color};")
+
+            for part in parts:
+                ui.label(part).classes("text-overline text-grey-7 q-mt-sm")
+                edit_sliders[part] = {}
+                with (
+                    ui.row().classes("items-center w-full no-wrap").style("gap: 12px;")
+                ):
+                    for dim in _rv_dimensions:
+                        if is_per_part:
+                            init_val = scores.get(part, {}).get(dim, 3)
+                        else:
+                            init_val = scores.get(dim, 3)
+                        with (
+                            ui.row()
+                            .classes("items-center no-wrap")
+                            .style("gap: 2px; flex: 1;")
+                        ):
+                            ui.label(_RV_DIM_SHORT.get(dim, dim)).classes(
+                                "text-caption text-grey-7"
+                            ).style("min-width: 42px;")
+                            slider = (
+                                ui.slider(min=1, max=5, value=init_val)
+                                .classes("flex-1")
+                                .style("min-width: 60px; margin-left: 4px;")
+                            )
+                            score_lbl = (
+                                ui.label(str(init_val))
+                                .classes("text-caption text-weight-medium")
+                                .style("min-width: 12px;")
+                            )
+                            slider.on(
+                                "update:model-value",
+                                lambda e, lbl=score_lbl: lbl.set_text(str(int(e.args))),
+                            )
+                            slider.on(
+                                "update:model-value",
+                                lambda _: _update_status(),
+                            )
+                            edit_sliders[part][dim] = slider
+
+            _update_status()
+
+            edit_notes = (
+                ui.textarea(value=review.get("notes", ""))
+                .classes("w-full q-mt-sm")
+                .props("outlined")
+            )
+
+            with ui.row().classes("w-full justify-end q-mt-sm gap-2"):
+                ui.button("Cancel", on_click=dlg.close).props("flat")
+
+                def _save():
+                    new_scores = {
+                        p: {d: int(s.value) for d, s in dims.items()}
+                        for p, dims in edit_sliders.items()
+                    }
+                    vals = [v for part in new_scores.values() for v in part.values()]
+                    agg, dec = _rv_compute_decision(vals)
+                    save_review(
+                        item_id=review["item_id"],
+                        iteration=review["iteration"],
+                        reviewer_id=review["reviewer_id"],
+                        scores=new_scores,
+                        aggregate=agg,
+                        decision=dec,
+                        notes=edit_notes.value.strip(),
+                    )
+                    dlg.close()
+                    ui.notify("Review updated", type="positive")
+                    on_saved()
+
+                ui.button("Save", on_click=_save, color="primary")
+
+        dlg.open()
 
     def reviews_actions():
         def _do_upload():
@@ -3783,6 +3920,20 @@ def pipeline_reviews_page():
                                 "text-caption text-grey-5"
                             )
                             ui.space()
+
+                            # Edit button
+                            def make_edit(rev=r):
+                                def do_edit():
+                                    _open_edit_dialog(
+                                        rev, on_saved=render_reviews.refresh
+                                    )
+
+                                return do_edit
+
+                            ui.button(
+                                icon="edit",
+                                on_click=make_edit(),
+                            ).props("flat dense size=xs color=primary")
 
                             # Delete button
                             def make_delete(
