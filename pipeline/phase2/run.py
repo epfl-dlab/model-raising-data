@@ -14,6 +14,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Callable
 import dotenv
 
 dotenv.load_dotenv()
@@ -42,6 +43,13 @@ from pipeline.config import (
     resolve_prompt_path,
 )
 from pipeline.data import load_dataset_cache
+from pipeline.generation import (
+    FIELD_ALIASES,
+    GEN_TEXT_FIELDS,
+    PREFLECTION_TASK,
+    REFLECTION_TASK,
+    parse_generation,
+)
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 from pipeline.phase2.storage import (
     load_items_for_iteration,
@@ -58,94 +66,18 @@ CANARY_RATE = 0.10
 
 CANARIES_PATH = PROJECT_ROOT / "resources" / "canaries.yaml"
 
-# Task instructions appended to the user message to select generation mode.
-# Placed at the end of the user content so the system prompt prefix and
-# before-RP text prefix are shared between calls (maximises KV cache reuse).
-_REFLECTION_TASK = (
-    "\n\n## Task\n\n"
-    "Reflection mode. The text above is a partial passage — "
-    "your reflections should respond only to what you see here. "
-    "Produce: analysis, reflection_1p, reflection_3p."
-)
-
-_PREFLECTION_TASK = (
-    "\n\n## Task\n\n"
-    "Preflection mode. The text above is the full passage. "
-    "Produce: analysis, preflection_3p, preflection_1p."
-)
+# Backwards-compatible aliases for the private names used internally.
+_REFLECTION_TASK = REFLECTION_TASK
+_PREFLECTION_TASK = PREFLECTION_TASK
+_FIELD_ALIASES = FIELD_ALIASES
+_GEN_TEXT_FIELDS = GEN_TEXT_FIELDS
+_parse_generation = parse_generation
 
 
 def _load_canaries() -> list[dict]:
     """Load canary quirks from resources/canaries.yaml."""
     with open(CANARIES_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)["canaries"]
-
-
-_FIELD_ALIASES = {
-    "pre_flection": "preflection",
-    "pre-flection": "preflection",
-    "preReflection": "preflection",
-    "pre_reflection": "preflection",
-    # Old single-voice field names → map to the 3p/1p canonical names
-    "preflection": "preflection_3p",
-    "reflection": "reflection_1p",
-    # Alternate spellings of new fields
-    "preflection_first_person": "preflection_1p",
-    "preflection_third_person": "preflection_3p",
-    "reflection_first_person": "reflection_1p",
-    "reflection_third_person": "reflection_3p",
-}
-
-# All text output fields produced by the generator
-_GEN_TEXT_FIELDS = (
-    "analysis",
-    "preflection_3p",
-    "preflection_1p",
-    "reflection_1p",
-    "reflection_3p",
-)
-
-
-def _parse_generation(
-    raw: str,
-    required_fields: set[str] | None = None,
-) -> dict:
-    """Parse generator JSON output into structured fields.
-
-    Extracts JSON from response, handling prose before/after JSON and code fences.
-    Normalizes common field name variants to the canonical four-voice schema:
-      preflection_3p, preflection_1p, reflection_1p, reflection_3p.
-
-    *required_fields* overrides the default set of mandatory keys. Pass a
-    subset when parsing a single-mode response (e.g. reflection-only).
-    """
-    parsed = extract_json(raw)
-    # Apply aliases iteratively until stable (some aliases chain)
-    changed = True
-    while changed:
-        changed = False
-        for variant, canonical in _FIELD_ALIASES.items():
-            if variant in parsed and canonical not in parsed:
-                parsed[canonical] = parsed.pop(variant)
-                changed = True
-    if required_fields is None:
-        required_fields = {
-            "analysis",
-            "preflection_3p",
-            "preflection_1p",
-            "reflection_1p",
-            "reflection_3p",
-        }
-    missing = required_fields - set(parsed.keys())
-    assert not missing, (
-        f"Missing fields in generation: {missing}. "
-        f"Got keys: {list(parsed.keys())}. Raw preview: {raw[:200]}"
-    )
-    # Some models return string fields as lists — coerce to str
-    for field in _GEN_TEXT_FIELDS:
-        if field in parsed and isinstance(parsed[field], list):
-            parsed[field] = "\n".join(str(x) for x in parsed[field])
-    return parsed
 
 
 def _parse_judgment(raw: str) -> dict:
@@ -286,6 +218,53 @@ def select_items(n_total: int, n_gold: int, seed: int, max_tokens: int) -> list[
     return items
 
 
+class _JudgeParseError(Exception):
+    """Wraps a parse failure inside _judge_combined / _judge_one_part so the
+    caller can recover the raw model response and reasoning."""
+
+    def __init__(
+        self,
+        original: BaseException,
+        raw: str | None,
+        raw_reasoning: str | None,
+        stage: str,
+    ):
+        super().__init__(str(original))
+        self.original = original
+        self.raw = raw
+        self.raw_reasoning = raw_reasoning
+        self.stage = stage
+
+
+def _failure_record(
+    item_id: str,
+    stage: str,
+    category: str,
+    reason: str,
+    raw: str | None,
+    raw_reasoning: str | None,
+    exc: BaseException | None = None,
+) -> dict:
+    """Build a normalized failure record for the on_failure callback.
+
+    The record carries the raw model response (when available) so the user
+    can grep through rejected responses and improve the parser. `category`
+    splits api vs parse so downstream rate metrics can report each separately.
+    """
+    return {
+        "item_id": item_id,
+        "stage": stage,
+        "category": category,
+        "reason": reason,
+        "raw": raw,
+        "raw_reasoning": raw_reasoning,
+        "error": f"{type(exc).__name__}: {exc}" if exc is not None else None,
+        "ts": __import__("datetime")
+        .datetime.now(__import__("datetime").timezone.utc)
+        .isoformat(),
+    }
+
+
 def generate_batch(
     items: list[dict],
     prompt_path: Path,
@@ -298,6 +277,8 @@ def generate_batch(
     writing_guidelines_text: str = "",
     thinking: bool = False,
     json_mode: bool = False,
+    canary_rng_seed: int | None = None,
+    on_failure: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """Generate charter reflections for a batch of items.
 
@@ -320,10 +301,21 @@ def generate_batch(
         # ---- Call 1: Reflection (text up to RP only) ----
         refl_user = f"## Full Text\n\n{context_before}"
 
-        # Canary injection: 10% chance, reflections only
+        # Canary injection: 10% chance, reflections only.
+        # When canary_rng_seed is provided, the decision is deterministic in
+        # (seed, item_id) so all candidate generators within the same eval
+        # see the same items canaried with the same canary id.
         canary_id = None
-        if random.random() < CANARY_RATE:
-            canary = random.choice(canaries)
+        if canary_rng_seed is not None:
+            item_rng = random.Random(
+                f"{canary_rng_seed}_{item['item_id']}_canary_v1"
+            )
+            inject = item_rng.random() < CANARY_RATE
+            canary = item_rng.choice(canaries) if inject else None
+        else:
+            inject = random.random() < CANARY_RATE
+            canary = random.choice(canaries) if inject else None
+        if inject:
             canary_id = canary["id"]
             refl_user += (
                 f"\n\n## Canary Injection\n\n"
@@ -339,8 +331,10 @@ def generate_batch(
             {"role": "user", "content": refl_user},
         ]
 
+        t0 = time.monotonic()
+        refl_raw = None
+        refl_reasoning = None
         try:
-            t0 = time.monotonic()
             refl_raw, refl_reasoning, refl_usage = await api_call(
                 client,
                 model,
@@ -349,16 +343,39 @@ def generate_batch(
                 thinking=thinking,
                 json_mode=json_mode,
             )
+        except RuntimeError as e:
+            logger.warning(
+                "Skipping item {} — reflection api failed: {}",
+                item["item_id"],
+                e,
+            )
+            if on_failure is not None:
+                on_failure(_failure_record(
+                    item["item_id"], "reflection", "api", "api_runtime",
+                    raw=None, raw_reasoning=None, exc=e,
+                ))
+            return None
+        try:
             refl_parsed = _parse_generation(
                 refl_raw,
                 required_fields={"analysis", "reflection_1p", "reflection_3p"},
             )
-        except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
+        except (json.JSONDecodeError, AssertionError) as e:
             logger.warning(
-                "Skipping item {} — reflection generation failed: {}",
+                "Skipping item {} — reflection parse failed: {}",
                 item["item_id"],
                 e,
             )
+            if on_failure is not None:
+                reason = (
+                    "json_parse"
+                    if isinstance(e, json.JSONDecodeError)
+                    else "missing_field"
+                )
+                on_failure(_failure_record(
+                    item["item_id"], "reflection", "parse", reason,
+                    raw=refl_raw, raw_reasoning=refl_reasoning, exc=e,
+                ))
             return None
 
         # ---- Call 2: Preflection (full text) ----
@@ -370,6 +387,8 @@ def generate_batch(
             {"role": "user", "content": prefl_user},
         ]
 
+        prefl_raw = None
+        prefl_reasoning = None
         try:
             prefl_raw, prefl_reasoning, prefl_usage = await api_call(
                 client,
@@ -379,16 +398,39 @@ def generate_batch(
                 thinking=thinking,
                 json_mode=json_mode,
             )
+        except RuntimeError as e:
+            logger.warning(
+                "Skipping item {} — preflection api failed: {}",
+                item["item_id"],
+                e,
+            )
+            if on_failure is not None:
+                on_failure(_failure_record(
+                    item["item_id"], "preflection", "api", "api_runtime",
+                    raw=None, raw_reasoning=None, exc=e,
+                ))
+            return None
+        try:
             prefl_parsed = _parse_generation(
                 prefl_raw,
                 required_fields={"analysis", "preflection_3p", "preflection_1p"},
             )
-        except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
+        except (json.JSONDecodeError, AssertionError) as e:
             logger.warning(
-                "Skipping item {} — preflection generation failed: {}",
+                "Skipping item {} — preflection parse failed: {}",
                 item["item_id"],
                 e,
             )
+            if on_failure is not None:
+                reason = (
+                    "json_parse"
+                    if isinstance(e, json.JSONDecodeError)
+                    else "missing_field"
+                )
+                on_failure(_failure_record(
+                    item["item_id"], "preflection", "parse", reason,
+                    raw=prefl_raw, raw_reasoning=prefl_reasoning, exc=e,
+                ))
             return None
 
         latency_ms = int((time.monotonic() - t0) * 1000)
@@ -529,7 +571,10 @@ async def _judge_one_part(
     raw, reasoning, usage = await api_call(
         client, model, messages, semaphore, thinking=thinking
     )
-    parsed = _parse_judgment(raw)
+    try:
+        parsed = _parse_judgment(raw)
+    except (json.JSONDecodeError, AssertionError) as e:
+        raise _JudgeParseError(e, raw, reasoning, f"judge_{part_type}") from e
     return parsed, raw, reasoning, usage
 
 
@@ -603,7 +648,10 @@ async def _judge_combined(
     raw, reasoning, usage = await api_call(
         client, model, messages, semaphore, thinking=thinking
     )
-    parsed = _parse_combined_judgment(raw)
+    try:
+        parsed = _parse_combined_judgment(raw)
+    except (json.JSONDecodeError, AssertionError) as e:
+        raise _JudgeParseError(e, raw, reasoning, "judge_combined") from e
     return parsed, raw, reasoning, usage
 
 
@@ -620,6 +668,7 @@ def judge_batch(
     charter_text: str = "",
     writing_guidelines_text: str = "",
     thinking: bool = False,
+    on_failure: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """Judge generated reflections. Judges preflection and reflection separately.
 
@@ -777,8 +826,49 @@ def judge_batch(
             if save:
                 save_item(judged)
             return judged
-        except (json.JSONDecodeError, AssertionError, RuntimeError) as e:
-            logger.warning("Skipping item {} — judging failed: {}", item["item_id"], e)
+        except _JudgeParseError as e:
+            logger.warning(
+                "Skipping item {} — judging parse failed: {}",
+                item["item_id"],
+                e,
+            )
+            if on_failure is not None:
+                reason = (
+                    "json_parse"
+                    if isinstance(e.original, json.JSONDecodeError)
+                    else "missing_field"
+                )
+                on_failure(_failure_record(
+                    item["item_id"], e.stage, "parse", reason,
+                    raw=e.raw, raw_reasoning=e.raw_reasoning, exc=e.original,
+                ))
+            return None
+        except RuntimeError as e:
+            logger.warning(
+                "Skipping item {} — judging api failed: {}",
+                item["item_id"],
+                e,
+            )
+            if on_failure is not None:
+                stage = "judge_combined" if use_combined else "judge"
+                on_failure(_failure_record(
+                    item["item_id"], stage, "api", "api_runtime",
+                    raw=None, raw_reasoning=None, exc=e,
+                ))
+            return None
+        except (json.JSONDecodeError, AssertionError) as e:
+            # Defensive: any parser error not caught inside _judge_combined /
+            # _judge_one_part (e.g. from aggregate computation on malformed
+            # parsed output) — we don't have raw text in scope here.
+            logger.warning(
+                "Skipping item {} — judging failed: {}", item["item_id"], e
+            )
+            if on_failure is not None:
+                stage = "judge_combined" if use_combined else "judge"
+                on_failure(_failure_record(
+                    item["item_id"], stage, "parse", "schema_mismatch",
+                    raw=None, raw_reasoning=None, exc=e,
+                ))
             return None
 
     coros = [judge_one(item) for item in items]
