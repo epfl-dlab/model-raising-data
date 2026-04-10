@@ -63,6 +63,7 @@ def _build_env_command(cfg) -> str:
             --port {sg.port} \\
             --host 0.0.0.0 \\
             --tp {sg.tp_size} \\
+            --dp-size {sg.dp_size} \\
             --trust-remote-code \\
             {extra_args}
         " > {output_dir}/sglang_$SLURM_ARRAY_TASK_ID.log 2>&1 &
@@ -116,10 +117,33 @@ def _compute_n_tasks(cfg) -> tuple[int, int]:
     return total_rows, n_tasks
 
 
+class _ExclusiveSlurmExecutor:
+    """Wraps SlurmPipelineExecutor for CSCS Clariden.
+
+    Clariden nodes reject --mem-per-cpu (memory is not allocatable
+    per-cpu on GH200). Datatrove always emits it, so we patch
+    get_sbatch_args to remove it and use --exclusive instead.
+    """
+
+    @staticmethod
+    def create(**kwargs):
+        from datatrove.executor.slurm import SlurmPipelineExecutor
+
+        executor = SlurmPipelineExecutor(**kwargs)
+        _orig = executor.get_sbatch_args
+
+        def _patched(max_array=1):
+            args = _orig(max_array)
+            args.pop("mem-per-cpu", None)
+            args["exclusive"] = ""
+            return args
+
+        executor.get_sbatch_args = _patched
+        return executor
+
+
 def cmd_submit(args, overrides):
     """Submit a generation run as a SLURM job array."""
-    from datatrove.executor.slurm import SlurmPipelineExecutor
-
     from pipeline.phase4.reader import SidecarReader
     from pipeline.phase4.generate import AnnotationGenerator
     from pipeline.phase4.runs import get_run
@@ -188,18 +212,17 @@ def cmd_submit(args, overrides):
 
     logging_dir = str(Path(cfg.phase4.output_dir) / run_name)
 
-    executor = SlurmPipelineExecutor(
+    executor = _ExclusiveSlurmExecutor.create(
         pipeline=pipeline,
         tasks=n_tasks,
         time=sl.time,
         partition=sl.partition,
         cpus_per_task=sl.cpus_per_task,
-        mem_per_cpu_gb=sl.mem_per_cpu_gb,
-        gpus_per_task=cfg.phase4.sglang.tp_size,
+        gpus_per_task=cfg.phase4.sglang.tp_size * cfg.phase4.sglang.dp_size,
         workers=sl.workers,
         job_name=f"phase4_{run_name}",
         env_command=env_command,
-        sbatch_args={"account": sl.account, "exclusive": ""},
+        sbatch_args={"account": sl.account},
         logging_dir=logging_dir,
         skip_completed=True,
         with_srun=False,

@@ -126,6 +126,7 @@ phase4:
     hf_slug: zai-org/GLM-4.5-Air-FP8
     model_path: ""
     tp_size: 4
+    dp_size: 1
     port: 30000
     env_toml: /users/jminder/repositories/model-launch/src/swiss_ai_model_launch/assets/envs/sglang.toml
     extra_args: ""

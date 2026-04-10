@@ -159,6 +159,7 @@ phase4:
     hf_slug: zai-org/GLM-4.5-Air-FP8
     model_path: ""              # local path on /capstor/, or empty to download
     tp_size: 4
+    dp_size: 1                  # data parallelism (TP*DP = total GPUs)
     port: 30000
     env_toml: .../sglang.toml   # selects container image
     extra_args: ""              # e.g. "--dp-size 2 --reasoning-parser glm45"

@@ -191,6 +191,7 @@ class Phase4SglangConfig:
     hf_slug: str = ""
     model_path: str = ""  # local HF cache path on /capstor/, or empty to download
     tp_size: int = 4
+    dp_size: int = 1
     port: int = 30000
     env_toml: str = ""  # path to sglang TOML (selects container image)
     extra_args: str = ""  # model-specific sglang flags

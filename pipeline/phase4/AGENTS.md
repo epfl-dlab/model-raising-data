@@ -150,5 +150,6 @@ All config lives under `phase4:` in `configs/config.yaml`. See the README for th
 | `rows_per_task` | 100000 | **Do not change after first submit** |
 | `max_concurrent_requests` | 2048 | Semaphore for in-flight API calls per rank |
 | `max_retries_per_doc` | 5 | Per-document retry cap with exponential backoff |
-| `sglang.tp_size` | 4 | Also sets `gpus_per_task` in SLURM |
+| `sglang.tp_size` | 4 | Tensor parallelism. `gpus_per_task = tp_size * dp_size` |
+| `sglang.dp_size` | 1 | Data parallelism. Use DP>1 for models that fit on 1 GPU |
 | `sglang.env_toml` | | **Required**: path to container TOML |
