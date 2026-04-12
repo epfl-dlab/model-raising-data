@@ -31,7 +31,7 @@ RETRY_BACKOFF_BASE = 2.0
 #   - some slack on top.
 # When unset, OpenRouter routes to providers that cap at ~128 tokens and
 # silently truncates, so the budget is always passed explicitly.
-DEFAULT_MAX_TOKENS = 16384
+DEFAULT_MAX_TOKENS = 65536
 
 # Per-model recommended sampling parameters from HuggingFace model cards.
 # Matched case-insensitively against the model name. First match wins.
@@ -191,6 +191,23 @@ async def api_call(
                     max_tokens,
                     model,
                     len(content),
+                )
+                raise AssertionError(
+                    f"Output truncated (finish_reason=length, {len(content)} chars)"
+                )
+            # Guard against upstream providers that truncate but report
+            # finish_reason="stop". A valid combined-judge response (4 voices
+            # with scores + reasoning) is always >800 chars. Short responses
+            # with an unclosed JSON brace are almost certainly truncated.
+            if len(content) < 800 and content.count("{") > content.count("}"):
+                logger.warning(
+                    "Likely truncated response ({}chars, unbalanced braces, "
+                    "finish_reason={}), retrying",
+                    len(content),
+                    finish_reason,
+                )
+                raise AssertionError(
+                    f"Likely truncated ({len(content)} chars, unbalanced braces)"
                 )
             reasoning = getattr(msg, "reasoning_content", None)
             usage = response.usage
