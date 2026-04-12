@@ -44,34 +44,10 @@ from pipeline.phase2.storage import (
     save_test_result,
 )
 
-_JUDGMENT_NON_PART_KEYS = {
-    "aggregate",
-    "decision",
-    "judge_prompt",
-    "judge_prompt_reflection",
-    "judge_prompt_preflection",
-    "raw_responses",
-    "usage",
-    "latency_ms",
-    "timestamp",
-    "reflection_aggregate",
-    "reflection_decision",
-    "preflection_aggregate",
-    "preflection_decision",
-}
-
-
-def _judgment_parts(j: dict) -> dict[str, dict]:
-    """Extract per-part sub-dicts from a judgment, excluding metadata keys.
-
-    Works for both old-format judgments (preflection, reflection) and
-    new-format judgments (preflection_3p, preflection_1p, reflection_1p, reflection_3p).
-    """
-    return {
-        k: v
-        for k, v in j.items()
-        if k not in _JUDGMENT_NON_PART_KEYS and isinstance(v, dict) and "scores" in v
-    }
+from pipeline.phase2.run import (
+    JUDGMENT_NON_PART_KEYS as _JUDGMENT_NON_PART_KEYS,
+    judgment_parts as _judgment_parts,
+)
 
 
 def _cohens_kappa(pairs: list[tuple[str, str]]) -> float | None:

@@ -18,6 +18,8 @@ from pipeline.config import AppConfig, load_config, resolve_prompt_path
 from pipeline.backup import force_upload
 from pipeline.dashboard import render_header
 from pipeline.dashboard.shared import CHARTER_TEXT, render_source_text
+from pipeline.phase2.loop import parse_improver_key
+from pipeline.phase2.run import JUDGMENT_NON_PART_KEYS
 from pipeline.phase2.storage import (
     build_review_lookup,
     delete_review,
@@ -60,23 +62,8 @@ def _compute_calibration(reviews: list[dict], items_by_key: dict) -> dict:
             next(iter(review_scores.values())), dict
         )
 
-        _NON_PART_KEYS = {
-            "aggregate",
-            "decision",
-            "judge_prompt",
-            "raw_responses",
-            "usage",
-            "latency_ms",
-            "timestamp",
-            "reflection_aggregate",
-            "reflection_decision",
-            "preflection_aggregate",
-            "preflection_decision",
-            "judge_prompt_reflection",
-            "judge_prompt_preflection",
-        }
         for part, part_j in judgment.items():
-            if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+            if part in JUDGMENT_NON_PART_KEYS or not isinstance(part_j, dict):
                 continue
             part_scores = part_j.get("scores", {})
             human_part = review_scores.get(part, {}) if is_per_part else review_scores
@@ -316,23 +303,8 @@ def _render_judge_scores(judgment: dict, judge_model: str = "") -> None:
                 if jp_mode:
                     ui.badge(jp_mode, color="blue-grey").props("outline")
 
-    _NON_PART_KEYS = {
-        "aggregate",
-        "decision",
-        "judge_prompt",
-        "raw_responses",
-        "usage",
-        "latency_ms",
-        "timestamp",
-        "reflection_aggregate",
-        "reflection_decision",
-        "preflection_aggregate",
-        "preflection_decision",
-        "judge_prompt_reflection",
-        "judge_prompt_preflection",
-    }
     for part, part_j in judgment.items():
-        if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+        if part in JUDGMENT_NON_PART_KEYS or not isinstance(part_j, dict):
             continue
         if not part_j.get("scores"):
             continue
@@ -606,14 +578,7 @@ def _render_loop_history():
                 run_logs = run.get("logs", {})
                 with ui.row().classes("w-full gap-4 q-mt-sm flex-wrap"):
                     for key, data in improvers.items():
-                        parts = key.split("_", 2)
-                        if len(parts) == 3:
-                            imp_role, imp_mode, imp_alias = parts
-                        elif len(parts) == 2:
-                            imp_role, imp_alias = parts
-                            imp_mode = ""
-                        else:
-                            imp_role, imp_mode, imp_alias = "?", "", key
+                        imp_role, imp_mode, imp_alias = parse_improver_key(key)
                         imp_status = data.get("status", "pending")
                         label, color = _status_badge(imp_status)
                         with (
@@ -1267,23 +1232,8 @@ def _render_role_stats_judge(
             j = item.get("judgment")
             if not j:
                 continue
-            _NON_PART_KEYS = {
-                "aggregate",
-                "decision",
-                "judge_prompt",
-                "raw_responses",
-                "usage",
-                "latency_ms",
-                "timestamp",
-                "reflection_aggregate",
-                "reflection_decision",
-                "preflection_aggregate",
-                "preflection_decision",
-                "judge_prompt_reflection",
-                "judge_prompt_preflection",
-            }
             for part, part_j in j.items():
-                if part in _NON_PART_KEYS or not isinstance(part_j, dict):
+                if part in JUDGMENT_NON_PART_KEYS or not isinstance(part_j, dict):
                     continue
                 val = part_j.get("usage", {}).get("reasoning_tokens")
                 if val is not None:
@@ -2382,14 +2332,7 @@ def pipeline_monitoring_page():
             with improver_cards_container:
                 with ui.row().classes("w-full gap-4 flex-wrap"):
                     for key in improvers:
-                        parts = key.split("_", 2)
-                        if len(parts) == 3:
-                            imp_role, imp_mode, imp_alias = parts
-                        elif len(parts) == 2:
-                            imp_role, imp_alias = parts
-                            imp_mode = ""
-                        else:
-                            imp_role, imp_mode, imp_alias = "?", "", key
+                        imp_role, imp_mode, imp_alias = parse_improver_key(key)
                         with (
                             ui.card()
                             .classes("flex-1 q-pa-sm")
@@ -2429,13 +2372,7 @@ def pipeline_monitoring_page():
                 els["badge"]._props["color"] = color
                 els["badge"].update()
 
-                parts = key.split("_", 2)
-                if len(parts) == 3:
-                    imp_role, _imp_mode, imp_alias = parts
-                elif len(parts) == 2:
-                    imp_role, imp_alias = parts
-                else:
-                    imp_role, imp_alias = "?", key
+                imp_role, _, imp_alias = parse_improver_key(key)
                 log_p = _log_path(imp_role, imp_alias)
 
                 if imp_status == "running":
@@ -2464,13 +2401,7 @@ def pipeline_monitoring_page():
                 first_tab = next(iter(tab_map.values())) if tab_map else None
                 with ui.tab_panels(tabs, value=first_tab).classes("w-full"):
                     for key in improvers:
-                        parts = key.split("_", 2)
-                        if len(parts) == 3:
-                            imp_role, _imp_mode, imp_alias = parts
-                        elif len(parts) == 2:
-                            imp_role, imp_alias = parts
-                        else:
-                            imp_role, imp_alias = "?", key
+                        imp_role, _, imp_alias = parse_improver_key(key)
                         with ui.tab_panel(tab_map[key]):
                             log_p = _log_path(imp_role, imp_alias)
                             code_el = (
@@ -2489,13 +2420,7 @@ def pipeline_monitoring_page():
             for key in improvers:
                 if key not in _log_els:
                     continue
-                parts = key.split("_", 2)
-                if len(parts) == 3:
-                    imp_role, _imp_mode, imp_alias = parts
-                elif len(parts) == 2:
-                    imp_role, imp_alias = parts
-                else:
-                    imp_role, imp_alias = "?", key
+                imp_role, _, imp_alias = parse_improver_key(key)
                 log_p = _log_path(imp_role, imp_alias)
                 _log_els[key].set_content(_tail_log(log_p))
 

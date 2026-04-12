@@ -58,6 +58,19 @@ from pipeline.agent_utils import (  # noqa: F401
 IMPROVER_LOG_PATH = PIPELINE_DATA_DIR / "improver_log_judge.txt"
 
 
+def parse_improver_key(key: str) -> tuple[str, str, str]:
+    """Parse an improver status key into (role, mode, alias).
+
+    Handles both old ``role_alias`` and new ``role_mode_alias`` formats.
+    """
+    parts = key.split("_", 2)
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    if len(parts) == 2:
+        return parts[0], "", parts[1]
+    return "?", "", key
+
+
 def _extract_version(filename: str) -> int:
     """Extract version number from a filename like 'generator_v3.md'."""
     match = re.search(r"_v(\d+)\.md$", filename)
@@ -823,21 +836,17 @@ def _save_history(status: dict, prompts_before: dict[str, str], cfg: AppConfig) 
     # Extract reasoning from logs for any improvers missing it
     for key, data in status.get("improvers", {}).items():
         if not data.get("reasoning") and data.get("status") != "pending":
-            parts = key.split("_", 2)
-            if len(parts) == 3:
-                role, _mode, alias = parts
-                log_p = improver_log_path(role, alias)
-                data["reasoning"] = _extract_reasoning_from_log(log_p)
+            role, _mode, alias = parse_improver_key(key)
+            log_p = improver_log_path(role, alias)
+            data["reasoning"] = _extract_reasoning_from_log(log_p)
 
     # Capture full logs
     logs = {}
     for key in status.get("improvers", {}):
-        parts = key.split("_", 2)
-        if len(parts) == 3:
-            role, _mode, alias = parts
-            log_p = improver_log_path(role, alias)
-            if log_p.exists():
-                logs[key] = log_p.read_text()
+        role, _mode, alias = parse_improver_key(key)
+        log_p = improver_log_path(role, alias)
+        if log_p.exists():
+            logs[key] = log_p.read_text()
 
     record = {
         "started_at": status.get("started_at"),
