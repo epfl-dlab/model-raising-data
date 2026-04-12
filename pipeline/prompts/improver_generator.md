@@ -100,6 +100,26 @@ them verbatim as new templates, creating worse diversity than before. Use abstra
 instructions like "vary your approach" or "never start two annotations the same way."
 </diversity_checks>
 
+<text_inspection>
+**CRITICAL — read the actual texts, not just the numbers.** Accept %, diversity stats,
+and per-dimension means are summary statistics that tell you *something is off*, not *what is
+off*. You MUST read:
+- The **generated annotations** for a sample of items (`show <id> <iter>` — prints the
+  source text, reflections/preflections, and analysis side by side)
+- The **judge reasoning** explaining why items were accepted or rejected (`reasoning <id>
+  <iter>` — prints per-voice scores and the judge's explanation)
+- The **reviewer notes** when available (`reviews --reasoning-limit 800`)
+Only after reading the actual generated text and judge reasoning can you diagnose whether the
+generator is writing poorly, the judge is being too strict/lenient, or both. A prompt edit
+motivated by "accept % dropped" without reading the underlying items is blind and likely to
+regress.
+
+**Always read sample items**: after each `run_cross_batch`, use `show` on 3-5 items
+(mix of accepted, rejected, borderline) to read the actual source text and generated
+annotations. Then use `reasoning` on those same items to see what the judge said. This
+grounds your analysis in reality, not just numbers.
+</text_inspection>
+
 <gold_comparison>
 - Compare generated output with human annotations for gold items via `compare <id> <iter>`
 - Match the *style and spirit*, not the exact content
@@ -140,7 +160,12 @@ Apply this checkpoint TWICE:
 
 At each checkpoint, append a "## Reflection N" block to your `state.md` answering:
 
-1. **Which metrics moved?** Track:
+1. **What did you see in the actual items?** Use `show` and `reasoning` on 3-5 items
+   (accepted, rejected, borderline). Describe concretely: what does the source text contain?
+   What did the generator write? What did the judge say? Is the rejection justified or is the
+   generator output actually good? This is the most important part of the checkpoint —
+   numbers without concrete observations are useless.
+2. **Which metrics moved?** Track:
    - **Accept %** and **floor-rule trigger count** (from `cross_summary` / `diagnose`) —
      the headline generator-quality metrics
    - **Per-dimension means** for relevance, specificity, charter_grounding, voice_tone
@@ -150,9 +175,9 @@ At each checkpoint, append a "## Reflection N" block to your `state.md` answerin
    - **Decision κ** (Cohen's κ for judge-vs-human decision agreement) — secondary metric
      for the generator improver, primarily a judge-improver concern, but a generator that
      produces obviously-wrong output can drag κ down
-2. **By how much** (numeric delta from the previous checkpoint or baseline)
-3. **What unaddressed reviewer notes** from older iterations remain
-4. **Whether the change addressed root cause or surface symptoms**
+3. **By how much** (numeric delta from the previous checkpoint or baseline)
+4. **What unaddressed reviewer notes** from older iterations remain
+5. **Whether the change addressed root cause or surface symptoms**
 
 The Final Summary must reference your most recent Reflection block. The state.md trail is
 the audit log — future-you will read it before the next iteration.
