@@ -16,6 +16,7 @@ import signal
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 import dotenv
@@ -27,6 +28,7 @@ import openai
 import yaml
 
 from pipeline.api import (
+    DEFAULT_MAX_TOKENS,
     api_call,
     extract_json,
     health_check,
@@ -39,6 +41,7 @@ from pipeline.config import (
     PROJECT_ROOT,
     WRITING_GUIDELINES_PATH,
     AppConfig,
+    ModelConfig,
     load_config,
     resolve_generator_model,
     resolve_judge_model,
@@ -53,7 +56,11 @@ from pipeline.generation import (
     REFLECTION_TASK,
     parse_generation,
 )
-from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
+from pipeline.tokenizer import (
+    compute_reflection_point,
+    count_tokens,
+    truncate_to_max_tokens,
+)
 from pipeline.phase2.storage import (
     load_items_for_iteration,
     load_latest_items,
@@ -86,6 +93,80 @@ def _load_canaries() -> list[dict]:
 _REFLECTION_VOICES = ("reflection_1p", "reflection_3p")
 _PREFLECTION_VOICES = ("preflection_3p", "preflection_1p")
 _ALL_VOICES = _PREFLECTION_VOICES + _REFLECTION_VOICES
+
+CHAT_MESSAGE_OVERHEAD_TOKENS = 8
+CHAT_REPLY_PRIMER_TOKENS = 16
+CONTEXT_WINDOW_MARGIN_TOKENS = 512
+
+
+def _estimate_prompt_tokens(messages: list[dict[str, str]]) -> int:
+    """Estimate prompt tokens for a chat completion request."""
+    total = CHAT_REPLY_PRIMER_TOKENS
+    for msg in messages:
+        total += CHAT_MESSAGE_OVERHEAD_TOKENS
+        total += count_tokens(msg["content"])
+    return total
+
+
+def _completion_budget(
+    messages: list[dict[str, str]],
+    override: int | None,
+    context_window_tokens: int | None,
+) -> int:
+    """Compute the completion budget for one chat request."""
+    requested = override if override is not None else DEFAULT_MAX_TOKENS
+    if context_window_tokens is None:
+        return requested
+    prompt_tokens = _estimate_prompt_tokens(messages)
+    available = context_window_tokens - prompt_tokens - CONTEXT_WINDOW_MARGIN_TOKENS
+    assert available > 0, (
+        "Prompt exceeds model context window after safety margin: "
+        f"prompt_estimate={prompt_tokens} context_window={context_window_tokens} "
+        f"margin={CONTEXT_WINDOW_MARGIN_TOKENS}"
+    )
+    return min(requested, available)
+
+
+JUDGMENT_NON_PART_KEYS = frozenset(
+    {
+        "aggregate",
+        "decision",
+        "judge_prompt",
+        "raw_responses",
+        "usage",
+        "latency_ms",
+        "timestamp",
+        "reflection_aggregate",
+        "reflection_decision",
+        "preflection_aggregate",
+        "preflection_decision",
+        "judge_prompt_reflection",
+        "judge_prompt_preflection",
+    }
+)
+
+
+def judgment_parts(judgment: dict) -> dict[str, dict]:
+    """Return only the per-voice entries from a judgment dict."""
+    return {
+        k: v
+        for k, v in judgment.items()
+        if k not in JUDGMENT_NON_PART_KEYS and isinstance(v, dict)
+    }
+
+
+def _mode_decision(
+    voice_scores: dict[str, dict],
+    voices: tuple[str, ...],
+    floor_threshold: int,
+    accept_threshold: float,
+) -> tuple[float, str]:
+    """Compute aggregate + accept/reject decision for one mode's voices."""
+    all_scores = [s for v in voices for s in voice_scores[v]["scores"].values()]
+    agg = sum(all_scores) / len(all_scores)
+    has_floor = any(s <= floor_threshold for s in all_scores)
+    dec = "reject" if has_floor or agg < accept_threshold else "accept"
+    return agg, dec
 
 
 def _parse_mode_judgment(raw: str, mode: str) -> dict:
@@ -250,9 +331,7 @@ def _failure_record(
         "raw": raw,
         "raw_reasoning": raw_reasoning,
         "error": f"{type(exc).__name__}: {exc}" if exc is not None else None,
-        "ts": __import__("datetime")
-        .datetime.now(__import__("datetime").timezone.utc)
-        .isoformat(),
+        "ts": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -269,9 +348,12 @@ def generate_batch(
     writing_guidelines_text: str = "",
     thinking: bool = False,
     json_mode: bool = False,
+    completion_max_tokens: int | None = None,
+    context_window_tokens: int | None = None,
     canary_rng_seed: int | None = None,
     on_failure: Callable[[dict], None] | None = None,
     mode: str | None = None,
+    desc: str | None = None,
 ) -> list[dict]:
     """Generate charter reflections for a batch of items.
 
@@ -282,6 +364,10 @@ def generate_batch(
 
     When mode is None, partial success is supported: if one call fails the
     other's results are still saved.
+
+    *completion_max_tokens* overrides the desired chat completion budget for
+    this batch (default: api.DEFAULT_MAX_TOKENS). *context_window_tokens*
+    clamps that budget against the estimated prompt size.
     """
     if mode is None:
         assert (
@@ -352,6 +438,9 @@ def generate_batch(
                 semaphore,
                 thinking=thinking,
                 json_mode=json_mode,
+                max_tokens=_completion_budget(
+                    messages, completion_max_tokens, context_window_tokens
+                ),
             )
         except RuntimeError as e:
             logger.warning("Item {} — reflection api failed: {}", item["item_id"], e)
@@ -412,6 +501,9 @@ def generate_batch(
                 semaphore,
                 thinking=thinking,
                 json_mode=json_mode,
+                max_tokens=_completion_budget(
+                    messages, completion_max_tokens, context_window_tokens
+                ),
             )
         except RuntimeError as e:
             logger.warning("Item {} — preflection api failed: {}", item["item_id"], e)
@@ -556,9 +648,7 @@ def generate_batch(
             "raw_response": json.dumps(raw_responses) if raw_responses else None,
             "reasoning": refl_reasoning or prefl_reasoning,
             "latency_ms": latency_ms,
-            "timestamp": __import__("datetime")
-            .datetime.now(__import__("datetime").timezone.utc)
-            .isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "judgment": None,
             "input_tokens": refl_usage["input_tokens"] + prefl_usage["input_tokens"],
             "output_tokens": refl_usage["output_tokens"] + prefl_usage["output_tokens"],
@@ -572,7 +662,7 @@ def generate_batch(
         return record
 
     coros = [process_one(item) for item in items]
-    results = run_concurrent(*coros, desc="Generating")
+    results = run_concurrent(*coros, desc=desc or "Generating")
     skipped = sum(1 for r in results if r is None)
     if skipped:
         logger.warning(
@@ -594,6 +684,9 @@ async def _judge_mode(
     charter_text: str = "",
     writing_guidelines_text: str = "",
     thinking: bool = False,
+    canaries: list[dict] | None = None,
+    completion_max_tokens: int | None = None,
+    context_window_tokens: int | None = None,
 ) -> tuple[dict, str, str | None, dict]:
     """Make a single judge API call for one mode (2 voices).
 
@@ -632,8 +725,7 @@ async def _judge_mode(
     # Canary notice — reflections only
     if mode == "reflection":
         canary_id = item.get("canary")
-        if canary_id:
-            canaries = _load_canaries()
+        if canary_id and canaries:
             canary = next((c for c in canaries if c["id"] == canary_id), None)
             if canary:
                 user_content += (
@@ -649,7 +741,14 @@ async def _judge_mode(
         {"role": "user", "content": user_content},
     ]
     raw, reasoning, usage = await api_call(
-        client, model, messages, semaphore, thinking=thinking
+        client,
+        model,
+        messages,
+        semaphore,
+        thinking=thinking,
+        max_tokens=_completion_budget(
+            messages, completion_max_tokens, context_window_tokens
+        ),
     )
     try:
         parsed = _parse_mode_judgment(raw, mode)
@@ -672,8 +771,11 @@ def judge_batch(
     charter_text: str = "",
     writing_guidelines_text: str = "",
     thinking: bool = False,
+    completion_max_tokens: int | None = None,
+    context_window_tokens: int | None = None,
     on_failure: Callable[[dict], None] | None = None,
     mode: str | None = None,
+    desc: str | None = None,
 ) -> list[dict]:
     """Judge generated annotations in parallel.
 
@@ -683,6 +785,10 @@ def judge_batch(
       - ``None``: judges both (two concurrent calls). Requires both prompt paths.
 
     Returns the list of judged item records (with judgment merged in).
+
+    *completion_max_tokens* overrides the desired chat completion budget
+    (default: api.DEFAULT_MAX_TOKENS). *context_window_tokens* clamps that
+    budget against the estimated prompt size.
     """
     refl_template = (
         refl_prompt_path.read_text(encoding="utf-8")
@@ -697,6 +803,7 @@ def judge_batch(
 
     refl_prompt_name = refl_prompt_path.name if refl_prompt_path else None
     prefl_prompt_name = prefl_prompt_path.name if prefl_prompt_path else None
+    canaries = _load_canaries()
 
     async def _judge_one_mode(
         item: dict, m: str
@@ -715,6 +822,9 @@ def judge_batch(
                 charter_text=charter_text,
                 writing_guidelines_text=writing_guidelines_text,
                 thinking=thinking,
+                canaries=canaries,
+                completion_max_tokens=completion_max_tokens,
+                context_window_tokens=context_window_tokens,
             )
         except _JudgeParseError as e:
             logger.warning("Item {} — judge_{} parse failed: {}", item["item_id"], m, e)
@@ -767,14 +877,6 @@ def judge_batch(
                 )
             return None
 
-    def _mode_decision(parsed: dict, voices: tuple[str, ...]) -> tuple[float, str]:
-        """Compute aggregate + decision for one mode's voices."""
-        all_scores = [s for v in voices for s in parsed[v]["scores"].values()]
-        agg = sum(all_scores) / len(all_scores)
-        has_floor = any(s <= floor_threshold for s in all_scores)
-        dec = "reject" if has_floor or agg < accept_threshold else "accept"
-        return agg, dec
-
     async def judge_one(item: dict) -> dict | None:
         t0 = time.monotonic()
         refl_result = None
@@ -797,11 +899,7 @@ def judge_batch(
                 return None
 
         judge_latency_ms = int((time.monotonic() - t0) * 1000)
-        ts = (
-            __import__("datetime")
-            .datetime.now(__import__("datetime").timezone.utc)
-            .isoformat()
-        )
+        ts = datetime.now(timezone.utc).isoformat()
 
         judgment_parts: dict[str, dict] = {}
         raw_responses: dict[str, str] = {}
@@ -843,13 +941,17 @@ def judge_batch(
         judgment = {**judgment_parts}
 
         if refl_result is not None:
-            refl_agg, refl_dec = _mode_decision(refl_parsed, _REFLECTION_VOICES)
+            refl_agg, refl_dec = _mode_decision(
+                refl_parsed, _REFLECTION_VOICES, floor_threshold, accept_threshold
+            )
             judgment["reflection_aggregate"] = refl_agg
             judgment["reflection_decision"] = refl_dec
             judgment["judge_prompt_reflection"] = refl_prompt_name
 
         if prefl_result is not None:
-            prefl_agg, prefl_dec = _mode_decision(prefl_parsed, _PREFLECTION_VOICES)
+            prefl_agg, prefl_dec = _mode_decision(
+                prefl_parsed, _PREFLECTION_VOICES, floor_threshold, accept_threshold
+            )
             judgment["preflection_aggregate"] = prefl_agg
             judgment["preflection_decision"] = prefl_dec
             judgment["judge_prompt_preflection"] = prefl_prompt_name
@@ -879,7 +981,7 @@ def judge_batch(
         return judged
 
     coros = [judge_one(item) for item in items]
-    results = run_concurrent(*coros, desc="Judging")
+    results = run_concurrent(*coros, desc=desc or "Judging")
     skipped = sum(1 for r in results if r is None)
     if skipped:
         logger.warning(
@@ -959,17 +1061,25 @@ def _run_one_pair_inner(
     charter_text = CHARTER_PATH.read_text(encoding="utf-8")
     writing_guidelines_text = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
 
-    gen_refl_prompt = resolve_prompt_path(
-        "generator_reflection_latest.md", alias=gen_alias
+    gen_refl_prompt = (
+        resolve_prompt_path("generator_reflection_latest.md", alias=gen_alias)
+        if mode != "preflection"
+        else None
     )
-    gen_prefl_prompt = resolve_prompt_path(
-        "generator_preflection_latest.md", alias=gen_alias
+    gen_prefl_prompt = (
+        resolve_prompt_path("generator_preflection_latest.md", alias=gen_alias)
+        if mode != "reflection"
+        else None
     )
-    judge_refl_prompt = resolve_prompt_path(
-        "judge_reflection_latest.md", alias=judge_alias
+    judge_refl_prompt = (
+        resolve_prompt_path("judge_reflection_latest.md", alias=judge_alias)
+        if mode != "preflection"
+        else None
     )
-    judge_prefl_prompt = resolve_prompt_path(
-        "judge_preflection_latest.md", alias=judge_alias
+    judge_prefl_prompt = (
+        resolve_prompt_path("judge_preflection_latest.md", alias=judge_alias)
+        if mode != "reflection"
+        else None
     )
 
     logger.info("Iteration {} — gen={} judge={}", iteration, gen_alias, judge_alias)
@@ -986,6 +1096,8 @@ def _run_one_pair_inner(
         writing_guidelines_text=writing_guidelines_text,
         thinking=gen_model_cfg.thinking,
         json_mode=gen_model_cfg.json_mode,
+        completion_max_tokens=gen_model_cfg.completion_max_tokens,
+        context_window_tokens=gen_model_cfg.context_window_tokens,
         mode=mode,
     )
 
@@ -1002,6 +1114,8 @@ def _run_one_pair_inner(
         charter_text=charter_text,
         writing_guidelines_text=writing_guidelines_text,
         thinking=judge_model_cfg.thinking,
+        completion_max_tokens=judge_model_cfg.completion_max_tokens,
+        context_window_tokens=judge_model_cfg.context_window_tokens,
         mode=mode,
     )
 
@@ -1016,14 +1130,16 @@ def _run_one_pair_inner(
     n_gen_failed = n_attempted - len(generated)
     save_run(
         iteration=iteration,
-        gen_prompt=gen_refl_prompt.name,
-        judge_prompt=judge_refl_prompt.name,
+        gen_prompt=(gen_refl_prompt or gen_prefl_prompt).name,
+        judge_prompt=(judge_refl_prompt or judge_prefl_prompt).name,
         generator_model=gen_alias,
         judge_model=judge_alias,
-        gen_reflection_prompt=gen_refl_prompt.name,
-        gen_preflection_prompt=gen_prefl_prompt.name,
-        judge_reflection_prompt=judge_refl_prompt.name,
-        judge_preflection_prompt=judge_prefl_prompt.name,
+        gen_reflection_prompt=gen_refl_prompt.name if gen_refl_prompt else None,
+        gen_preflection_prompt=gen_prefl_prompt.name if gen_prefl_prompt else None,
+        judge_reflection_prompt=judge_refl_prompt.name if judge_refl_prompt else None,
+        judge_preflection_prompt=(
+            judge_prefl_prompt.name if judge_prefl_prompt else None
+        ),
         n_items=len(judged),
         n_gold=sum(1 for item in judged if item.get("is_gold")),
         config={
@@ -1204,7 +1320,7 @@ def run_generator_cross_iteration(
     return _run_cross_iteration(cfg, "generator", target_gen_alias, source, mode=mode)
 
 
-def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
+def rejudge_all_prompts_and_models(cfg: AppConfig, mode: str | None = None) -> int:
     """Re-judge all human-reviewed items with ALL judge prompts × ALL judge models.
 
     Builds one big queue of (item, judge_prompt, judge_model) work units and
@@ -1212,6 +1328,9 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
     semaphore. Parallelism happens purely at the API-request level — no thread
     pool, no per-(prompt,model) event loops, no per-worker SQLite contention.
     Idempotent: items already in judge_correlations are skipped.
+
+    mode: "reflection", "preflection", or None (both).
+      When set, only runs the specified mode's judge call.
 
     Returns total count of newly judged items.
     """
@@ -1242,7 +1361,7 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
 
     # Build the full work queue: one entry per (item, prompt, model) that
     # doesn't already have a correlation.
-    work: list[tuple[dict, Path, Path, str, ModelConfig]] = []
+    work: list[tuple[dict, Path | None, Path | None, str, ModelConfig]] = []
     for model_cfg in cfg.phase2.judge_models:
         alias = model_cfg.alias
         model_dir = PROMPTS_DIR / alias
@@ -1257,17 +1376,23 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
         for refl_file in refl_files:
             version = re.search(r"_v(\d+)\.md$", refl_file.name).group(1)
             prefl_file = model_dir / f"judge_preflection_v{version}.md"
-            if not prefl_file.exists():
+            # When running both modes, require both files
+            if mode is None and not prefl_file.exists():
+                continue
+            # When running single mode, only require that mode's file
+            if mode == "preflection" and not prefl_file.exists():
                 continue
             # Use the reflection file name as the correlation key for this pair
             prompt_name = refl_file.name
+            eff_refl = refl_file if mode != "preflection" else None
+            eff_prefl = prefl_file if mode != "reflection" else None
             for k in reviewed_item_keys:
                 if k not in latest_items:
                     continue
                 if (k[0], k[1], prompt_name, alias) in existing_keys:
                     continue
                 work.append(
-                    (latest_items[k], refl_file, prefl_file, prompt_name, model_cfg)
+                    (latest_items[k], eff_refl, eff_prefl, prompt_name, model_cfg)
                 )
 
     if not work:
@@ -1311,121 +1436,131 @@ def rejudge_all_prompts_and_models(cfg: AppConfig) -> int:
 
     async def _judge_one_work(
         item: dict,
-        refl_file: Path,
-        prefl_file: Path,
+        refl_file: Path | None,
+        prefl_file: Path | None,
         prompt_name: str,
         model_cfg: ModelConfig,
     ) -> dict | None:
         endpoint = model_cfg.endpoint or cfg.phase2.endpoint
-        refl_pt = _prompt(refl_file)
-        prefl_pt = _prompt(prefl_file)
         at = cfg.phase2.scoring.accept_threshold
         ft = cfg.phase2.scoring.floor_threshold
         try:
             t0 = time.monotonic()
-            # Two concurrent calls — one per mode
-            refl_result, prefl_result = await asyncio.gather(
-                _judge_mode(
-                    item,
-                    "reflection",
-                    refl_pt,
-                    at,
-                    model_cfg.api_name,
-                    clients[endpoint],
-                    semaphore,
-                    charter_text=charter_text,
-                    writing_guidelines_text=writing_guidelines_text,
-                    thinking=model_cfg.thinking,
-                ),
-                _judge_mode(
-                    item,
-                    "preflection",
-                    prefl_pt,
-                    at,
-                    model_cfg.api_name,
-                    clients[endpoint],
-                    semaphore,
-                    charter_text=charter_text,
-                    writing_guidelines_text=writing_guidelines_text,
-                    thinking=model_cfg.thinking,
-                ),
-            )
+
+            run_refl = refl_file is not None
+            run_prefl = prefl_file is not None
+
+            coros = []
+            if run_refl:
+                coros.append(
+                    _judge_mode(
+                        item,
+                        "reflection",
+                        _prompt(refl_file),
+                        at,
+                        model_cfg.api_name,
+                        clients[endpoint],
+                        semaphore,
+                        charter_text=charter_text,
+                        writing_guidelines_text=writing_guidelines_text,
+                        thinking=model_cfg.thinking,
+                        completion_max_tokens=model_cfg.completion_max_tokens,
+                        context_window_tokens=model_cfg.context_window_tokens,
+                    )
+                )
+            if run_prefl:
+                coros.append(
+                    _judge_mode(
+                        item,
+                        "preflection",
+                        _prompt(prefl_file),
+                        at,
+                        model_cfg.api_name,
+                        clients[endpoint],
+                        semaphore,
+                        charter_text=charter_text,
+                        writing_guidelines_text=writing_guidelines_text,
+                        thinking=model_cfg.thinking,
+                        completion_max_tokens=model_cfg.completion_max_tokens,
+                        context_window_tokens=model_cfg.context_window_tokens,
+                    )
+                )
+            results = await asyncio.gather(*coros)
             judge_latency_ms = int((time.monotonic() - t0) * 1000)
 
-            refl_parsed, refl_raw, refl_reasoning, refl_usage = refl_result
-            prefl_parsed, prefl_raw, prefl_reasoning, prefl_usage = prefl_result
+            judgment_parts: dict = {}
+            raw_responses: dict = {}
+            total_usage: dict = {}
+            result_idx = 0
 
-            judgment_parts = {}
-            for v in _REFLECTION_VOICES:
-                judgment_parts[v] = {
-                    "scores": refl_parsed[v]["scores"],
-                    "aggregate": refl_parsed[v]["aggregate"],
-                    "reasoning": refl_parsed[v]["reasoning"],
-                    "model_reasoning": refl_reasoning,
-                    "usage": refl_usage,
-                }
-            for v in _PREFLECTION_VOICES:
-                judgment_parts[v] = {
-                    "scores": prefl_parsed[v]["scores"],
-                    "aggregate": prefl_parsed[v]["aggregate"],
-                    "reasoning": prefl_parsed[v]["reasoning"],
-                    "model_reasoning": prefl_reasoning,
-                    "usage": prefl_usage,
-                }
+            if run_refl:
+                refl_parsed, refl_raw, refl_reasoning, refl_usage = results[result_idx]
+                result_idx += 1
+                for v in _REFLECTION_VOICES:
+                    judgment_parts[v] = {
+                        "scores": refl_parsed[v]["scores"],
+                        "aggregate": refl_parsed[v]["aggregate"],
+                        "reasoning": refl_parsed[v]["reasoning"],
+                        "model_reasoning": refl_reasoning,
+                        "usage": refl_usage,
+                    }
+                raw_responses["reflection"] = refl_raw
+                total_usage = dict(refl_usage)
+
+            if run_prefl:
+                prefl_parsed, prefl_raw, prefl_reasoning, prefl_usage = results[
+                    result_idx
+                ]
+                for v in _PREFLECTION_VOICES:
+                    judgment_parts[v] = {
+                        "scores": prefl_parsed[v]["scores"],
+                        "aggregate": prefl_parsed[v]["aggregate"],
+                        "reasoning": prefl_parsed[v]["reasoning"],
+                        "model_reasoning": prefl_reasoning,
+                        "usage": prefl_usage,
+                    }
+                raw_responses["preflection"] = prefl_raw
+                if total_usage:
+                    for k in ("input_tokens", "output_tokens", "reasoning_tokens"):
+                        total_usage[k] = total_usage.get(k, 0) + prefl_usage.get(k, 0)
+                else:
+                    total_usage = dict(prefl_usage)
 
             all_scores = [
                 s for vd in judgment_parts.values() for s in vd["scores"].values()
             ]
-            aggregate = sum(all_scores) / len(all_scores)
+            aggregate = sum(all_scores) / len(all_scores) if all_scores else 0
             has_floor = any(s <= ft for s in all_scores)
             decision = "reject" if has_floor or aggregate < at else "accept"
 
-            # Per-mode decisions
-            refl_scores = [
-                s
-                for v in _REFLECTION_VOICES
-                for s in judgment_parts[v]["scores"].values()
-            ]
-            refl_agg = sum(refl_scores) / len(refl_scores)
-            refl_dec = (
-                "reject"
-                if any(s <= ft for s in refl_scores) or refl_agg < at
-                else "accept"
-            )
-
-            prefl_scores = [
-                s
-                for v in _PREFLECTION_VOICES
-                for s in judgment_parts[v]["scores"].values()
-            ]
-            prefl_agg = sum(prefl_scores) / len(prefl_scores)
-            prefl_dec = (
-                "reject"
-                if any(s <= ft for s in prefl_scores) or prefl_agg < at
-                else "accept"
-            )
-
-            return {
+            result = {
                 **judgment_parts,
-                "reflection_aggregate": refl_agg,
-                "reflection_decision": refl_dec,
-                "preflection_aggregate": prefl_agg,
-                "preflection_decision": prefl_dec,
                 "aggregate": aggregate,
                 "decision": decision,
                 "judge_prompt": prompt_name,
-                "judge_prompt_reflection": refl_file.name,
-                "judge_prompt_preflection": prefl_file.name,
-                "raw_responses": {"reflection": refl_raw, "preflection": prefl_raw},
-                "usage": {
-                    k: refl_usage.get(k, 0) + prefl_usage.get(k, 0)
-                    for k in ("input_tokens", "output_tokens", "reasoning_tokens")
-                },
+                "raw_responses": raw_responses,
+                "usage": total_usage,
                 "latency_ms": judge_latency_ms,
-                "timestamp": __import__("datetime")
-                .datetime.now(__import__("datetime").timezone.utc)
-                .isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+
+            if run_refl:
+                refl_agg, refl_dec = _mode_decision(
+                    judgment_parts, _REFLECTION_VOICES, ft, at
+                )
+                result["reflection_aggregate"] = refl_agg
+                result["reflection_decision"] = refl_dec
+                result["judge_prompt_reflection"] = refl_file.name
+
+            if run_prefl:
+                prefl_agg, prefl_dec = _mode_decision(
+                    judgment_parts, _PREFLECTION_VOICES, ft, at
+                )
+                result["preflection_aggregate"] = prefl_agg
+                result["preflection_decision"] = prefl_dec
+                result["judge_prompt_preflection"] = prefl_file.name
+
+            return result
         except Exception:
             logger.warning(
                 "Judge failed for item {} with {}",

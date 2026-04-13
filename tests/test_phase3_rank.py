@@ -23,7 +23,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -57,7 +56,11 @@ def _judgment(
     per_dim: dict | None = None,
 ) -> dict:
     """Build one judgment row matching the spec's four-voice shape."""
-    scores = per_dim if per_dim is not None else {"relevance": aggregate, "specificity": aggregate}
+    scores = (
+        per_dim
+        if per_dim is not None
+        else {"relevance": aggregate, "specificity": aggregate}
+    )
     voices = _four_voice_scores(scores, aggregate)
     return {
         "item_id": item_id,
@@ -112,17 +115,17 @@ def _build_run_dir(
 
     metadata: dict = {
         "type": type,
-        "gold_judge": {"alias": "gold", "prompt": "judge_v1.md"},
+        "gold_judge": {
+            "alias": "gold",
+            "prompt_reflection": "judge_v1.md",
+            "prompt_preflection": "judge_v1.md",
+        },
         "n_items": len(items) if items is not None else 0,
     }
     if metadata_extra:
         # shallow merge is enough for the test cases
         for k, v in metadata_extra.items():
-            if (
-                k in metadata
-                and isinstance(metadata[k], dict)
-                and isinstance(v, dict)
-            ):
+            if k in metadata and isinstance(metadata[k], dict) and isinstance(v, dict):
                 merged = dict(metadata[k])
                 merged.update(v)
                 metadata[k] = merged
@@ -156,9 +159,7 @@ def _call_rank_generators(rank_mod, run_id, tmp_path, monkeypatch):
     try:
         return rank_mod.rank_generators(run_id, eval_dir=tmp_path)
     except TypeError:
-        monkeypatch.setattr(
-            "pipeline.phase3.rank._eval_root", lambda: tmp_path
-        )
+        monkeypatch.setattr("pipeline.phase3.rank._eval_root", lambda: tmp_path)
         return rank_mod.rank_generators(run_id)
 
 
@@ -167,9 +168,7 @@ def _call_rank_judges(rank_mod, run_id, tmp_path, monkeypatch):
     try:
         return rank_mod.rank_judges(run_id, eval_dir=tmp_path)
     except TypeError:
-        monkeypatch.setattr(
-            "pipeline.phase3.rank._eval_root", lambda: tmp_path
-        )
+        monkeypatch.setattr("pipeline.phase3.rank._eval_root", lambda: tmp_path)
         return rank_mod.rank_judges(run_id)
 
 
@@ -226,9 +225,7 @@ class TestRankGenerators:
         assert row["accept_rate"] == pytest.approx(0.5)
         assert row["failure_rates"]["total_dropped"] == pytest.approx(0.0)
 
-    def test_rank_generators_sorts_descending(
-        self, tmp_path, monkeypatch, rank_mod
-    ):
+    def test_rank_generators_sorts_descending(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-test-2"
         gen_a = "gen_a__v1.md.jsonl"
         gen_b = "gen_b__v1.md.jsonl"
@@ -265,9 +262,7 @@ class TestRankGenerators:
         assert result[0]["mean_aggregate"] == pytest.approx(4.5)
         assert result[1]["mean_aggregate"] == pytest.approx(3.0)
 
-    def test_rank_generators_per_dim_mean(
-        self, tmp_path, monkeypatch, rank_mod
-    ):
+    def test_rank_generators_per_dim_mean(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-test-3"
         gen_name = "gen__v1.md.jsonl"
         jud_name = "gold__judge_v1.md__on__gen__v1.md.jsonl"
@@ -299,9 +294,7 @@ class TestRankGenerators:
         result = _call_rank_generators(rank_mod, run_id, tmp_path, monkeypatch)
         assert len(result) == 1
         per_dim_mean = result[0]["per_dim_mean"]
-        assert per_dim_mean == pytest.approx(
-            {"relevance": 5.0, "specificity": 3.0}
-        )
+        assert per_dim_mean == pytest.approx({"relevance": 5.0, "specificity": 3.0})
 
     def test_rank_generators_accept_by_safety_score(
         self, tmp_path, monkeypatch, rank_mod
@@ -356,8 +349,7 @@ class TestRankGenerators:
         # 7 generations
         gen_rows = [_generation(f"i{i}") for i in range(7)]
         jud_rows = [
-            _judgment(f"i{i}", aggregate=3.0, decision="accept")
-            for i in range(7)
+            _judgment(f"i{i}", aggregate=3.0, decision="accept") for i in range(7)
         ]
         # 3 gen failures: 2 api (distinct item_ids), 1 parse
         gen_failures = [
@@ -420,8 +412,7 @@ class TestRankGenerators:
         items = [_item(f"i{i}") for i in range(10)]
         gen_rows = [_generation(f"i{i}") for i in range(9)]
         jud_rows = [
-            _judgment(f"i{i}", aggregate=3.0, decision="accept")
-            for i in range(9)
+            _judgment(f"i{i}", aggregate=3.0, decision="accept") for i in range(9)
         ]
         # Three retries for the SAME item_id, all category=api.
         gen_failures = [
@@ -490,7 +481,7 @@ class TestRankGenerators:
         assert fr["judge_parse"] == pytest.approx(0.0)
         assert fr["total_dropped"] == pytest.approx(0.0)
 
-    def test_rank_generators_missing_gold_judgment_file_raises(
+    def test_rank_generators_missing_gold_judgment_file_skips(
         self, tmp_path, monkeypatch, rank_mod
     ):
         run_id = "rank-test-8"
@@ -506,11 +497,9 @@ class TestRankGenerators:
             judgments={},
         )
 
-        with pytest.raises(Exception) as excinfo:
-            _call_rank_generators(rank_mod, run_id, tmp_path, monkeypatch)
-        # Message should mention the gold alias or the expected filename.
-        msg = str(excinfo.value)
-        assert ("gold" in msg) or ("judge_v1.md" in msg) or ("judgment" in msg.lower())
+        rows = _call_rank_generators(rank_mod, run_id, tmp_path, monkeypatch)
+        # Generator with no judgment file is skipped, not raised
+        assert rows == []
 
 
 # ---------------------------------------------------------------------------
@@ -523,12 +512,14 @@ class TestRankJudges:
 
     def _judge_eval_metadata_extra(self) -> dict:
         return {
-            "generator": {"alias": "gen", "prompt": "gen_v1.md"},
+            "generator": {
+                "alias": "gen",
+                "prompt_reflection": "gen_v1.md",
+                "prompt_preflection": "gen_v1.md",
+            },
         }
 
-    def test_rank_judges_vs_gold_basic(
-        self, tmp_path, monkeypatch, rank_mod
-    ):
+    def test_rank_judges_vs_gold_basic(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-judge-1"
         gold_name = "gold__judge_v1.md__on__gen__gen_v1.md.jsonl"
         cand_name = "candidate__judge_v2.md__on__gen__gen_v1.md.jsonl"
@@ -609,9 +600,7 @@ class TestRankJudges:
         vs_gold = blocks["vs_gold"]
         # The gold judge (alias "gold") must not appear in vs_gold evaluated
         # against itself.
-        gold_rows_in_output = [
-            r for r in vs_gold if r["judge"].startswith("gold__")
-        ]
+        gold_rows_in_output = [r for r in vs_gold if r["judge"].startswith("gold__")]
         assert gold_rows_in_output == []
 
     def test_rank_judges_vs_gold_pairs_on_item_id(
@@ -655,9 +644,7 @@ class TestRankJudges:
         # Only i0 and i1 are paired.
         assert candidate_rows[0]["n_succeeded"] == 2
 
-    def test_rank_judges_vs_human_basic(
-        self, tmp_path, monkeypatch, rank_mod
-    ):
+    def test_rank_judges_vs_human_basic(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-judge-4"
         cand_reviewed_name = "candidate__judge_v2.md__on__reviewed.jsonl"
 
@@ -760,24 +747,18 @@ class TestRankJudges:
         # Both (i0, 1) and (i0, 2) pair up.
         assert candidate_rows[0]["n_succeeded"] == 2
 
-    def test_rank_judges_failure_rates_split(
-        self, tmp_path, monkeypatch, rank_mod
-    ):
+    def test_rank_judges_failure_rates_split(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-judge-6"
         gold_name = "gold__judge_v1.md__on__gen__gen_v1.md.jsonl"
         cand_name = "candidate_a__cand_v1.md__on__gen__gen_v1.md.jsonl"
-        cand_fail_name = (
-            "jud_candidate_a__cand_v1.md__on__gen__gen_v1.md.jsonl"
-        )
+        cand_fail_name = "jud_candidate_a__cand_v1.md__on__gen__gen_v1.md.jsonl"
 
         items = [_item(f"i{i}") for i in range(10)]
         gold_rows = [
-            _judgment(f"i{i}", aggregate=3.0, decision="accept")
-            for i in range(10)
+            _judgment(f"i{i}", aggregate=3.0, decision="accept") for i in range(10)
         ]
         cand_rows = [
-            _judgment(f"i{i}", aggregate=3.0, decision="accept")
-            for i in range(8)
+            _judgment(f"i{i}", aggregate=3.0, decision="accept") for i in range(8)
         ]
 
         cand_failures = [

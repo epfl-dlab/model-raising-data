@@ -67,6 +67,23 @@ strict notes when they cite concrete evidence.
 </reviewer_authority>
 
 <calibration_principles>
+**CRITICAL — read the actual texts, not just the numbers.** Aggregate metrics (κ, agreement
+%, mean |score diff|) are summary statistics that tell you *something is off*, not *what is
+off*. You MUST read:
+- The **source text** for disagreement items (`show <id> <iter>` — prints the actual text,
+  reflections/preflections, and analysis)
+- The **judge reasoning** for those items (`reasoning <id> <iter>` — prints per-voice
+  scores and the judge's explanation)
+- The **reviewer notes** explaining what the human saw (`reviews --reasoning-limit 800`)
+Only after reading the actual content can you diagnose whether the rubric is wrong, the
+judge is misapplying a correct rubric, or the reviewer was wrong. A prompt edit motivated
+by "κ went down" without reading the underlying items is blind and likely to regress.
+
+**When to optimize for κ**: Cohen's κ is the headline calibration metric. Optimize for it
+when you have ≥15 reviews for the current judge prompt — below that, κ is too noisy to
+steer by. With fewer reviews, lean entirely on qualitative inspection of reviewer notes and
+your own read of the items.
+
 - Read the reviewer NOTES via `reviews [judge_prompt_filter]`, not just `correlations`. A
   single sentence like "judge missed that this is satire" is worth more than a delta table.
 - Pull notes from ALL prior iterations, not just the current one. Past feedback is often
@@ -88,6 +105,10 @@ strict notes when they cite concrete evidence.
   rejected) contaminate the training signal directly. Use `accepts <iter> --sort top` for
   the judge's most-confident accepts and `--sort borderline` for the gray zone. Use
   `filter <iter> --dim X --above N` for suspiciously-high per-dimension scores.
+- **Always read sample items**: after each `run_cross_batch`, use `show` on 3-5 items
+  (mix of accepted, rejected, borderline) to read the actual source text and generated
+  annotations. Then use `reasoning` on those same items to see what the judge said. This
+  grounds your analysis in reality, not just numbers.
 - The auto-injected `diagnose` output appears LATER in this prompt (under "## Latest
   baseline diagnostics"). Read it for the CURRENT failure frequencies. Combine those
   numbers with the known-failure-mode taxonomy below to decide what to look at first.
@@ -128,8 +149,13 @@ Apply this checkpoint TWICE:
 
 At each checkpoint, append a "## Reflection N" block to your `state.md` answering:
 
-1. **Which metrics moved?** Decision κ (Cohen's κ for judge-vs-human decision agreement)
-   is the most important calibration metric — anchor your analysis on it. Track:
+1. **What did you see in the actual items?** Use `show` and `reasoning` on 3-5 items
+   (accepted, rejected, borderline). Describe concretely what the generated text looks like,
+   what the judge said about it, and whether the judge's assessment was correct. This is the
+   most important part of the checkpoint — numbers without concrete observations are useless.
+2. **Which metrics moved?** Decision κ (Cohen's κ for judge-vs-human decision agreement)
+   is the most important calibration metric when ≥15 reviews exist — anchor your analysis
+   on it. Track:
    - **Decision κ** (Cohen's κ) — the headline calibration metric, computed in the Judge
      Calibration panel of the dashboard at `pipeline/dashboard/phase2.py`. If `correlations`
      does not print κ, query the dashboard or compute it from raw `judge_correlations` and
@@ -140,9 +166,9 @@ At each checkpoint, append a "## Reflection N" block to your `state.md` answerin
    - **Mean |score diff|** (from `correlations`)
    - **Per-dimension MAD** (from `correlations`)
    - **Accept %** and **floor-rule trigger count** (from `cross_summary` / `diagnose`)
-2. **By how much** (numeric delta from the previous checkpoint or baseline)
-3. **What unaddressed reviewer notes** from older iterations remain
-4. **Whether the change addressed root cause or surface symptoms**
+3. **By how much** (numeric delta from the previous checkpoint or baseline)
+4. **What unaddressed reviewer notes** from older iterations remain
+5. **Whether the change addressed root cause or surface symptoms**
 
 The Final Summary must reference your most recent Reflection block. The state.md trail is
 the audit log — future-you will read it before the next iteration.
