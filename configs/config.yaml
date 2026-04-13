@@ -163,7 +163,7 @@ phase4:
   json_mode: false
   max_rows: 0
   rows_per_task: 100000
-  max_concurrent_requests: 2048
+  max_concurrent_requests: 1024
   save_batch_size: 200
   progress_interval: 1000
   canary_seed: 42
@@ -171,9 +171,9 @@ phase4:
   max_retries_per_doc: 5
   sglang:
     hf_slug: Qwen/Qwen3.5-35B-A3B-FP8
-    model_path: ""
-    tp_size: 4
-    dp_size: 1
+    model_path: /capstor/store/cscs/swissai/a141/hf_models/models/qwen/Qwen3.5-35B-A3B-FP8
+    tp_size: 1
+    dp_size: 4
     port: 30000
     # reasoning_parser per model family:
     #   GLM-4.5-Air, GLM-4.5-Air-FP8, GLM-4.7-Flash: glm45
@@ -181,15 +181,15 @@ phase4:
     #   Kimi-K2.5:                                     kimi_k2
     #   Nemotron-3-Super:                              nano_v3
     #   gpt-oss-120b:                                  (none — no thinking)
-    reasoning_parser: glm45
+    reasoning_parser: kimi_k2
     env_toml: /users/jminder/repositories/model-launch/src/swiss_ai_model_launch/assets/envs/sglang.toml
-    extra_args: ""
-    pre_launch_cmds: ""
+    extra_args: "--context-length 24576 --kv-cache-dtype bf16 --max-running-requests 512 --schedule-conservativeness 0.3 --cuda-graph-max-bs 1024 --mamba-ssm-dtype bfloat16 --mem-fraction-static 0.88"
+    pre_launch_cmds: "pip install nvidia-cudnn-cu12==9.16.0.29"
   slurm:
     partition: normal
     account: a141
-    time: "24:00:00"
-    cpus_per_task: 4
+    time: "08:00:00"
+    cpus_per_task: 288
     mem_per_cpu_gb: 8
     workers: -1
 dashboard:

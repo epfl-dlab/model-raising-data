@@ -196,6 +196,12 @@ RUNS: dict[str, RunDefinition] = {
         build_calls=_reflections_build_calls,
         post_process=_reflections_post_process,
     ),
+    "reflections_test": RunDefinition(
+        name="reflections_test",
+        output_columns=_REFLECTIONS_COLUMNS,
+        build_calls=_reflections_build_calls,
+        post_process=_reflections_post_process,
+    ),
     "preflections": RunDefinition(
         name="preflections",
         output_columns=_PREFLECTIONS_COLUMNS,

@@ -59,6 +59,7 @@ def _build_env_command(cfg) -> str:
         set -ex
         export no_proxy=\\"0.0.0.0,\\$no_proxy\\"
         export NO_PROXY=\\"0.0.0.0,\\$NO_PROXY\\"
+        export SGL_ENABLE_JIT_DEEPGEMM=\\"false\\"
         {pre_launch}python3 -m sglang.launch_server \\
             --model-path {model_path} \\
             --served-model-name {served_name} \\

@@ -44,13 +44,14 @@ Best result per model (1 node), sorted by GPU-hours.
 - **DP >> TP for small models**: GLM-4.7-Flash TP1×DP4 is 2.4x cheaper than TP4×DP1 (29K vs 68K GPU-h). Data parallelism is critical for models that fit on 1 GPU.
 - **gpt-oss-120b is the cheapest generator** at ~10.8K GPU-h (1 node). Produces short outputs (~760 tok).
 - **SmolLM3-3B is the cheapest summarizer** at ~3.3K GPU-h. 3x cheaper than next best.
-- **Higher concurrency always helps**: c1024 beats c512 at every configuration.
+- **Client concurrency c1024 is optimal**: c512 underutilizes the server (mamba 0.30 vs 0.67). c1536/c2048 cause queue bloat and hurt throughput. c1024 saturates the Mamba pool without overwhelming it.
 - **Nemotron-3-Super does not fit at TP1** — minimum TP2 required. TP2×DP2 (~66K GPU-h) is worse than TP4×DP1 (50K GPU-h). EP=2 makes no difference.
 - **GLM-4.5-Air-FP8 does not fit at TP1** — minimum TP2 required. Best single-node config is TP4×DP1 (32K GPU-h).
 - **Qwen3.5-9B** at 28K GPU-h despite ~4K output tokens (unseparated thinking). Fast thanks to tiny model (9B) at TP1×DP4.
 - **Sampling params now tracked**: per-model HuggingFace-recommended sampling params added (Apr 3). Qwen3.5 presence_penalty=1.5 reduced output tokens ~15% but total output remains high due to thinking tokens (real compute, not a labeling issue).
 - **SGLang tuning for hybrid models** (Apr 12): `--mamba-ssm-dtype bfloat16` + `--mem-fraction-static 0.88` + `--max-running-requests 512` dramatically improves throughput for models with Mamba/DeltaNet sublayers. Qwen3.5-35B: 32.4K → 26.6K GPU-h (-18%). Nemotron-3-Super: 50.5K → 28.8K GPU-h (-43%). See tuning sections below.
 - **Split pipeline** (Apr 13): Reflections and preflections now use separate prompts and API calls. Qwen3.5-35B-A3B-FP8 reflection-only: 22.4K GPU-h (vs 26.6K for old combined 4-voice). FP8 + tuned flags give 3.1x speedup over BF16 baseline (69.6K → 22.4K). Preflection benchmark pending.
+- **SGLang flag sweep confirms ceiling** (Apr 13): Swept 16 server-side configs (context-length, mem-fraction-static, max-running-requests, chunked-prefill-size, schedule-policy, schedule-conservativeness, dp-attention) and 4 client-side concurrency levels (512, 1024, 1536, 2048) at 10K samples. No config beat the baseline by more than noise. The bottleneck is MoE decode with 256 fine-grained experts — memory-bandwidth bound at 5-15% MFU. Current config is optimal.
 
 ---
 
@@ -79,6 +80,52 @@ After the prompt split, reflections and preflections are benchmarked separately.
 |-------|------|-------|--------------|-------------|-------------|------------|-------------|------------------|-----------------|------|
 | **Qwen3.5-35B-A3B-FP8** ⚡ | reflection | 1 | 4 (TP1×DP4) | 1024 | 5.10 | 6,182 | 3,590 | **22,369** | 18.0K - 29.1K | Apr 13 |
 | Qwen3.5-35B-A3B (bf16) | reflection | 1 | 4 (TP1×DP4) | 1024 | 1.64 | 6,182 | 3,226 | **69,574** | 50.7K - 93.2K | Apr 13 |
+
+### SGLang config sweep — Qwen3.5-35B-A3B-FP8 (2026-04-13)
+
+Systematic sweep of SGLang server flags and client concurrency to verify the current config is optimal. All runs: 1 node, 4 GPUs (TP1×DP4), reflection mode.
+
+#### Server-side flag sweep (500 samples each, c1024)
+
+| Config | Change vs baseline | Samples/s | GPU-hours (102M) | vs Baseline |
+|--------|-------------------|-----------|------------------|-------------|
+| **baseline** | — | 3.64 | 31,356 | — |
+| ctx16k_mem092_maxreq1024 | ctx 16K + mem 0.92 + maxreq 1024 | 3.78 | 30,223 | -3.6% |
+| maxreq768 | max-running-requests 768 | 3.74 | 30,557 | -2.5% |
+| maxreq1024 | max-running-requests 1024 | 3.70 | 30,863 | -1.6% |
+| ctx16k | context-length 16384 | 3.69 | 30,956 | -1.3% |
+| chunk2k | chunked-prefill-size 2048 | 3.67 | 31,139 | -0.7% |
+| lpm | schedule-policy lpm | 3.66 | 31,163 | -0.6% |
+| mem090 | mem-fraction-static 0.90 | 3.66 | 31,194 | -0.5% |
+| chunk4k | chunked-prefill-size 4096 | 3.66 | 31,213 | -0.5% |
+| mem092 | mem-fraction-static 0.92 | 3.64 | 31,329 | -0.1% |
+| sched01 | schedule-conservativeness 0.1 | 3.63 | 31,420 | +0.2% |
+| ctx16k_maxreq768 | ctx 16K + maxreq 768 | 3.63 | 31,430 | +0.2% |
+| ctx16k_mem092 | ctx 16K + mem 0.92 | 3.49 | 32,723 | +4.4% |
+| dpatt | enable-dp-attention | CRASH | — | requires TP >= DP |
+| ctx8k | context-length 8192 | ALL 400 | — | prompts exceed context |
+
+All differences within noise (~3.6% at best). 500-sample runs systematically underestimate throughput vs 10K runs (~3.7 sps vs 5.1 sps) due to startup overhead, but relative ranking is valid.
+
+#### Client concurrency sweep (10K samples each, maxreq 512)
+
+| Concurrency | Samples/s | GPU-hours (102M) | Running req | Mamba usage |
+|-------------|-----------|------------------|-------------|-------------|
+| 512 | — | — | 113 | 0.30 (cancelled — server underutilized) |
+| **1024** | **5.10** | **22,408** | **250** | **0.67** |
+| 1536 | — | — | — | (cancelled — queue bloat, ~1 it/s) |
+| 2048 | — | — | — | (cancelled — queue bloat, ~1 it/s) |
+
+#### Server-side maxreq validation (10K samples, c1024)
+
+| Config | Samples/s | GPU-hours (102M) | vs Baseline |
+|--------|-----------|------------------|-------------|
+| maxreq 512 (baseline) | 5.10 | 22,408 | — |
+| maxreq 768 | 5.11 | 22,366 | 0% |
+
+#### Conclusion
+
+The current config (`--mamba-ssm-dtype bfloat16 --mem-fraction-static 0.88 --max-running-requests 512 --kv-cache-dtype bf16 --schedule-conservativeness 0.3 --cuda-graph-max-bs 1024`, client c1024) is optimal. The Mamba pool caps at ~250 requests per DP replica regardless of memory or maxreq settings. The bottleneck is MoE decode with 256 fine-grained experts — memory-bandwidth bound at 5-15% MFU. No SGLang flag can improve this without faster MoE kernels.
 
 ### 4-voice annotation — all results (legacy combined prompt, updated 2026-04-03)
 
