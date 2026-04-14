@@ -1,60 +1,125 @@
-"""Shared tokenizer utilities: truncation and reflection point computation."""
+"""Shared tokenizer utilities: reflection-point sampling and truncation.
+
+The training-side binary dataset (``annotated.bin``) was produced by the
+Rust ``tokenizers`` library with an EOS post-processor; see
+``preprocessing/tokenization/`` and the ``feedback_tokenizer_setup``
+memory note.  ``transformers.AutoTokenizer`` tokenizes some sequences
+differently (notably ``\\n\\n`` splits into two tokens instead of a
+single merged token), so every index-space computation in this file
+must use the Rust library directly — otherwise token indices will not
+align with ``annotated.bin``.
+"""
 
 import random
 
-from transformers import AutoTokenizer
+from tokenizers import Tokenizer
 
 TOKENIZER_NAME = "HuggingFaceTB/SmolLM2-1.7B-Instruct"
-_tokenizer = None
+
+_tokenizer: Tokenizer | None = None
 
 
-def _get_tokenizer() -> AutoTokenizer:
-    """Return the shared SmolLM2 tokenizer (lazy singleton)."""
+def _get_tokenizer() -> Tokenizer:
+    """Return the shared Rust SmolLM2 tokenizer (lazy singleton).
+
+    No post-processor, no truncation — callers that need a specific
+    encoding policy should apply it themselves.  The base tokenizer
+    produces the same content token IDs as the training-side pipeline.
+    """
     global _tokenizer
     if _tokenizer is None:
-        _tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
+        _tokenizer = Tokenizer.from_pretrained(TOKENIZER_NAME)
     return _tokenizer
 
 
-def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
-    """Truncate text to at most max_tokens tokens using the SmolLM2 tokenizer.
+def _encode(text: str):
+    """Encode *text* without special tokens and return the ``Encoding``."""
+    return _get_tokenizer().encode(text, add_special_tokens=False)
 
-    Tokenizes the text, keeps the first max_tokens token IDs, and decodes back.
-    """
+
+def truncate_to_max_tokens(text: str, max_tokens: int) -> str:
+    """Truncate *text* to at most *max_tokens* Rust tokens (content-only)."""
     tokenizer = _get_tokenizer()
-    token_ids = tokenizer.encode(text, add_special_tokens=False)
-    if len(token_ids) <= max_tokens:
+    enc = tokenizer.encode(text, add_special_tokens=False)
+    if len(enc.ids) <= max_tokens:
         return text
-    truncated_ids = token_ids[:max_tokens]
-    return tokenizer.decode(truncated_ids, skip_special_tokens=True)
+    return tokenizer.decode(enc.ids[:max_tokens], skip_special_tokens=True)
 
 
 def count_tokens(text: str) -> int:
-    """Count tokens in *text* using the shared SmolLM2 tokenizer."""
-    tokenizer = _get_tokenizer()
-    return len(tokenizer.encode(text, add_special_tokens=False))
+    """Count Rust tokens in *text* (content-only)."""
+    return len(_encode(text).ids)
 
 
-def compute_reflection_point(text: str, rng: random.Random) -> int:
-    """Pick a reflection point snapped to a token boundary.
+def _sample_tok_idx(n_tokens: int, rng: random.Random) -> int:
+    """Sample a token index from the reflection-point distribution.
 
-    Samples from a piecewise distribution: linear ramp from 0% to 20% of the
-    token sequence (probability rises from 0 to a constant), then uniform from
-    20% to 100%.  Uses inverse-CDF sampling.
+    Piecewise: linear ramp from 0% to 20% of the sequence (probability
+    rises from 0 to a constant), then uniform from 20% to 100%.  Inverse-CDF
+    sampling, CDF boundary at t=0.2 is u=1/9.
     """
-    tokenizer = _get_tokenizer()
-    encoding = tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
-    offsets = encoding["offset_mapping"]
-    n_tokens = len(offsets)
-    assert n_tokens > 0, "Text produced no tokens"
-
-    # Inverse-CDF sampling for piecewise linear-ramp + uniform distribution.
-    # CDF boundary at t=0.2 is u=1/9.
     u = rng.random()
     if u <= 1.0 / 9.0:
         t = 0.6 * u**0.5
     else:
         t = 0.2 + 0.9 * (u - 1.0 / 9.0)
+    return max(1, min(int(t * n_tokens), n_tokens - 1)) if n_tokens > 1 else 0
 
-    tok_idx = max(1, min(int(t * n_tokens), n_tokens - 1))
+
+def compute_reflection_point(text: str, rng: random.Random, max_tokens: int | None = None) -> int:
+    """Pick a reflection point snapped to a token boundary.
+
+    Returns the character offset of the chosen token's start.  When
+    *max_tokens* is set, only the first *max_tokens* tokens are considered.
+    """
+    offsets = _encode(text).offsets
+    n_tokens = len(offsets)
+    assert n_tokens > 0, "Text produced no tokens"
+    if max_tokens is not None:
+        n_tokens = min(n_tokens, max_tokens)
+    tok_idx = _sample_tok_idx(n_tokens, rng)
     return offsets[tok_idx][0]
+
+
+def compute_reflection_point_tokens(
+    text: str, rng: random.Random, max_tokens: int | None = None
+) -> tuple[int, int]:
+    """Pick a reflection point; return both its char offset and token index.
+
+    The token index aligns with ``annotated.bin``'s content tokens so
+    consumers can index that file directly without retokenizing.
+    """
+    offsets = _encode(text).offsets
+    n_tokens = len(offsets)
+    assert n_tokens > 0, "Text produced no tokens"
+    if max_tokens is not None:
+        n_tokens = min(n_tokens, max_tokens)
+    tok_idx = _sample_tok_idx(n_tokens, rng)
+    return offsets[tok_idx][0], tok_idx
+
+
+def char_offset_to_token_index(text: str, char_offset: int) -> int:
+    """Map a character offset to the Rust-tokenizer token index.
+
+    Returns the smallest token index ``K`` such that
+    ``tokens[0:K]`` covers ``text[:char_offset]`` as closely as possible:
+
+    * If *char_offset* is exactly a token boundary, returns that token's
+      index (so ``tokens[0:K]`` covers exactly ``text[:char_offset]``).
+    * Otherwise *char_offset* falls inside some merged token's span
+      (e.g. a ``\\n\\n`` token whose Rust span is 2 chars while
+      transformers would have split it in two).  Rounds DOWN: returns
+      the index of that merged token, so ``tokens[0:K]`` covers
+      ``text[:offsets[K][0]]`` which is a prefix of ``text[:char_offset]``.
+
+    Used to backfill ``reflection_token_index`` from a stored
+    ``reflection_position`` (char offset) whose tokenization lineage may
+    not perfectly match the current Rust tokenization.
+    """
+    offsets = _encode(text).offsets
+    for k, (start, _end) in enumerate(offsets):
+        if start == char_offset:
+            return k
+        if start > char_offset:
+            return k - 1 if k > 0 else 0
+    return len(offsets)

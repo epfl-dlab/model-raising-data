@@ -34,6 +34,7 @@ class TestRunRegistry:
             "reflection_1p",
             "reflection_3p",
             "reflection_position",
+            "reflection_token_index",
             "charter_reflection",
             "canary_type",
         }
@@ -81,6 +82,25 @@ class TestReflectionsBuildCalls:
         assert "reflection_point" in meta
         assert isinstance(meta["reflection_point"], int)
         assert meta["reflection_point"] > 0
+        assert "reflection_token_index" in meta
+        assert isinstance(meta["reflection_token_index"], int)
+        assert meta["reflection_token_index"] >= 1
+
+    def test_reflection_token_index_within_cap(self):
+        """When max_text_tokens=N, reflection_token_index must be strictly < N."""
+        canaries = load_canaries()
+        text = "Hello world. " * 500  # ~1000 tokens, exceeds cap
+        calls = _reflections_build_calls(
+            doc_text=text,
+            doc_id="test_doc",
+            system_prompt="S.",
+            canaries=canaries,
+            canary_seed=42,
+            reflection_seed=42,
+            max_text_tokens=100,
+        )
+        _, _, meta = calls[0]
+        assert meta["reflection_token_index"] < 100
 
     def test_reflection_point_deterministic(self):
         canaries = load_canaries()
@@ -127,7 +147,11 @@ class TestReflectionsBuildCalls:
 
 class TestReflectionsPostProcess:
     def test_produces_all_columns(self):
-        meta = {"reflection_point": 100, "canary": None}
+        meta = {
+            "reflection_point": 100,
+            "reflection_token_index": 17,
+            "canary": None,
+        }
         parsed = [
             {"analysis": "a1", "reflection_1p": "r1p", "reflection_3p": "r3p"},
         ]
@@ -135,10 +159,15 @@ class TestReflectionsPostProcess:
         assert result["reflection_1p"] == "r1p"
         assert result["reflection_3p"] == "r3p"
         assert result["reflection_position"] == 100
+        assert result["reflection_token_index"] == 17
         assert result["canary_type"] is None
 
     def test_canary_type_set_when_present(self):
-        meta = {"reflection_point": 50, "canary": {"id": "Q5", "quirk": "test"}}
+        meta = {
+            "reflection_point": 50,
+            "reflection_token_index": 8,
+            "canary": {"id": "Q5", "quirk": "test"},
+        }
         parsed = [
             {"analysis": "a", "reflection_1p": "r", "reflection_3p": "r3"},
         ]
@@ -146,7 +175,7 @@ class TestReflectionsPostProcess:
         assert result["canary_type"] == "Q5"
 
     def test_charter_elements_extracted(self):
-        meta = {"reflection_point": 50, "canary": None}
+        meta = {"reflection_point": 50, "reflection_token_index": 8, "canary": None}
         parsed = [
             {
                 "analysis": "a",

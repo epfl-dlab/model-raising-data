@@ -20,7 +20,7 @@ from pipeline.generation import (
     parse_generation,
 )
 from pipeline.phase4.canaries import assign_canary
-from pipeline.tokenizer import compute_reflection_point
+from pipeline.tokenizer import compute_reflection_point_tokens
 
 
 @dataclass
@@ -28,6 +28,7 @@ class RunDefinition:
     """Defines a generation run: what to generate and how to parse it."""
 
     name: str
+    prompt_type: str  # "reflection" or "preflection" — selects the prompt file
     output_columns: list[str]
     build_calls: Callable
     # (doc_text, doc_id, system_prompt, canaries, canary_seed,
@@ -45,6 +46,7 @@ _REFLECTIONS_COLUMNS = [
     "reflection_1p",
     "reflection_3p",
     "reflection_position",
+    "reflection_token_index",
     "charter_reflection",
     "canary_type",
 ]
@@ -57,17 +59,25 @@ def _reflections_build_calls(
     canaries: list[dict],
     canary_seed: int,
     reflection_seed: int,
+    max_text_tokens: int = 1920,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """Build a single API call for the reflections run.
 
     Returns list of (messages, required_fields, metadata) tuples.
     The system_prompt is the already-resolved reflection-specific prompt.
-    """
-    # Compute reflection point (deterministic in reflection_seed + doc_id)
-    rp_rng = random.Random(f"{reflection_seed}_{doc_id}")
-    rp = compute_reflection_point(doc_text, rp_rng)
 
-    context_before = doc_text[:rp]
+    ``max_text_tokens`` is the per-doc token cap — pass the sidecar's
+    ``token_length`` so sampled token indices are guaranteed to fall inside
+    the content portion of ``annotated.bin`` (strictly < token_length,
+    excluding the appended EOS).
+    """
+    # Compute reflection point (deterministic in reflection_seed + doc_id).
+    rp_rng = random.Random(f"{reflection_seed}_{doc_id}")
+    rp_char, rp_tok = compute_reflection_point_tokens(
+        doc_text, rp_rng, max_tokens=max_text_tokens
+    )
+
+    context_before = doc_text[:rp_char]
 
     # Canary assignment
     canary = assign_canary(doc_id, canary_seed, canaries)
@@ -89,7 +99,8 @@ def _reflections_build_calls(
     ]
 
     meta = {
-        "reflection_point": rp,
+        "reflection_point": rp_char,
+        "reflection_token_index": rp_tok,
         "canary": canary,
     }
 
@@ -119,6 +130,7 @@ def _reflections_post_process(
         "reflection_1p": refl_parsed.get("reflection_1p") or "",
         "reflection_3p": refl_parsed.get("reflection_3p") or "",
         "reflection_position": meta["reflection_point"],
+        "reflection_token_index": meta["reflection_token_index"],
         "charter_reflection": json.dumps(charter_reflection),
         "canary_type": canary["id"] if canary is not None else None,
     }
@@ -142,6 +154,7 @@ def _preflections_build_calls(
     canaries: list[dict],
     canary_seed: int,
     reflection_seed: int,
+    max_text_tokens: int = 1920,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """Build a single API call for the preflections run.
 
@@ -192,26 +205,32 @@ def _preflections_post_process(
 RUNS: dict[str, RunDefinition] = {
     "reflections": RunDefinition(
         name="reflections",
-        output_columns=_REFLECTIONS_COLUMNS,
-        build_calls=_reflections_build_calls,
-        post_process=_reflections_post_process,
-    ),
-    "reflections_test": RunDefinition(
-        name="reflections_test",
+        prompt_type="reflection",
         output_columns=_REFLECTIONS_COLUMNS,
         build_calls=_reflections_build_calls,
         post_process=_reflections_post_process,
     ),
     "preflections": RunDefinition(
         name="preflections",
+        prompt_type="preflection",
         output_columns=_PREFLECTIONS_COLUMNS,
         build_calls=_preflections_build_calls,
         post_process=_preflections_post_process,
     ),
 }
 
+# Aliases map variant names to a base run. The variant gets its own output
+# directory but reuses the base run's logic (columns, build_calls, etc.).
+RUN_ALIASES: dict[str, str] = {
+    "reflections_test": "reflections",
+}
+
 
 def get_run(name: str) -> RunDefinition:
-    """Look up a run definition by name. Crashes if not found."""
-    assert name in RUNS, f"Unknown run '{name}'. Available: {list(RUNS.keys())}"
-    return RUNS[name]
+    """Look up a run definition by name or alias. Crashes if not found."""
+    base = RUN_ALIASES.get(name, name)
+    assert base in RUNS, (
+        f"Unknown run '{name}'. Available: {list(RUNS.keys())}, "
+        f"aliases: {list(RUN_ALIASES.keys())}"
+    )
+    return RUNS[base]

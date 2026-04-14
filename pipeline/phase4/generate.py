@@ -7,7 +7,8 @@ server, parses responses, and appends results to a JSONL file.
 Key design points:
 - Endpoint comes from ``os.environ["SGLANG_ENDPOINT"]`` at run() time.
 - Resume: loads done_set from existing results.jsonl before processing.
-- Save thread: batches and fsyncs results asynchronously.
+- Save thread: batches and flushes results asynchronously (no fsync —
+  see _save_loop docstring for rationale).
 - Drain: save thread is fully drained before run() returns, so the
   datatrove completion marker is only written after all data is persisted.
 """
@@ -61,6 +62,7 @@ class AnnotationGenerator(PipelineStep):
         reflection_seed: int = 42,
         max_retries_per_doc: int = 5,
         progress_interval: int = 1000,
+        max_text_tokens: int = 1920,
     ):
         super().__init__()
         self.run_name = run_name
@@ -71,6 +73,7 @@ class AnnotationGenerator(PipelineStep):
         self.save_batch_size = save_batch_size
         self.thinking = thinking
         self.json_mode = json_mode
+        self.max_text_tokens = max_text_tokens
         self.canary_seed = canary_seed
         self.reflection_seed = reflection_seed
         self.max_retries_per_doc = max_retries_per_doc
@@ -135,7 +138,7 @@ class AnnotationGenerator(PipelineStep):
 
         def save_worker():
             try:
-                _save_loop(save_queue, results_path, self.save_batch_size, save_done)
+                _save_loop(save_queue, results_path, self.save_batch_size, save_done, failures_path)
             except Exception as e:
                 save_error.append(e)
 
@@ -163,6 +166,7 @@ class AnnotationGenerator(PipelineStep):
                     failures_path=failures_path,
                     progress_interval=self.progress_interval,
                     rank=rank,
+                    max_text_tokens=self.max_text_tokens,
                 )
             )
         finally:
@@ -205,20 +209,64 @@ def _load_done_set(results_path: Path) -> set[int]:
     return done
 
 
+_MAX_CONSECUTIVE_SERIALIZE_FAIL = 100
+
+
 def _save_loop(
     save_queue: queue.Queue,
     results_path: Path,
     batch_size: int,
     done_event: threading.Event,
+    failures_path: Path,
 ):
-    """Background thread: drain save_queue into results JSONL with fsync."""
+    """Background thread: drain save_queue into results JSONL.
+
+    Serialization failures (e.g. lone UTF-16 surrogates in model output)
+    are logged and routed to failures.jsonl rather than killing the
+    thread — losing one bad record beats losing the entire in-flight
+    queue.  Raises if too many consecutive failures suggest a systemic
+    bug rather than data noise.
+
+    No fsync — datatrove's writers don't fsync either, and on Lustre
+    under heavy concurrent load fsync can block for many seconds and
+    starve the save thread.  flush() pushes to the OS page cache, which
+    survives SLURM kills (only an OS crash loses data, and rank-level
+    resume already handles that).
+    """
+    n_dropped = 0
+    consecutive_fail = 0
+
+    def serialize(item):
+        nonlocal n_dropped, consecutive_fail
+        try:
+            line = json.dumps(item, ensure_ascii=True)
+            consecutive_fail = 0
+            return line
+        except Exception as e:
+            n_dropped += 1
+            consecutive_fail += 1
+            gidx = item.get("global_row_idx") if isinstance(item, dict) else None
+            did = item.get("doc_id") if isinstance(item, dict) else None
+            if gidx is not None:
+                logger.error("save_loop: dropping record gidx={} doc_id={}: {}", gidx, did, e)
+                _save_failure(failures_path, gidx, did or "", f"serialize: {e}")
+            else:
+                logger.error("save_loop: dropping malformed item ({}): {!r}", e, repr(item)[:200])
+            if consecutive_fail >= _MAX_CONSECUTIVE_SERIALIZE_FAIL:
+                raise RuntimeError(
+                    f"save_loop: {consecutive_fail} consecutive serialize failures"
+                ) from e
+            return None
+
     with open(results_path, "a", encoding="utf-8") as f:
         buffer: list[str] = []
         while True:
             # Drain available items
             try:
                 item = save_queue.get(timeout=1.0)
-                buffer.append(json.dumps(item, ensure_ascii=False))
+                line = serialize(item)
+                if line is not None:
+                    buffer.append(line)
                 save_queue.task_done()
             except queue.Empty:
                 pass
@@ -228,7 +276,6 @@ def _save_loop(
                 for line in buffer:
                     f.write(line + "\n")
                 f.flush()
-                os.fsync(f.fileno())
                 buffer.clear()
 
             # Exit when done and queue is empty
@@ -239,12 +286,16 @@ def _save_loop(
         while not save_queue.empty():
             try:
                 item = save_queue.get_nowait()
-                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                line = serialize(item)
+                if line is not None:
+                    f.write(line + "\n")
                 save_queue.task_done()
             except queue.Empty:
                 break
         f.flush()
-        os.fsync(f.fileno())
+
+        if n_dropped:
+            logger.warning("save_loop: {} records dropped due to serialize errors", n_dropped)
 
 
 async def _generate_all(
@@ -264,6 +315,7 @@ async def _generate_all(
     failures_path: Path,
     progress_interval: int,
     rank: int,
+    max_text_tokens: int = 1920,
 ) -> tuple[int, int]:
     """Process all docs concurrently. Returns (n_ok, n_fail)."""
     client, semaphore = make_api_client(
@@ -286,6 +338,12 @@ async def _generate_all(
         doc_id = doc.id
         doc_text = doc.text
         global_idx = doc.metadata["global_row_idx"]
+        # Per-doc cap from the sidecar.  Guarantees the sampled token
+        # index lands strictly inside the content portion of
+        # annotated.bin (< token_length, excluding the appended EOS).
+        token_length = doc.metadata.get("token_length")
+        if token_length is None:
+            token_length = max_text_tokens
 
         # Build API calls for this run
         call_specs = run_def.build_calls(
@@ -295,6 +353,7 @@ async def _generate_all(
             canaries=canaries,
             canary_seed=canary_seed,
             reflection_seed=reflection_seed,
+            max_text_tokens=token_length,
         )
 
         for attempt in range(max_retries):
@@ -315,6 +374,7 @@ async def _generate_all(
                         thinking=thinking,
                         json_mode=json_mode,
                         sampling_params=sampling_params,
+                        max_tokens=None,
                     )
                     parsed = parse_generation(raw, required_fields=required_fields)
                     parsed_results.append(parsed)
@@ -403,4 +463,4 @@ def _save_failure(failures_path: Path, global_idx: int, doc_id: str, error: str)
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     with open(failures_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        f.write(json.dumps(record, ensure_ascii=True) + "\n")

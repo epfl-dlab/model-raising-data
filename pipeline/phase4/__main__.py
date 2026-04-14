@@ -131,11 +131,15 @@ class _ExclusiveSlurmExecutor:
     Clariden nodes reject --mem-per-cpu (memory is not allocatable
     per-cpu on GH200). Datatrove always emits it, so we patch
     get_sbatch_args to remove it and use --exclusive instead.
+
+    Also patches launch_merge_stats so the stats-merge dependent job
+    uses a minimal env (no sglang, no GPUs) instead of the heavy
+    GPU env_command that the main array tasks use.
     """
 
     @staticmethod
     def create(**kwargs):
-        from datatrove.executor.slurm import SlurmPipelineExecutor
+        from datatrove.executor.slurm import SlurmPipelineExecutor, launch_slurm_job
 
         executor = SlurmPipelineExecutor(**kwargs)
         _orig = executor.get_sbatch_args
@@ -146,7 +150,40 @@ class _ExclusiveSlurmExecutor:
             args["exclusive"] = ""
             return args
 
+        def _lightweight_merge_stats():
+            """Launch stats merge without the sglang env_command.
+
+            Datatrove's default launch_merge_stats re-adds mem-per-cpu
+            after our patch removes it, causing OOM on Clariden.  We
+            build the sbatch script ourselves with just venv activation.
+            """
+            venv_activate = str(Path(sys.prefix) / "bin" / "activate")
+            project_root = str(Path(__file__).resolve().parent.parent.parent)
+            stats_dir = executor.logging_dir.resolve_paths("stats")
+            stats_out = executor.logging_dir.resolve_paths("stats.json")
+            log_file = os.path.join(executor.slurm_logs_folder, "stats_%j.out")
+
+            script = textwrap.dedent(f"""\
+                #!/bin/bash
+                #SBATCH --job-name={executor.job_name}_stats
+                #SBATCH --partition={executor.partition}
+                #SBATCH --time=00:10:00
+                #SBATCH --nodes=1
+                #SBATCH --exclusive
+                #SBATCH --output={log_file}
+                #SBATCH --error={log_file}
+                #SBATCH --dependency=afterany:{executor.job_id}
+                #SBATCH --account={executor._sbatch_args.get("account", "")}
+
+                source {venv_activate}
+                export PYTHONPATH="{project_root}:${{PYTHONPATH:-}}"
+                set -xe
+                merge_stats {stats_dir} -o {stats_out}
+            """)
+            launch_slurm_job(script, executor.job_id_retriever)
+
         executor.get_sbatch_args = _patched
+        executor.launch_merge_stats = _lightweight_merge_stats
         return executor
 
 
@@ -155,6 +192,7 @@ def cmd_submit(args, overrides):
     from pipeline.phase4.reader import SidecarReader
     from pipeline.phase4.generate import AnnotationGenerator
     from pipeline.phase4.runs import get_run
+    from pipeline.phase4.sidecar import sidecar_fingerprint as _sidecar_fingerprint
 
     cfg = load_config(overrides)
     run_name = args.run
@@ -196,6 +234,8 @@ def cmd_submit(args, overrides):
                     "run_name": run_name,
                     "rows_per_task": cfg.phase4.rows_per_task,
                     "sidecar_path": cfg.phase4.sidecar_path,
+                    "sidecar_fingerprint": _sidecar_fingerprint(cfg.phase4.sidecar_path),
+                    "reflection_seed": cfg.phase4.reflection_seed,
                     "generator_alias": cfg.phase4.generator_alias,
                     "reflection_prompt": cfg.phase4.reflection_prompt,
                     "preflection_prompt": cfg.phase4.preflection_prompt,
@@ -216,7 +256,7 @@ def cmd_submit(args, overrides):
             generator_alias=cfg.phase4.generator_alias,
             prompt_filename=(
                 cfg.phase4.reflection_prompt
-                if run_name == "reflections"
+                if run_def.prompt_type == "reflection"
                 else cfg.phase4.preflection_prompt
             ),
             output_dir=cfg.phase4.output_dir,
@@ -228,6 +268,7 @@ def cmd_submit(args, overrides):
             reflection_seed=cfg.phase4.reflection_seed,
             max_retries_per_doc=cfg.phase4.max_retries_per_doc,
             progress_interval=cfg.phase4.progress_interval,
+            max_text_tokens=cfg.max_tokens,
         ),
     ]
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import random
 
-from pipeline.tokenizer import compute_reflection_point
+from pipeline.tokenizer import (
+    _encode,
+    char_offset_to_token_index,
+    compute_reflection_point,
+    compute_reflection_point_tokens,
+)
 
 TEXT = "The quick brown fox jumps over the lazy dog. " * 50
 
@@ -71,3 +76,67 @@ class TestComputeReflectionPoint:
             assert (
                 abs(count - expected_per_bucket) / expected_per_bucket < 0.30
             ), f"Bucket count {count} too far from expected {expected_per_bucket:.0f}: {buckets}"
+
+
+class TestComputeReflectionPointTokens:
+    def test_char_and_token_consistent(self):
+        """The returned char offset must be the start of the returned token."""
+        offsets = _encode(TEXT).offsets
+
+        for i in range(100):
+            char_offset, tok_idx = compute_reflection_point_tokens(
+                TEXT, random.Random(i)
+            )
+            assert offsets[tok_idx][0] == char_offset
+
+    def test_matches_compute_reflection_point(self):
+        """Same seed + same text + same max_tokens → same char offset in both funcs."""
+        for i in range(100):
+            rp_char = compute_reflection_point(TEXT, random.Random(i))
+            rp_char2, _ = compute_reflection_point_tokens(TEXT, random.Random(i))
+            assert rp_char == rp_char2
+
+    def test_respects_max_tokens_cap(self):
+        """tok_idx must be strictly less than max_tokens."""
+        for i in range(200):
+            _, tok_idx = compute_reflection_point_tokens(
+                TEXT, random.Random(i), max_tokens=50
+            )
+            assert tok_idx < 50
+            # Also strictly > 0 for non-degenerate texts (TEXT has many tokens)
+            assert tok_idx >= 1
+
+    def test_deterministic(self):
+        a = compute_reflection_point_tokens(TEXT, random.Random("seed_a"))
+        b = compute_reflection_point_tokens(TEXT, random.Random("seed_a"))
+        assert a == b
+
+
+class TestCharOffsetToTokenIndex:
+    def test_exact_boundary_round_trips(self):
+        """Tokenization char-offset → char_offset_to_token_index → same token."""
+        offsets = _encode(TEXT).offsets
+        # Pick several token boundaries; each should round-trip exactly.
+        for k in [1, 5, 20, 50, len(offsets) - 1]:
+            if k >= len(offsets):
+                continue
+            char_offset = offsets[k][0]
+            assert char_offset_to_token_index(TEXT, char_offset) == k
+
+    def test_inside_token_rounds_down(self):
+        """A char offset inside a token's span maps to that token's index."""
+        offsets = _encode(TEXT).offsets
+        # Pick a token whose span is > 1 char
+        for k, (start, end) in enumerate(offsets):
+            if end - start > 1 and k > 0:
+                mid = start + 1  # strictly inside span
+                assert char_offset_to_token_index(TEXT, mid) == k
+                break
+
+    def test_reflection_point_round_trip(self):
+        """compute_reflection_point_tokens → char_offset_to_token_index gives same tok_idx."""
+        for i in range(50):
+            char_offset, tok_idx = compute_reflection_point_tokens(
+                TEXT, random.Random(i)
+            )
+            assert char_offset_to_token_index(TEXT, char_offset) == tok_idx

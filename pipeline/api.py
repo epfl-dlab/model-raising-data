@@ -115,7 +115,7 @@ async def api_call(
     thinking: bool = False,
     json_mode: bool = False,
     sampling_params: dict[str, float | int] | None = None,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    max_tokens: int | None = DEFAULT_MAX_TOKENS,
 ) -> tuple[str, str | None, dict]:
     """Make a single API call with network-error retry.
 
@@ -123,9 +123,9 @@ async def api_call(
     if the model does not produce reasoning output. usage_dict contains
     input_tokens, output_tokens, reasoning_tokens.
 
-    Passes an explicit max_tokens budget so OpenRouter doesn't silently clamp
-    the output to a provider-specific default (observed: ~128 tokens, i.e.
-    ~500 chars, which truncates the 4-voice judge response mid-reasoning).
+    When *max_tokens* is set, it is passed explicitly so OpenRouter doesn't
+    silently clamp the output to a provider-specific default.  When *None*,
+    the parameter is omitted and the server uses all available context.
     """
     extra_body = None
     if thinking:
@@ -141,7 +141,9 @@ async def api_call(
     # Sampling params: temperature, top_p, presence_penalty are native OpenAI
     # API kwargs; top_k goes into extra_body (sglang/vllm extension).
     sp = sampling_params or {}
-    api_kwargs: dict = {"max_tokens": max_tokens}
+    api_kwargs: dict = {}
+    if max_tokens is not None:
+        api_kwargs["max_tokens"] = max_tokens
     for k in ("temperature", "top_p", "presence_penalty"):
         if k in sp:
             api_kwargs[k] = sp[k]

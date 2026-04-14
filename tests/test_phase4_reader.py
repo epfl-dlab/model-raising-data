@@ -77,6 +77,13 @@ class TestSidecarReader:
         docs = list(reader.run(rank=0))
         assert docs[0].metadata["safety_score"] is not None
 
+    def test_metadata_has_token_length(self, sidecar_parquet):
+        reader = SidecarReader(sidecar_parquet, rows_per_task=10)
+        docs = list(reader.run(rank=0))
+        # Fixture sets token_length = 50 + i
+        assert docs[0].metadata["token_length"] == 50
+        assert docs[9].metadata["token_length"] == 59
+
     def test_reads_across_row_groups(self, sidecar_parquet):
         # rows_per_task=60 spans both row groups (50 each)
         reader = SidecarReader(sidecar_parquet, rows_per_task=60)

@@ -188,22 +188,24 @@ class _ResultCursor:
         self._f.close()
 
 
+_COLUMN_META: dict[str, tuple[pa.DataType, object]] = {
+    "reflection_position": (pa.int32(), 0),
+    # -1 sentinel: "not backfilled".  0 is a legitimate tok_idx for
+    # degenerate single-token docs, so we can't use it as the default.
+    "reflection_token_index": (pa.int32(), -1),
+    "canary_type": (pa.string(), None),
+}
+_DEFAULT_COLUMN_META: tuple[pa.DataType, object] = (pa.large_string(), "")
+
+
 def _infer_arrow_type(col_name: str) -> pa.DataType:
     """Infer the Arrow type for an output column."""
-    if col_name == "reflection_position":
-        return pa.int32()
-    if col_name == "canary_type":
-        return pa.string()  # nullable
-    return pa.large_string()
+    return _COLUMN_META.get(col_name, _DEFAULT_COLUMN_META)[0]
 
 
 def _default_value(col_name: str):
     """Default value for a missing row in a given column."""
-    if col_name == "reflection_position":
-        return 0
-    if col_name == "canary_type":
-        return None
-    return ""
+    return _COLUMN_META.get(col_name, _DEFAULT_COLUMN_META)[1]
 
 
 def _sort_results(output_dir: str, run_name: str) -> tuple[Path, int]:

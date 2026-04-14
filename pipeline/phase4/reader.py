@@ -25,7 +25,7 @@ class SidecarReader(PipelineStep):
         self,
         sidecar_path: str,
         rows_per_task: int,
-        columns: tuple[str, ...] = ("doc_id", "text", "safety_score"),
+        columns: tuple[str, ...] = ("doc_id", "text", "safety_score", "token_length"),
     ):
         super().__init__()
         self.sidecar_path = sidecar_path
@@ -89,6 +89,7 @@ class SidecarReader(PipelineStep):
                     metadata={
                         "global_row_idx": global_idx,
                         "safety_score": col_data.get("safety_score", [None] * table.num_rows)[i],
+                        "token_length": col_data.get("token_length", [None] * table.num_rows)[i],
                     },
                 )
                 self.stat_update("documents")
