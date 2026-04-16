@@ -21,9 +21,8 @@ from typing import Iterable
 
 from pipeline.config import load_config
 from pipeline.log import logger
+from pipeline.phase2.run import judgment_parts
 from pipeline.phase3.eval_generators import _eval_root
-
-_FOUR_VOICES = ("preflection_3p", "preflection_1p", "reflection_1p", "reflection_3p")
 
 
 def _meta_prompt_id(meta_dict: dict) -> str:
@@ -144,11 +143,14 @@ def _judgment_mode_decision(row: dict, mode: str) -> str | None:
 
 
 def _per_voice_dim_scores(row: dict) -> dict[str, list[float]]:
-    """Return {dim → [score across the 4 voices]} for one judgment row."""
+    """Return {dim → [score across all voices/fields]} for one judgment row.
+
+    Voices/fields are discovered dynamically from the judgment payload so old
+    (2-voice preflection) and new (4-field preflection) rows both work.
+    """
     j = row.get("judgment") or {}
     out: dict[str, list[float]] = defaultdict(list)
-    for voice in _FOUR_VOICES:
-        v = j.get(voice) or {}
+    for _voice, v in judgment_parts(j).items():
         scores = v.get("scores") or {}
         for dim, val in scores.items():
             if isinstance(val, (int, float)):
@@ -513,8 +515,9 @@ def _human_review_aggregate(row: dict) -> float | None:
         return float(hr["aggregate"])
     scores = hr.get("scores") or {}
     flat: list[float] = []
-    for voice in _FOUR_VOICES:
-        v = scores.get(voice) or {}
+    for v in scores.values():
+        if not isinstance(v, dict):
+            continue
         for val in v.values():
             if isinstance(val, (int, float)):
                 flat.append(float(val))
@@ -530,8 +533,9 @@ def _human_review_per_dim(row: dict) -> dict[str, float]:
     hr = row.get("human_review") or {}
     scores = hr.get("scores") or {}
     out: dict[str, list[float]] = defaultdict(list)
-    for voice in _FOUR_VOICES:
-        v = scores.get(voice) or {}
+    for v in scores.values():
+        if not isinstance(v, dict):
+            continue
         for dim, val in v.items():
             if isinstance(val, (int, float)):
                 out[dim].append(float(val))

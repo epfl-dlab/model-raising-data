@@ -32,14 +32,14 @@ def _fake_sample_diverse_factory(items, revision="rev-abc"):
     so monkeypatching `pipeline.phase3.items.sample_diverse` is the right
     handle.
 
-    The fake matches the loose contract: takes (n_items, seed, max_tokens)
-    as kwargs and returns (items, revision).
+    The fake matches the real `sample_diverse(n, seed, max_tokens)` signature
+    and returns (items, revision) — `build_item_pool` accepts the tuple form.
     """
     call_log: list[dict] = []
 
-    def _fake(n_items, seed, max_tokens, **kwargs):
+    def _fake(n, seed, max_tokens, **kwargs):
         call_log.append(
-            {"n_items": n_items, "seed": seed, "max_tokens": max_tokens, **kwargs}
+            {"n": n, "seed": seed, "max_tokens": max_tokens, **kwargs}
         )
         return list(items), revision
 
@@ -439,26 +439,57 @@ class TestLoadReviewedItems:
             reviewer_ids.add(hr["reviewer_id"])
         assert reviewer_ids == {"alice", "bob"}
 
-    def test_load_reviewed_items_rejects_non_four_voice_schema(
-        self, monkeypatch
-    ):
+    def test_load_reviewed_items_rejects_non_dict_scores(self, monkeypatch):
         from pipeline.phase3 import items as items_mod
 
-        # Only 2-voice (old phase 2 schema), missing the four_voice keys.
-        bad_scores = {
-            "preflection": {"relevance": 3},
-            "reflection": {"relevance": 3},
-        }
+        # `scores` must be a dict — anything else fails loud. The old hard
+        # 4-voice schema check was removed (reviews now span multiple schema
+        # generations) but a genuinely malformed row still raises.
         reviews = [
             _make_review(
-                "item-1", 1, "alice", "2026-04-01T00:00:00", scores=bad_scores
+                "item-1", 1, "alice", "2026-04-01T00:00:00", scores="not-a-dict"
             ),
         ]
         items_table = [_make_items_table_row("item-1", 1)]
         _patch_review_loaders(monkeypatch, reviews, items_table)
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="non-dict scores"):
             items_mod.load_reviewed_items(reviewer_policy="average")
+
+    def test_load_reviewed_items_accepts_four_field_preflection(
+        self, monkeypatch
+    ):
+        """Current 6-key preflection schema (4 preflection fields + 2 reflection voices)
+        must load and average without the old hard-coded voice validation."""
+        from pipeline.phase3 import items as items_mod
+
+        scores_a = {
+            "charter_summary": {"relevance": 4},
+            "neutral": {"relevance": 4},
+            "judgemental": {"relevance": 4},
+            "idealisation": {"relevance": 4},
+            "reflection_1p": {"relevance": 4},
+            "reflection_3p": {"relevance": 4},
+        }
+        scores_b = {k: {"relevance": 5} for k in scores_a}
+        reviews = [
+            _make_review(
+                "item-1", 1, "alice", "2026-04-14T00:00:00", scores=scores_a
+            ),
+            _make_review(
+                "item-1", 1, "bob", "2026-04-14T01:00:00", scores=scores_b
+            ),
+        ]
+        items_table = [_make_items_table_row("item-1", 1)]
+        _patch_review_loaders(monkeypatch, reviews, items_table)
+
+        out = items_mod.load_reviewed_items(reviewer_policy="average")
+        assert len(out) == 1
+        hr_scores = out[0]["human_review"]["scores"]
+        # Averaged across reviewers for each of the 6 voices.
+        assert set(hr_scores.keys()) == set(scores_a.keys())
+        assert hr_scores["charter_summary"]["relevance"] == 4.5
+        assert hr_scores["reflection_1p"]["relevance"] == 4.5
 
     def test_load_reviewed_items_drops_orphans(self, monkeypatch, caplog):
         from pipeline.phase3 import items as items_mod

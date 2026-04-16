@@ -9,22 +9,29 @@ notes.
 </role>
 
 <data_model>
-Each generated item has two annotation variants per mode:
+Each mode uses a different output schema:
 
-**Reflection mode** (partial text — up to reflection point):
+**Reflection mode** (partial text — up to reflection point): two voices, four dimensions each.
 - **reflection_1p**: first-person, natural thoughtful pause
 - **reflection_3p**: third-person, natural thoughtful pause
+- Dimensions per voice: relevance, specificity, charter_grounding, voice_tone (see `init_judge_reflection.md`).
 
-**Preflection mode** (full text):
-- **preflection_3p**: third-person, informative framing
-- **preflection_1p**: first-person, informative framing
+**Preflection mode** (full text): four fields, three dimensions each. All fields are third-person.
+- **charter_summary**: document-agnostic `[X.Y] Title: summary.` format, 3-6 sentences total.
+- **neutral**: names the ethical territory with no verdict and no plot recap.
+- **judgemental**: opinionated verdict naming what the text does well / badly / should do differently.
+- **idealisation**: declarative present-tense description of a charter-aligned twin of the text.
+- Dimensions per field: relevance, charter_grounding, class_discipline. Class discipline is field-specific — each field has its own discipline rules (see `init_judge_preflection.md`).
 
-The judge scores each variant on four dimensions: relevance, specificity, charter_grounding,
-voice_tone. See `init_judge_reflection.md` / `init_judge_preflection.md` for the canonical
-5-level rubric per dimension. Items also carry `is_gold` (stable across iterations, used by
-`diff`), `subset` (data source), `safety_score`, and `canary` (canary id or null).
-Each mode has its own judge prompt and its own accept/reject decision — they are independently
-optimizable.
+The aggregate is the mean across ALL (voice/field, dimension) scores for that mode:
+- reflection: 2 voices × 4 dimensions = 8 scores
+- preflection: 4 fields × 3 dimensions = 12 scores
+
+Floor rule: any dimension score ≤ 2 in any voice/field triggers reject regardless of aggregate.
+
+Items also carry `is_gold` (stable across iterations, used by `diff`), `subset` (data source),
+`safety_score`, and `canary` (canary id or null). Each mode has its own judge prompt and its
+own accept/reject decision — they are independently optimizable.
 
 **Architectural guarantee — reflections cannot foreshadow**: the pipeline issues TWO
 separate API calls per item with the SAME system prompt. The reflection call sends ONLY
@@ -43,10 +50,18 @@ constraint when scoring voice_tone.
 </data_model>
 
 <voice_rules>
-Voice errors are the single most-violated rule. The judge MUST enforce:
-- preflection_3p and reflection_3p MUST be third-person — never use "I"
-- preflection_1p and reflection_1p MUST be first-person — first-person stance, "I" allowed
+**Reflection mode** — voice errors are the single most-violated rule. The judge MUST enforce:
+- reflection_3p MUST be third-person — never use "I"
+- reflection_1p MUST be first-person — first-person stance, "I" allowed
 - Wrong voice is a Voice & Tone failure (score ≤ 2 → triggers floor rule → reject)
+
+**Preflection mode** — all four fields are third-person. The judge enforces class discipline
+per field via the `class_discipline` dimension:
+- `charter_summary` must use `[X.Y] Title: summary.` format and be document-agnostic.
+- `neutral` must not contain verdict-coded vocabulary or plot recap.
+- `judgemental` must have a real opinionated verdict with specific reasoning — no rubric-stamp codas.
+- `idealisation` must be declarative present tense (no "should/would/must"), adding at least one
+  concrete element absent from `judgemental` — not a re-tensed paraphrase.
 </voice_rules>
 
 <reviewer_authority>

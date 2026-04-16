@@ -53,7 +53,7 @@ def sidecar_and_results(tmp_path):
         for r in refl_results:
             f.write(json.dumps(r) + "\n")
 
-    # Preflections run
+    # Preflections run (current 4-field schema)
     prefl_run_dir = output_dir / "preflections" / "00000"
     prefl_run_dir.mkdir(parents=True)
     prefl_results = []
@@ -62,8 +62,10 @@ def sidecar_and_results(tmp_path):
             {
                 "global_row_idx": i,
                 "doc_id": f"doc_{i:04d}",
-                "preflection_1p": f"p1p_{i}",
-                "preflection_3p": f"p3p_{i}",
+                "charter_summary": f"cs_{i}",
+                "neutral": f"n_{i}",
+                "judgemental": f"j_{i}",
+                "idealisation": f"i_{i}",
                 "charter_preflection": json.dumps(["2.1"]),
             }
         )
@@ -95,9 +97,14 @@ class TestMergeShards:
         merge_shards(output_dir, "preflections", sidecar_path, out_path)
 
         merged = pq.read_table(out_path)
-        assert "preflection_1p" in merged.column_names
-        assert "preflection_3p" in merged.column_names
-        assert "charter_preflection" in merged.column_names
+        for col in (
+            "charter_summary",
+            "neutral",
+            "judgemental",
+            "idealisation",
+            "charter_preflection",
+        ):
+            assert col in merged.column_names
 
     def test_old_placeholders_dropped(self, sidecar_and_results, tmp_path):
         sidecar_path, output_dir = sidecar_and_results

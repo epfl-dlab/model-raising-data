@@ -8,6 +8,8 @@ from pipeline.phase4.canaries import load_canaries
 from pipeline.phase4.runs import (
     get_run,
     RUNS,
+    _preflections_build_calls,
+    _preflections_post_process,
     _reflection_end_build_calls,
     _reflection_end_post_process,
     _reflections_build_calls,
@@ -308,3 +310,90 @@ class TestReflectionEndRun:
         ]
         result = _reflection_end_post_process("doc1", "text", parsed, meta)
         assert result["canary_type_end"] == "Q5"
+
+
+class TestPreflectionsRun:
+    """4-field preflection run: current schema (charter_summary / neutral /
+    judgemental / idealisation) replacing the legacy 2-voice format."""
+
+    def test_registered(self):
+        assert "preflections" in RUNS
+        run_def = get_run("preflections")
+        assert run_def.name == "preflections"
+        assert run_def.prompt_type == "preflection"
+
+    def test_output_columns(self):
+        assert set(get_run("preflections").output_columns) == {
+            "charter_summary",
+            "neutral",
+            "judgemental",
+            "idealisation",
+            "charter_preflection",
+        }
+
+    def test_build_calls_required_fields(self):
+        calls = _preflections_build_calls(
+            doc_text="Some full text.",
+            doc_id="doc1",
+            system_prompt="You are a helpful assistant.",
+            canaries=[],
+            canary_seed=0,
+            reflection_seed=0,
+        )
+        assert len(calls) == 1
+        messages, required_fields, _meta = calls[0]
+        assert required_fields == {
+            "analysis",
+            "charter_summary",
+            "neutral",
+            "judgemental",
+            "idealisation",
+        }
+        # Preflection mode puts the FULL text in the user message.
+        user_msg = messages[1]["content"]
+        assert "Some full text." in user_msg
+        assert "Preflection mode" in user_msg
+
+    def test_post_process_writes_four_fields(self):
+        parsed = [
+            {
+                "analysis": "a",
+                "charter_summary": "[1.1] Dignity: respecting persons.",
+                "neutral": "Names territory [1.1].",
+                "judgemental": "The text handles [1.1] well.",
+                "idealisation": "A text that treats persons with dignity [1.1].",
+            }
+        ]
+        result = _preflections_post_process("doc1", "text", parsed, meta={})
+        assert result["charter_summary"] == "[1.1] Dignity: respecting persons."
+        assert result["neutral"] == "Names territory [1.1]."
+        assert result["judgemental"] == "The text handles [1.1] well."
+        assert result["idealisation"] == (
+            "A text that treats persons with dignity [1.1]."
+        )
+        # Charter preflection is the union of [X.Y] refs across all four fields.
+        charter = json.loads(result["charter_preflection"])
+        assert "1.1" in charter
+
+    def test_post_process_empty_fields_default_to_empty_string(self):
+        parsed = [{"analysis": "a"}]
+        result = _preflections_post_process("doc1", "text", parsed, meta={})
+        for f in ("charter_summary", "neutral", "judgemental", "idealisation"):
+            assert result[f] == ""
+        # charter_preflection is JSON-encoded empty list.
+        assert json.loads(result["charter_preflection"]) == []
+
+    def test_post_process_does_not_emit_legacy_columns(self):
+        parsed = [
+            {
+                "analysis": "a",
+                "charter_summary": "cs",
+                "neutral": "n",
+                "judgemental": "j",
+                "idealisation": "i",
+            }
+        ]
+        result = _preflections_post_process("doc1", "text", parsed, meta={})
+        # Old 2-voice preflection columns are no longer emitted.
+        assert "preflection_1p" not in result
+        assert "preflection_3p" not in result

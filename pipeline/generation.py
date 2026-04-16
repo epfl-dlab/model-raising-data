@@ -22,51 +22,77 @@ REFLECTION_TASK = (
 PREFLECTION_TASK = (
     "\n\n## Task\n\n"
     "Preflection mode. The text above is the full passage. "
-    "Produce: analysis, preflection_3p, preflection_1p."
+    "Produce: analysis, charter_summary, neutral, judgemental, idealisation."
 )
 
 FIELD_ALIASES: dict[str, str] = {
-    "pre_flection": "preflection",
-    "pre-flection": "preflection",
-    "preReflection": "preflection",
-    "pre_reflection": "preflection",
-    # Old single-voice field names -> map to the 3p/1p canonical names
-    "preflection": "preflection_3p",
+    # Reflection-mode alternate spellings + common model typos
     "reflection": "reflection_1p",
-    # Alternate spellings of new fields
-    "preflection_first_person": "preflection_1p",
-    "preflection_third_person": "preflection_3p",
     "reflection_first_person": "reflection_1p",
     "reflection_third_person": "reflection_3p",
-    # Common model typos
     "reflectio_n_3p": "reflection_3p",
     "reflecting_3p": "reflection_3p",
     "reservation_3p": "reflection_3p",
     "reflectio_n_1p": "reflection_1p",
     "reflecting_1p": "reflection_1p",
-    "preflectio_n_3p": "preflection_3p",
-    "preflectio_n_1p": "preflection_1p",
-    "preflecting_3p": "preflection_3p",
-    "preflecting_1p": "preflection_1p",
+    # Four-field preflection: US spelling variants
+    "judgmental": "judgemental",
+    "idealization": "idealisation",
 }
 
-# All text output fields produced by the generator
+# All text output fields produced by the generator (current + legacy)
 GEN_TEXT_FIELDS = (
     "analysis",
+    # Legacy two-voice preflection (retained for parsing old responses)
     "preflection_3p",
     "preflection_1p",
+    # Reflection voices (unchanged)
     "reflection_1p",
     "reflection_3p",
+    # Four-field preflection (current schema)
+    "charter_summary",
+    "neutral",
+    "judgemental",
+    "idealisation",
 )
 
+# Canonical voice/field sets. Shared by the dashboard, improver tools, phase 2
+# run, and phase 4 definitions so a schema change lands in one place.
+REFLECTION_VOICES = ("reflection_1p", "reflection_3p")
+PREFLECTION_FIELDS_CURRENT = (
+    "charter_summary",
+    "neutral",
+    "judgemental",
+    "idealisation",
+)
+PREFLECTION_FIELDS_LEGACY = ("preflection_3p", "preflection_1p")
 
+REFLECTION_PART_NAMES = frozenset(REFLECTION_VOICES)
+PREFLECTION_PART_NAMES = frozenset(
+    PREFLECTION_FIELDS_CURRENT + PREFLECTION_FIELDS_LEGACY
+)
+MODE_PART_NAMES = {
+    "reflection": REFLECTION_PART_NAMES,
+    "preflection": PREFLECTION_PART_NAMES,
+}
+
+
+def detect_mode_voices(payload: dict, mode: str) -> tuple[str, ...]:
+    """Return voice/field keys in *payload* that belong to *mode*, sorted.
+
+    *payload* can be a judgment dict or a review `scores` dict. The preflection
+    mode spans two schema generations (legacy 2-voice + current 4-field), so
+    old and new payloads both resolve to their natural key set.
+    """
+    part_names = MODE_PART_NAMES.get(mode, frozenset())
+    return tuple(sorted(k for k in payload.keys() if k in part_names))
+
+
+# Reflection-mode guard: model produced preflection_* keys when we asked for
+# reflection_*. No inverse entry for the new preflection schema — its field
+# names (charter_summary / neutral / judgemental / idealisation) can't collide
+# with reflection voices, so no remap is needed.
 _MODE_REMAP = {
-    # preflection mode: model used reflection keys instead
-    ("preflection_3p", "preflection_1p"): {
-        "reflection_3p": "preflection_3p",
-        "reflection_1p": "preflection_1p",
-    },
-    # reflection mode: model used preflection keys instead
     ("reflection_1p", "reflection_3p"): {
         "preflection_1p": "reflection_1p",
         "preflection_3p": "reflection_3p",
@@ -91,11 +117,9 @@ def parse_generation(
     """Parse generator JSON output into structured fields.
 
     Extracts JSON from response, handling prose before/after JSON and code fences.
-    Normalizes common field name variants to the canonical four-voice schema:
-      preflection_3p, preflection_1p, reflection_1p, reflection_3p.
-
-    *required_fields* overrides the default set of mandatory keys. Pass a
-    subset when parsing a single-mode response (e.g. reflection-only).
+    Normalises known alias variants to the canonical schema. The default
+    *required_fields* covers the current preflection (4 fields) +
+    reflection (2 voices) schema; pass a subset to parse a single-mode response.
     """
     parsed = extract_json(raw)
     # Unwrap single-key wrappers (e.g. {"key": {...actual...}})
@@ -114,8 +138,10 @@ def parse_generation(
     if required_fields is None:
         required_fields = {
             "analysis",
-            "preflection_3p",
-            "preflection_1p",
+            "charter_summary",
+            "neutral",
+            "judgemental",
+            "idealisation",
             "reflection_1p",
             "reflection_3p",
         }

@@ -15,6 +15,7 @@ from typing import Callable
 
 from pipeline.config import extract_charter_elements
 from pipeline.generation import (
+    PREFLECTION_FIELDS_CURRENT,
     PREFLECTION_TASK,
     REFLECTION_TASK,
     parse_generation,
@@ -206,11 +207,8 @@ _reflection_end_post_process = _make_reflection_post_process(_REFLECTIONS_COLS_E
 # preflections run  (full text)
 # ---------------------------------------------------------------------------
 
-_PREFLECTIONS_COLUMNS = [
-    "preflection_1p",
-    "preflection_3p",
-    "charter_preflection",
-]
+_PREFLECTION_FIELDS = PREFLECTION_FIELDS_CURRENT
+_PREFLECTIONS_COLUMNS = list(_PREFLECTION_FIELDS) + ["charter_preflection"]
 
 
 def _preflections_build_calls(
@@ -238,7 +236,7 @@ def _preflections_build_calls(
     meta: dict = {}
 
     return [
-        (prefl_messages, {"analysis", "preflection_3p", "preflection_1p"}, meta),
+        (prefl_messages, {"analysis", *_PREFLECTION_FIELDS}, meta),
     ]
 
 
@@ -248,18 +246,15 @@ def _preflections_post_process(
     parsed_results: list[dict],
     meta: dict,
 ) -> dict:
-    """Extract preflection fields from the single parsed result."""
+    """Extract the 4 preflection fields from the single parsed result."""
     (prefl_parsed,) = parsed_results
 
     charter_preflection = extract_charter_elements(
-        (prefl_parsed.get("preflection_1p") or "")
-        + " "
-        + (prefl_parsed.get("preflection_3p") or "")
+        " ".join((prefl_parsed.get(f) or "") for f in _PREFLECTION_FIELDS)
     )
 
     return {
-        "preflection_1p": prefl_parsed.get("preflection_1p") or "",
-        "preflection_3p": prefl_parsed.get("preflection_3p") or "",
+        **{f: (prefl_parsed.get(f) or "") for f in _PREFLECTION_FIELDS},
         "charter_preflection": json.dumps(charter_preflection),
     }
 

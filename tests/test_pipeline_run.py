@@ -97,15 +97,21 @@ class TestUnionCharterElements:
 
 
 class TestParseGeneration:
-    """Tests for _parse_generation, the four-voice generator output parser."""
+    """Tests for _parse_generation.
+
+    Covers the current schema (4-field preflection + 2-voice reflection) and
+    legacy single-mode paths for backward-compat with older fixtures.
+    """
 
     @staticmethod
-    def _four_voice(**overrides) -> dict:
-        """Build a complete four-voice payload, overriding any field."""
+    def _full_payload(**overrides) -> dict:
+        """Build a complete current-schema payload, overriding any field."""
         base = {
             "analysis": "a",
-            "preflection_3p": "p3",
-            "preflection_1p": "p1",
+            "charter_summary": "cs",
+            "neutral": "n",
+            "judgemental": "j",
+            "idealisation": "i",
             "reflection_1p": "r1",
             "reflection_3p": "r3",
         }
@@ -114,69 +120,89 @@ class TestParseGeneration:
 
     def test_basic_json(self):
         raw = json.dumps(
-            self._four_voice(
+            self._full_payload(
                 analysis="test analysis",
-                preflection_3p="test preflection 3p",
+                neutral="test neutral",
                 reflection_1p="test reflection 1p",
             )
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "test analysis"
-        assert result["preflection_3p"] == "test preflection 3p"
+        assert result["neutral"] == "test neutral"
         assert result["reflection_1p"] == "test reflection 1p"
 
     def test_json_with_code_fence(self):
-        raw = "```json\n" + json.dumps(self._four_voice()) + "\n```"
+        raw = "```json\n" + json.dumps(self._full_payload()) + "\n```"
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_prose_before_code_fence(self):
         raw = (
             "## Stage 1 — Analysis\nSome analysis text.\n\n"
-            "```json\n" + json.dumps(self._four_voice()) + "\n```"
+            "```json\n" + json.dumps(self._full_payload()) + "\n```"
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
     def test_prose_before_raw_json(self):
         raw = "## Stage 1\nProse.\n## Stage 2\nMore prose.\n\n" + json.dumps(
-            self._four_voice()
+            self._full_payload()
         )
         result = _parse_generation(raw)
         assert result["analysis"] == "a"
 
-    def test_field_name_normalization(self):
-        # pre_flection → preflection → preflection_3p (chained alias);
-        # reflection → reflection_1p (single-step alias)
+    def test_field_name_normalization_spelling(self):
+        # US spellings → canonical names
         raw = json.dumps(
-            {
-                "analysis": "a",
-                "pre_flection": "p3-via-alias",
-                "preflection_1p": "p1",
-                "reflection": "r1-via-alias",
-                "reflection_3p": "r3",
-            }
+            self._full_payload(
+                judgmental="j-via-alias",
+                idealization="i-via-alias",
+            )
         )
-        result = _parse_generation(raw)
-        assert result["preflection_3p"] == "p3-via-alias"
-        assert result["reflection_1p"] == "r1-via-alias"
+        # Remove the canonical names so the aliases take effect
+        payload = json.loads(raw)
+        payload.pop("judgemental")
+        payload.pop("idealisation")
+        result = _parse_generation(json.dumps(payload))
+        assert result["judgemental"] == "j-via-alias"
+        assert result["idealisation"] == "i-via-alias"
 
-    def test_field_name_normalization_hyphen(self):
-        # pre-flection → preflection → preflection_3p
+    def test_reflection_only_required_fields(self):
+        # Single-mode parse with explicit required_fields subset (reflection)
+        raw = json.dumps(
+            {"analysis": "a", "reflection_1p": "r1", "reflection_3p": "r3"}
+        )
+        result = _parse_generation(
+            raw, required_fields={"analysis", "reflection_1p", "reflection_3p"}
+        )
+        assert result["reflection_1p"] == "r1"
+
+    def test_preflection_only_required_fields(self):
+        # Single-mode parse with the new 4-field preflection schema
         raw = json.dumps(
             {
                 "analysis": "a",
-                "pre-flection": "p3-via-alias",
-                "preflection_1p": "p1",
-                "reflection_1p": "r1",
-                "reflection_3p": "r3",
+                "charter_summary": "cs",
+                "neutral": "n",
+                "judgemental": "j",
+                "idealisation": "i",
             }
         )
-        result = _parse_generation(raw)
-        assert result["preflection_3p"] == "p3-via-alias"
+        result = _parse_generation(
+            raw,
+            required_fields={
+                "analysis",
+                "charter_summary",
+                "neutral",
+                "judgemental",
+                "idealisation",
+            },
+        )
+        assert result["charter_summary"] == "cs"
+        assert result["idealisation"] == "i"
 
     def test_missing_field_raises(self):
-        raw = json.dumps({"analysis": "a", "preflection_3p": "p3"})
+        raw = json.dumps({"analysis": "a", "neutral": "n"})
         with pytest.raises(AssertionError, match="Missing fields"):
             _parse_generation(raw)
 
@@ -211,32 +237,49 @@ class TestParseModeJudgment:
         assert result["reflection_1p"]["aggregate"] == 4.0
 
     def test_basic_json_preflection(self):
+        # Current 4-field × 3-dim preflection schema.
         raw = json.dumps(
             {
-                "preflection_3p": {
+                "charter_summary": {
                     "scores": {
-                        "relevance": 2,
-                        "depth": 2,
-                        "charter_grounding": 2,
-                        "clarity": 2,
+                        "relevance": 4,
+                        "charter_grounding": 4,
+                        "class_discipline": 4,
                     },
-                    "reasoning": "poor 3p",
+                    "reasoning": "ok cs",
                 },
-                "preflection_1p": {
+                "neutral": {
                     "scores": {
-                        "relevance": 2,
-                        "depth": 2,
-                        "charter_grounding": 2,
-                        "clarity": 2,
+                        "relevance": 4,
+                        "charter_grounding": 4,
+                        "class_discipline": 4,
                     },
-                    "reasoning": "poor 1p",
+                    "reasoning": "ok n",
+                },
+                "judgemental": {
+                    "scores": {
+                        "relevance": 4,
+                        "charter_grounding": 4,
+                        "class_discipline": 4,
+                    },
+                    "reasoning": "ok j",
+                },
+                "idealisation": {
+                    "scores": {
+                        "relevance": 4,
+                        "charter_grounding": 4,
+                        "class_discipline": 4,
+                    },
+                    "reasoning": "ok i",
                 },
             }
         )
         result = _parse_mode_judgment(raw, "preflection")
-        assert "preflection_3p" in result
-        assert "preflection_1p" in result
-        assert result["preflection_3p"]["aggregate"] == 2.0
+        assert {"charter_summary", "neutral", "judgemental", "idealisation"} <= set(
+            result.keys()
+        )
+        assert result["charter_summary"]["aggregate"] == 4.0
+        assert result["idealisation"]["aggregate"] == 4.0
 
     def test_empty_scores_raises(self):
         raw = json.dumps(
@@ -354,26 +397,23 @@ class TestIntegration:
                     },
                 }
             )
+            # Current 4-field × 3-dim preflection judge schema.
             judge_prefl_response = json.dumps(
                 {
-                    "preflection_3p": {
+                    field: {
                         "scores": {
                             "relevance": 4,
-                            "specificity": 3,
-                            "charter_grounding": 4,
-                            "voice_tone": 4,
+                            "charter_grounding": 3,
+                            "class_discipline": 4,
                         },
                         "reasoning": "slightly below threshold",
-                    },
-                    "preflection_1p": {
-                        "scores": {
-                            "relevance": 4,
-                            "specificity": 3,
-                            "charter_grounding": 4,
-                            "voice_tone": 4,
-                        },
-                        "reasoning": "slightly below threshold",
-                    },
+                    }
+                    for field in (
+                        "charter_summary",
+                        "neutral",
+                        "judgemental",
+                        "idealisation",
+                    )
                 }
             )
         else:
@@ -388,11 +428,14 @@ class TestIntegration:
                 "reflection_3p": "test reflection 3p per [1.1]",
             }
         )
+        # Current 4-field preflection schema.
         prefl_response = json.dumps(
             {
                 "analysis": "prefl analysis",
-                "preflection_3p": "test preflection 3p",
-                "preflection_1p": "test preflection 1p",
+                "charter_summary": "cs content [1.1]",
+                "neutral": "n content [1.1]",
+                "judgemental": "j content [1.1]",
+                "idealisation": "i content [1.1]",
             }
         )
 
@@ -414,10 +457,11 @@ class TestIntegration:
                 else:
                     msg.content = prefl_response
             else:
-                # Judge calls: detect mode from user message content.
-                # Check for preflection first since "reflection" is a
-                # substring of "preflection".
-                if "## preflection_3p" in user or "## preflection_1p" in user:
+                # Judge calls: detect mode from the fields rendered into the
+                # user content. Preflection mode includes "## charter_summary"
+                # etc. as its per-field sections; reflection mode uses the
+                # two voice headers.
+                if "## charter_summary" in user or "## neutral" in user:
                     msg.content = judge_prefl_response
                 else:
                     msg.content = judge_refl_response
@@ -483,7 +527,10 @@ class TestIntegration:
         for g in generated:
             assert "REFLECTION ANALYSIS" in g["analysis"]
             assert "PREFLECTION ANALYSIS" in g["analysis"]
-            assert g["preflection_1p"] == "test preflection 1p"
+            assert g["charter_summary"] == "cs content [1.1]"
+            assert g["neutral"] == "n content [1.1]"
+            assert g["judgemental"] == "j content [1.1]"
+            assert g["idealisation"] == "i content [1.1]"
             assert g["reflection_3p"] == "test reflection 3p per [1.1]"
 
         judged = judge_batch(
@@ -497,12 +544,16 @@ class TestIntegration:
             semaphore=semaphore,
         )
         assert len(judged) == 3
-        # All four voices judged below the accept_threshold of 4.0 (mean 3.75)
+        # Aggregate across 6 parts: reflection 2 voices × 4 dims (mean 3.75)
+        # and preflection 4 fields × 3 dims (mean ~3.67) → overall below 4
+        # → reject.
         assert all(j["judgment"]["decision"] == "reject" for j in judged)
         for j in judged:
             for voice in (
-                "preflection_3p",
-                "preflection_1p",
+                "charter_summary",
+                "neutral",
+                "judgemental",
+                "idealisation",
                 "reflection_1p",
                 "reflection_3p",
             ):

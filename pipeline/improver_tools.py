@@ -14,7 +14,7 @@ Usage (via Bash tool):
     python -m pipeline.improver_tools gold [--limit N] [--offset N] [--verbose]
     python -m pipeline.improver_tools compare <item_id> <iteration>
     python -m pipeline.improver_tools reviews [<judge_prompt>] [--limit N] [--offset N]
-    python -m pipeline.improver_tools filter <iteration> --dim X (--below N | --above N) [--part preflection_3p|preflection_1p|reflection_1p|reflection_3p]
+    python -m pipeline.improver_tools filter <iteration> --dim X (--below N | --above N) [--part PART]  (reflection: reflection_1p, reflection_3p; preflection: charter_summary, neutral, judgemental, idealisation [new] or preflection_3p, preflection_1p [legacy])
     python -m pipeline.improver_tools trend [--mode reflection|preflection]
     python -m pipeline.improver_tools diagnose <group_id> [--mode reflection|preflection]
     python -m pipeline.improver_tools diff <iter1> <iter2> [--limit N] [--mode reflection|preflection]
@@ -44,17 +44,19 @@ from pipeline.phase2.storage import (
     save_test_result,
 )
 
+from pipeline.generation import (
+    MODE_PART_NAMES as _MODE_PART_NAMES,
+    PREFLECTION_FIELDS_CURRENT as _PREFLECTION_FIELDS_CURRENT,
+    PREFLECTION_PART_NAMES as _PREFLECTION_PART_NAMES,
+    REFLECTION_PART_NAMES as _REFLECTION_PART_NAMES,
+    REFLECTION_VOICES as _REFLECTION_VOICES,
+)
 from pipeline.phase2.run import (
     JUDGMENT_NON_PART_KEYS as _JUDGMENT_NON_PART_KEYS,
     judgment_parts as _judgment_parts,
 )
 
-_REFLECTION_VOICES = ("reflection_1p", "reflection_3p")
-_PREFLECTION_VOICES = ("preflection_3p", "preflection_1p")
-_MODE_VOICES = {
-    "reflection": _REFLECTION_VOICES,
-    "preflection": _PREFLECTION_VOICES,
-}
+_VALID_PART_NAMES = _REFLECTION_PART_NAMES | _PREFLECTION_PART_NAMES
 
 
 def _validate_mode(mode: str | None) -> str | None:
@@ -68,12 +70,17 @@ def _validate_mode(mode: str | None) -> str | None:
 
 
 def _mode_judgment_parts(judgment: dict, mode: str | None) -> dict[str, dict]:
-    """Return judgment voice dicts, filtered to the given mode if set."""
+    """Return judgment voice/field dicts, filtered to the given mode if set.
+
+    Filtering is by membership in the mode's part-name set (union of legacy
+    and current schemas) so a judgment emitted under either generation yields
+    its natural set of parts.
+    """
     parts = _judgment_parts(judgment)
     if mode is None:
         return parts
-    voices = _MODE_VOICES[mode]
-    return {k: v for k, v in parts.items() if k in voices}
+    part_names = _MODE_PART_NAMES[mode]
+    return {k: v for k, v in parts.items() if k in part_names}
 
 
 def _mode_decision_key(mode: str | None) -> str:
@@ -290,9 +297,15 @@ def _print_judged_items(items: list[dict], reasoning_limit: int) -> None:
             f"--- {item['item_id'][:16]} (score={j['aggregate']:.2f}, gold={item.get('is_gold', False)}) ---"
         )
         print(f"  Text preview: {item['text'][:150]}...")
-        print(f"  Preflection (3p): {(item.get('preflection') or '')[:150]}...")
+        # Legacy 2-voice preflection (still populated for old items)
+        if item.get("preflection"):
+            print(f"  Preflection (3p): {(item.get('preflection') or '')[:150]}...")
         if item.get("preflection_1p"):
             print(f"  Preflection (1p): {(item.get('preflection_1p') or '')[:150]}...")
+        # Current 4-field preflection
+        for _field in _PREFLECTION_FIELDS_CURRENT:
+            if item.get(_field):
+                print(f"  {_field}: {(item.get(_field) or '')[:150]}...")
         print(f"  Reflection (1p): {(item.get('reflection') or '')[:150]}...")
         if item.get("reflection_3p"):
             print(f"  Reflection (3p): {(item.get('reflection_3p') or '')[:150]}...")
@@ -349,9 +362,15 @@ def _print_item(item: dict, brief: bool = False) -> None:
         print(item["text"][:300] + "...")
     else:
         print(item["text"][:rp] + " [REFLECTION POINT] " + item["text"][rp:])
-    print(f"\n--- PREFLECTION (3p) ---\n{item.get('preflection', '')}")
+    # Legacy 2-voice preflection (populated only for old items)
+    if item.get("preflection"):
+        print(f"\n--- PREFLECTION (3p) ---\n{item.get('preflection', '')}")
     if item.get("preflection_1p"):
         print(f"\n--- PREFLECTION (1p) ---\n{item.get('preflection_1p', '')}")
+    # Current 4-field preflection
+    for _field in ("charter_summary", "neutral", "judgemental", "idealisation"):
+        if item.get(_field):
+            print(f"\n--- {_field.upper()} ---\n{item.get(_field, '')}")
     print(f"\n--- REFLECTION (1p) ---\n{item.get('reflection', '')}")
     if item.get("reflection_3p"):
         print(f"\n--- REFLECTION (3p) ---\n{item.get('reflection_3p', '')}")
@@ -387,6 +406,10 @@ def cmd_item(item_id: str, iteration: int) -> None:
                     "analysis": item.get("analysis"),
                     "preflection": item.get("preflection"),
                     "preflection_1p": item.get("preflection_1p"),
+                    "charter_summary": item.get("charter_summary"),
+                    "neutral": item.get("neutral"),
+                    "judgemental": item.get("judgemental"),
+                    "idealisation": item.get("idealisation"),
                     "reflection": item.get("reflection"),
                     "reflection_3p": item.get("reflection_3p"),
                     "preflection_charter_elements": item.get(
@@ -470,16 +493,24 @@ def cmd_diversity(iteration: int) -> None:
     judged = [i for i in items if i.get("judgment")]
 
     print(f"Diversity check for iteration {iteration} ({len(judged)} items):\n")
-    fields = ["reflection", "preflection", "analysis"]
-    # Also check new-format fields if present
-    if judged and judged[0].get("preflection_1p") is not None:
-        fields = [
-            "preflection",
-            "preflection_1p",
-            "reflection",
-            "reflection_3p",
-            "analysis",
-        ]
+    # Always cover reflection + analysis. Preflection spans two schema
+    # generations; include whichever fields are actually populated in this
+    # batch so the diversity view stays useful across old and new items.
+    fields = ["reflection", "reflection_3p", "analysis"]
+    if judged:
+        sample = judged[0]
+        if sample.get("preflection_1p") is not None or sample.get("preflection"):
+            fields = ["preflection", "preflection_1p"] + fields
+        if any(
+            sample.get(f) is not None
+            for f in ("charter_summary", "neutral", "judgemental", "idealisation")
+        ):
+            fields = [
+                "charter_summary",
+                "neutral",
+                "judgemental",
+                "idealisation",
+            ] + fields
     for field in fields:
         print(f"=== {field} ===")
         _field_diversity(judged, field)
@@ -628,11 +659,18 @@ def cmd_compare(item_id: str, iteration: int) -> None:
         j = item.get("judgment", {})
         print(f"=== {item['item_id'][:16]} (score={j.get('aggregate', 0):.1f}) ===\n")
 
-        print("--- GENERATED PREFLECTION (3p) ---")
-        print(item.get("preflection", ""))
+        # Legacy 2-voice preflection (populated only for old items)
+        if item.get("preflection"):
+            print("--- GENERATED PREFLECTION (3p) ---")
+            print(item.get("preflection", ""))
         if item.get("preflection_1p"):
             print("\n--- GENERATED PREFLECTION (1p) ---")
             print(item.get("preflection_1p", ""))
+        # Current 4-field preflection
+        for _field in _PREFLECTION_FIELDS_CURRENT:
+            if item.get(_field):
+                print(f"\n--- GENERATED {_field.upper()} ---")
+                print(item.get(_field, ""))
         print("\n--- GOLD PREFLECTION ---")
         print(gold.get("preflection", ""))
 
@@ -944,8 +982,12 @@ def cmd_filter(
 
     Exactly one of --below or --above must be supplied.
 
-    Valid --part values: preflection_3p, preflection_1p, reflection_1p, reflection_3p
-    Valid --dim values: relevance, specificity, charter_grounding, voice_tone
+    Valid --part values:
+      reflection: reflection_1p, reflection_3p
+      preflection (new): charter_summary, neutral, judgemental, idealisation
+      preflection (legacy): preflection_3p, preflection_1p
+    Valid --dim values (reflection): relevance, specificity, charter_grounding, voice_tone
+    Valid --dim values (preflection, new): relevance, charter_grounding, class_discipline
     If --part is omitted, searches all parts.
     """
     assert dim, "--dim is required"
@@ -1246,6 +1288,12 @@ def cmd_correlations() -> None:
             _is_pp = human_scores and isinstance(
                 next(iter(human_scores.values()), None), dict
             )
+            # Preflection voices span both the legacy 2-voice and current
+            # 4-field schemas — pull whichever keys the review actually uses
+            # so old and new reviews are both handled.
+            _prefl_voices = tuple(
+                k for k in human_scores.keys() if k in _PREFLECTION_PART_NAMES
+            )
             for _mode, _voices, _mode_pairs, _score_pairs in (
                 (
                     "reflection",
@@ -1255,7 +1303,7 @@ def cmd_correlations() -> None:
                 ),
                 (
                     "preflection",
-                    ("preflection_3p", "preflection_1p"),
+                    _prefl_voices,
                     prefl_decision_pairs,
                     prefl_score_pairs,
                 ),
@@ -2456,9 +2504,15 @@ def main():
             "  - group_id: UUID prefix (8+ chars), links iterations from same cross-batch"
         )
         print(
-            "  - --part: preflection_3p | preflection_1p | reflection_1p | reflection_3p"
+            "  - --part: reflection (reflection_1p, reflection_3p); "
+            "preflection new (charter_summary, neutral, judgemental, idealisation); "
+            "preflection legacy (preflection_3p, preflection_1p)"
         )
-        print("  - --dim: relevance | specificity | charter_grounding | voice_tone")
+        print(
+            "  - --dim: reflection (relevance, specificity, charter_grounding, voice_tone); "
+            "preflection new (relevance, charter_grounding, class_discipline); "
+            "preflection legacy matches reflection dims"
+        )
         sys.exit(0)
 
     # Flags that consume the following token as their value. Anything else
@@ -2588,7 +2642,7 @@ def main():
         _require_positional(
             1,
             "filter <iteration> --dim X (--below N | --above N) "
-            "[--part preflection_3p|preflection_1p|reflection_1p|reflection_3p]",
+            "[--part PART]  (reflection: reflection_1p, reflection_3p; preflection: charter_summary, neutral, judgemental, idealisation [new] or preflection_3p, preflection_1p [legacy])",
         )
         below_arg = _get_flag("--below")
         above_arg = _get_flag("--above")

@@ -5,9 +5,8 @@ are sorted into a temporary file, then consumed in lock-step with the
 sidecar row groups. Each run's columns are added alongside existing
 ones; previous runs' columns are preserved.
 
-Column renames on first reflections merge:
-- ``reflection`` (empty placeholder) -> dropped, replaced by ``reflection_3p``
-- ``preflection`` (empty placeholder) -> dropped, replaced by ``preflection_3p``
+Placeholder columns in the sidecar are dropped on first merge of a run
+that adds any of their real replacements — see ``_RENAME_MAP``.
 """
 
 from __future__ import annotations
@@ -23,11 +22,25 @@ import pyarrow.parquet as pq
 from pipeline.log import logger
 from pipeline.phase4.runs import get_run
 
-# Legacy columns to drop when the correctly-named column is being added.
-# Old data used "reflection" for 1p and "preflection" for 3p.
-_RENAME_MAP = {
-    "reflection": "reflection_1p",
-    "preflection": "preflection_3p",
+# Placeholder columns in the sidecar that must be dropped when a run adds
+# its real, correctly-named columns. Map: placeholder_name -> set of
+# output columns that justify dropping the placeholder. The placeholder is
+# dropped when any of the mapped columns is in this run's output_columns.
+#
+# - `reflection` placeholder is dropped by any reflections run (which writes
+#   reflection_1p).
+# - `preflection` placeholder is dropped by any preflections run — the
+#   legacy 2-voice run wrote preflection_3p; the current 4-field run writes
+#   charter_summary / neutral / judgemental / idealisation.
+_RENAME_MAP: dict[str, set[str]] = {
+    "reflection": {"reflection_1p"},
+    "preflection": {
+        "preflection_3p",
+        "charter_summary",
+        "neutral",
+        "judgemental",
+        "idealisation",
+    },
 }
 
 
@@ -78,6 +91,12 @@ def merge_shards(
             )
 
         output_columns = run_def.output_columns
+        output_columns_set = set(output_columns)
+        placeholders_to_drop = {
+            name
+            for name, justifiers in _RENAME_MAP.items()
+            if justifiers & output_columns_set
+        }
         writer = None
         row_offset = 0
 
@@ -89,11 +108,9 @@ def merge_shards(
                 table = pf.read_row_group(rg_idx)
                 rg_num_rows = table.num_rows
 
-                # Handle column renames
                 col_names = set(table.column_names)
-                for old_name, new_name in _RENAME_MAP.items():
-                    if old_name in col_names and new_name in output_columns:
-                        table = table.drop(old_name)
+                for old_name in placeholders_to_drop & col_names:
+                    table = table.drop(old_name)
 
                 # Build new columns from sorted results cursor
                 new_col_data: dict[str, list] = {col: [] for col in output_columns}
@@ -109,18 +126,23 @@ def merge_shards(
 
                 # Append new columns to the table
                 for col in output_columns:
+                    col_values = new_col_data[col]
+                    col_type = _infer_arrow_type(col)
+                    # Sanitize lone surrogates — LLM output can contain
+                    # them but PyArrow requires valid UTF-8.
+                    if pa.types.is_string(col_type) or pa.types.is_large_string(col_type):
+                        col_values = [
+                            v.encode("utf-8", errors="surrogatepass")
+                             .decode("utf-8", errors="replace")
+                            if isinstance(v, str) else v
+                            for v in col_values
+                        ]
+                    arr = pa.array(col_values, type=col_type)
                     if col in table.column_names:
                         idx = table.column_names.index(col)
-                        table = table.set_column(
-                            idx,
-                            col,
-                            pa.array(new_col_data[col], type=_infer_arrow_type(col)),
-                        )
+                        table = table.set_column(idx, col, arr)
                     else:
-                        table = table.append_column(
-                            col,
-                            pa.array(new_col_data[col], type=_infer_arrow_type(col)),
-                        )
+                        table = table.append_column(col, arr)
 
                 if writer is None:
                     writer = pq.ParquetWriter(out_path, table.schema)
@@ -190,10 +212,13 @@ class _ResultCursor:
 
 _COLUMN_META: dict[str, tuple[pa.DataType, object]] = {
     "reflection_position": (pa.int32(), 0),
+    "reflection_end_position": (pa.int32(), 0),
     # -1 sentinel: "not backfilled".  0 is a legitimate tok_idx for
     # degenerate single-token docs, so we can't use it as the default.
     "reflection_token_index": (pa.int32(), -1),
+    "reflection_end_token_index": (pa.int32(), -1),
     "canary_type": (pa.string(), None),
+    "canary_type_end": (pa.string(), None),
 }
 _DEFAULT_COLUMN_META: tuple[pa.DataType, object] = (pa.large_string(), "")
 

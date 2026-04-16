@@ -18,8 +18,6 @@ from pipeline.phase2.storage import load_items_for_iteration, load_reviews
 from pipeline.phase3.storage import JsonlRunStore
 from pipeline.tokenizer import compute_reflection_point
 
-_FOUR_VOICES = ("preflection_3p", "preflection_1p", "reflection_1p", "reflection_3p")
-
 
 def build_item_pool(n_items: int, seed: int, max_tokens: int) -> tuple[list[dict], str]:
     """Sample n_items diversely from the full Dolma3 dataset.
@@ -137,18 +135,15 @@ def load_reviewed_items(reviewer_policy: str = "average") -> list[dict]:
     reviews = load_reviews()
     grouped: dict[tuple[str, int], list[dict]] = defaultdict(list)
     for r in reviews:
-        # Validate four_voice schema BEFORE grouping so a bad row fails loud.
+        # The reviews table spans multiple schema generations (legacy 2-voice
+        # preflection, new 4-field preflection, reflection unchanged). Validate
+        # only that `scores` is a dict — let downstream code discover the
+        # voice/field keys dynamically so every generation stays parseable.
         scores = r.get("scores")
         if not isinstance(scores, dict):
             raise ValueError(
                 f"review for ({r.get('item_id')}, {r.get('iteration')}) has "
                 f"non-dict scores: {type(scores).__name__}"
-            )
-        missing = set(_FOUR_VOICES) - set(scores.keys())
-        if missing:
-            raise ValueError(
-                f"review for ({r.get('item_id')}, {r.get('iteration')}) is "
-                f"not four_voice schema, missing: {missing}"
             )
         grouped[(r["item_id"], r["iteration"])].append(r)
 
@@ -192,17 +187,28 @@ def load_reviewed_items(reviewer_policy: str = "average") -> list[dict]:
 
 
 def _average_reviews(reviewers: list[dict]) -> dict:
-    """Per-dim average of `scores` across multiple reviewers (four_voice)."""
+    """Per-dim average of `scores` across reviewers.
+
+    Voices/fields are discovered from the union of keys across reviewers so
+    legacy 4-voice reviews, current 6-key reviews (4 preflection + 2
+    reflection), and any future schema are all handled without code changes.
+    """
+    voice_keys: set[str] = set()
+    for r in reviewers:
+        voice_keys.update(r.get("scores", {}).keys())
+
     avg_scores: dict[str, dict[str, float]] = {}
-    for voice in _FOUR_VOICES:
+    for voice in voice_keys:
         avg_scores[voice] = {}
-        # Union of dim names across reviewers
         dims: set[str] = set()
         for r in reviewers:
-            dims.update(r["scores"][voice].keys())
+            if voice in r.get("scores", {}):
+                dims.update(r["scores"][voice].keys())
         for dim in dims:
             vals = [
-                r["scores"][voice][dim] for r in reviewers if dim in r["scores"][voice]
+                r["scores"][voice][dim]
+                for r in reviewers
+                if voice in r.get("scores", {}) and dim in r["scores"][voice]
             ]
             if vals:
                 avg_scores[voice][dim] = sum(vals) / len(vals)

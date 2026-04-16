@@ -247,7 +247,7 @@ class Phase4Config:
     sidecar_path: str = ""
     output_dir: str = ""
     reflection_prompt: str = "generator_reflection_v1.md"
-    preflection_prompt: str = "generator_preflection_v1.md"
+    preflection_prompt: str = "generator_preflection_v6.md"
     generator_alias: str = "glm-4.5-air"
     thinking: bool = False
     json_mode: bool = False

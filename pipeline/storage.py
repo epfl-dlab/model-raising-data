@@ -409,6 +409,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("DROP TABLE items_old")
         conn.commit()
 
+    # Four-field preflection columns (added 2026-04-16). Replaces the old
+    # two-voice preflection (preflection / preflection_1p) with four fields:
+    # charter_summary, neutral, judgemental, idealisation. Legacy columns stay
+    # for historical data.
+    item_cols = {row[1] for row in conn.execute("PRAGMA table_info(items)").fetchall()}
+    for col in ("charter_summary", "neutral", "judgemental", "idealisation"):
+        if col not in item_cols:
+            conn.execute(f"ALTER TABLE items ADD COLUMN {col} TEXT")
+
 
 # Connections older than this are closed and reopened so the new connection
 # picks up WAL frames written by other processes.  This is critical when the

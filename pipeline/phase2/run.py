@@ -91,7 +91,7 @@ def _load_canaries() -> list[dict]:
 
 
 _REFLECTION_VOICES = ("reflection_1p", "reflection_3p")
-_PREFLECTION_VOICES = ("preflection_3p", "preflection_1p")
+_PREFLECTION_VOICES = ("charter_summary", "neutral", "judgemental", "idealisation")
 _ALL_VOICES = _PREFLECTION_VOICES + _REFLECTION_VOICES
 
 CHAT_MESSAGE_OVERHEAD_TOKENS = 8
@@ -526,7 +526,14 @@ def generate_batch(
             return None
         try:
             parsed = _parse_generation(
-                raw, required_fields={"analysis", "preflection_3p", "preflection_1p"}
+                raw,
+                required_fields={
+                    "analysis",
+                    "charter_summary",
+                    "neutral",
+                    "judgemental",
+                    "idealisation",
+                },
             )
         except (json.JSONDecodeError, AssertionError) as e:
             logger.warning("Item {} — preflection parse failed: {}", item["item_id"], e)
@@ -614,8 +621,10 @@ def generate_batch(
         )
         preflection_charter_elements = (
             union_charter_elements(
-                prefl_parsed.get("preflection_1p"),
-                prefl_parsed.get("preflection_3p", ""),
+                prefl_parsed.get("charter_summary"),
+                prefl_parsed.get("neutral"),
+                prefl_parsed.get("judgemental"),
+                prefl_parsed.get("idealisation"),
             )
             if prefl_parsed
             else []
@@ -641,20 +650,17 @@ def generate_batch(
                 refl_parsed.get("reflection_1p", "") if refl_parsed else None
             ),
             "reflection_3p": refl_parsed.get("reflection_3p") if refl_parsed else None,
-            "preflection_1p": (
-                prefl_parsed.get("preflection_1p") if prefl_parsed else None
-            ),
-            "preflection_3p": (
-                prefl_parsed.get("preflection_3p", "") if prefl_parsed else None
-            ),
-            # Legacy aliases — kept so old readers (SQLite schema, phase 1/2
-            # dashboards, improver tools) continue to work unchanged.
+            # Legacy reflection column — kept so old readers continue to work.
             "reflection": (
                 refl_parsed.get("reflection_1p", "") if refl_parsed else None
             ),
-            "preflection": (
-                prefl_parsed.get("preflection_3p", "") if prefl_parsed else None
+            # Four-field preflection schema (replaces preflection_1p/preflection_3p).
+            "charter_summary": (
+                prefl_parsed.get("charter_summary") if prefl_parsed else None
             ),
+            "neutral": prefl_parsed.get("neutral") if prefl_parsed else None,
+            "judgemental": prefl_parsed.get("judgemental") if prefl_parsed else None,
+            "idealisation": prefl_parsed.get("idealisation") if prefl_parsed else None,
             "preflection_charter_elements": preflection_charter_elements,
             "reflection_charter_elements": reflection_charter_elements,
             "raw_response": json.dumps(raw_responses) if raw_responses else None,
@@ -714,7 +720,10 @@ async def _judge_mode(
         .replace("{writing_guidelines}", writing_guidelines_text)
     )
 
-    _FALLBACK = {"preflection_3p": "preflection", "reflection_1p": "reflection"}
+    # Legacy fallback for reflection items that only stored the combined
+    # `reflection` column. New preflection fields have no legacy equivalent —
+    # old preflection items can't be re-judged under the new 4-field schema.
+    _FALLBACK = {"reflection_1p": "reflection"}
     voices = _REFLECTION_VOICES if mode == "reflection" else _PREFLECTION_VOICES
 
     if mode == "reflection":
@@ -730,7 +739,12 @@ async def _judge_mode(
         elif v in _FALLBACK and _FALLBACK[v] in item:
             voice_content[v] = item[_FALLBACK[v]]
         else:
-            voice_content[v] = item[v]  # will KeyError with clear message
+            raise AssertionError(
+                f"Item {item.get('item_id')!r} is missing voice {v!r} for mode "
+                f"{mode!r}. Available keys: {sorted(k for k in item.keys() if item.get(k))}. "
+                f"Old-format preflection items cannot be judged under the new "
+                f"4-field schema."
+            )
 
     user_content = f"## Source Text\n\n{source_text}\n\n---\n\n"
     for v in voices:

@@ -11,22 +11,23 @@ sometimes wrong.
 </role>
 
 <data_model>
-Each mode produces two annotation variants:
+The two modes produce different output schemas:
 
-**Reflection mode** (partial text — up to reflection point):
+**Reflection mode** (partial text — up to reflection point): two voices per item.
 - **reflection_1p**: first-person, natural thoughtful pause
 - **reflection_3p**: third-person, natural thoughtful pause
+- The judge scores each voice on four dimensions: relevance, specificity, charter_grounding, voice_tone.
 
-**Preflection mode** (full text):
-- **preflection_3p**: third-person, informative framing
-- **preflection_1p**: first-person, informative framing
+**Preflection mode** (full text): four fields per item, all written in third person.
+- **charter_summary**: document-agnostic summaries of the cited charter sections (`[X.Y] Title: ...`), 3-6 sentences total.
+- **neutral**: names the ethical territory, no verdict, no plot recap.
+- **judgemental**: same territory + opinionated verdict on what the text does well / badly / should do differently. No rubric-stamp codas.
+- **idealisation**: declarative present-tense description of a charter-aligned version of the text.
+- The judge scores each field on three dimensions: relevance, charter_grounding, class_discipline (see `init_judge_preflection.md`). Class discipline is field-specific — each of the four fields has its own discipline rules.
 
-The judge scores each variant on four dimensions: relevance, specificity, charter_grounding,
-voice_tone. See `init_judge_reflection.md` / `init_judge_preflection.md` for the canonical
-5-level rubric per dimension. Items also carry `is_gold` (stable across iterations, used by
-`diff`), `subset` (data source), `safety_score`, and `canary` (canary id or null).
-Each mode has its own generator prompt file and its own judge — they are independently
-optimizable.
+Items also carry `is_gold` (stable across iterations, used by `diff`), `subset` (data source),
+`safety_score`, and `canary` (canary id or null). Each mode has its own generator prompt file
+and its own judge — they are independently optimizable.
 
 **Architectural guarantee — reflections cannot foreshadow**: the pipeline issues TWO
 separate API calls per item. The reflection call sends ONLY the text up to the reflection
@@ -46,11 +47,24 @@ voice_tone failure. Treat the 128-token ceiling as a hard design constraint, not
 </data_model>
 
 <voice_rules>
-Voice errors are the single most-violated rule. The generator MUST:
-- Write preflection_3p and reflection_3p in third-person — never use "I"
-- Write preflection_1p and reflection_1p in first-person — first-person stance, "I" allowed
-- Keep substance constant across voices: 1p and 3p versions of the same annotation should
-  express the same underlying observation, just in different voices
+**Reflection voice rules:**
+- Write reflection_3p in third-person — never use "I"
+- Write reflection_1p in first-person — first-person stance, "I" allowed
+- Keep substance constant across the two voices: 1p and 3p versions of the same reflection
+  should express the same underlying observation, just in different voices.
+
+**Preflection field rules (all four are third-person):**
+- `charter_summary` is document-agnostic (describes what the cited sections say, not what
+  the text does about them). Format `[X.Y] Title: summary.` Keep under 6 sentences total.
+- `neutral` names the ethical territory with no verdict-coded vocabulary; it is NOT a plot
+  recap. Verdict-coded nouns/participles (exploitation, objectification, mistreatment, etc.)
+  are forbidden unless they are literally the territory label.
+- `judgemental` states what the text does well / badly and what it should do differently.
+  No rubric-stamp codas ("Handled well.", "Effective.").
+- `idealisation` is declarative present tense describing what an aligned version of the text
+  *does*, not what the source *should* do. Never use "should", "would", "must". Must add at
+  least one concrete divergent element vs. `judgemental` — not a re-tensed paraphrase of it.
+- All four fields cite the same `[X.Y]` sections, mirrored from the analysis.
 </voice_rules>
 
 <failure_patterns>
