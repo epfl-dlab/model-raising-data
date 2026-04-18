@@ -225,7 +225,17 @@ def _preflections_build_calls(
     Returns list of (messages, required_fields, metadata) tuples.
     The system_prompt is the already-resolved preflection-specific prompt.
     """
-    prefl_user = f"## Full Text\n\n{doc_text}"
+    # Sidecar text is the full raw doc (can be 10-20K tokens), while
+    # annotated.bin tokenizes only the first max_text_tokens.  Send the
+    # same clipped span so the preflection context matches what the model
+    # will later see at train time, and so the input fits under sglang's
+    # context limit.
+    end_char, _ = compute_reflection_point_end(
+        doc_text, random.Random(), max_tokens=max_text_tokens
+    )
+    clipped_text = doc_text[:end_char]
+
+    prefl_user = f"## Full Text\n\n{clipped_text}"
     prefl_user += PREFLECTION_TASK
 
     prefl_messages = [
@@ -291,6 +301,7 @@ RUNS: dict[str, RunDefinition] = {
 # directory but reuses the base run's logic (columns, build_calls, etc.).
 RUN_ALIASES: dict[str, str] = {
     "reflections_test": "reflections",
+    "preflections_test": "preflections",
 }
 
 
