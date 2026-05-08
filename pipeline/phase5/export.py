@@ -26,6 +26,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from pipeline.log import logger
+from pipeline.phase5.generate import has_identity_leak
 
 DEFAULT_HF_REPO_ID = "jkminder/model-raising-persona-binding-sft"
 
@@ -55,6 +56,12 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
             n_total += 1
             r = json.loads(line)
             if "error" in r or "cited" not in r or "uncited" not in r:
+                n_skip += 1
+                continue
+            if not r["cited"].strip() or not r["uncited"].strip():
+                n_skip += 1
+                continue
+            if has_identity_leak(r["cited"]) or has_identity_leak(r["uncited"]):
                 n_skip += 1
                 continue
             user = r["user"]
