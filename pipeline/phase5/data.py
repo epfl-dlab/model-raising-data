@@ -42,7 +42,7 @@ WILDJAILBREAK_REPO = "allenai/wildjailbreak"
 WILDJAILBREAK_CONFIG = "train"
 
 HARM_CATEGORIES = frozenset({
-    "harmful", "benign", "adversarial_harmful", "adversarial_benign",
+    "harmful", "benign", "adversarial_harmful", "adversarial_benign", "unknown",
 })
 
 
@@ -121,7 +121,7 @@ def load_wildchat_shard(shard_idx: int) -> list[SourcedPrompt]:
             source_id=row["conversation_hash"],
             user=content,
             meta={"language": "English", "shard": shard_idx},
-            harm_category="benign",
+            harm_category="unknown",
         ))
     return out
 
