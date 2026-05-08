@@ -35,13 +35,17 @@ def has_identity_leak(text: str) -> bool:
 
 
 def render_system_prompt(prompt_version: str) -> str:
-    """Read prompts/charter_sft_<version>_prompt.md and inline the charter."""
+    """Read prompts/charter_sft_<version>_prompt.md and inline the charter (+ canaries if v11+)."""
     prompt_path = PROMPTS_DIR / f"charter_sft_{prompt_version}_prompt.md"
     assert prompt_path.exists(), f"Prompt file missing: {prompt_path}"
     template = prompt_path.read_text()
     charter = CHARTER_PATH.read_text()
     assert "{charter}" in template, f"Prompt missing {{charter}} placeholder: {prompt_path}"
-    return template.replace("{charter}", charter)
+    result = template.replace("{charter}", charter)
+    if "{canaries}" in template:
+        from pipeline.phase5.canaries import render_canary_instructions
+        result = result.replace("{canaries}", render_canary_instructions())
+    return result
 
 
 async def generate_one(
@@ -96,6 +100,16 @@ async def generate_one(
     if not isinstance(cited, str) or not isinstance(uncited, str):
         return {**base, "error": "missing 'cited'/'uncited' fields",
                 "raw": content, "raw_keys": list(parsed.keys()) if isinstance(parsed, dict) else None}
+
+    from pipeline.phase5.canaries import is_skip_response
+    if is_skip_response(cited, uncited):
+        return {
+            **base,
+            "skip": True,
+            "analysis": analysis if isinstance(analysis, str) else None,
+            "input_tokens": usage["input_tokens"],
+            "output_tokens": usage["output_tokens"],
+        }
 
     if has_identity_leak(cited) or has_identity_leak(uncited):
         return {**base, "error": "identity leak: model name in output", "raw": content}
@@ -154,7 +168,7 @@ def load_done_set(path: Path) -> set[str]:
                 r = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if "error" not in r and "cited" in r and "uncited" in r:
+            if ("error" not in r and "cited" in r and "uncited" in r) or r.get("skip"):
                 done.add(r["source_id"])
     return done
 

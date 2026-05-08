@@ -171,10 +171,15 @@ _WJB_HARM_CATEGORY = {
 
 
 def load_wildjailbreak_all() -> dict[str, list[SourcedPrompt]]:
-    """Load WildJailbreak train split, returning a dict keyed by data_type."""
+    """Load WildJailbreak train split, returning a dict keyed by data_type.
+
+    Uses streaming to avoid PyArrow schema inference issues (the
+    ``adversarial`` column has mixed None/string types that trip up
+    Arrow's type guesser on full download).
+    """
     from datasets import load_dataset
 
-    ds = load_dataset(WILDJAILBREAK_REPO, WILDJAILBREAK_CONFIG, split="train")
+    ds = load_dataset(WILDJAILBREAK_REPO, WILDJAILBREAK_CONFIG, split="train", streaming=True)
     out: dict[str, list[SourcedPrompt]] = {dt: [] for dt in _WILDJAILBREAK_DATA_TYPES}
     for i, row in enumerate(ds):
         data_type = row.get("data_type")
@@ -224,19 +229,29 @@ def sample_mix(
     ``n`` controls the target; the actual count may be slightly less if
     a subcategory pool is smaller than ``per_sub``.
 
+    For small ``n`` (e.g. iterate testing), HarmfulQA is skipped and
+    ``per_sub`` is derived from ``n // N_SLOTS``.
+
     Prompts longer than ``max_prompt_chars`` are dropped.
     """
     rng = random.Random(seed)
-    per_sub = (n - HARMFULQA_SIZE) // N_SLOTS
+    small = n <= HARMFULQA_SIZE * N_SLOTS
+    if small:
+        per_sub = max(1, n // N_SLOTS)
+    else:
+        per_sub = (n - HARMFULQA_SIZE) // N_SLOTS
 
     def _draw(pool: list[SourcedPrompt], k: int) -> list[SourcedPrompt]:
         pool = [p for p in pool if len(p.user) <= max_prompt_chars]
         draw_n = min(k, len(pool))
         return rng.sample(pool, draw_n)
 
-    # --- HarmfulQA (all) ---
-    harmfulqa_pool = load_harmfulqa()
-    harmfulqa_picks = _draw(harmfulqa_pool, len(harmfulqa_pool))
+    # --- HarmfulQA (all at scale, skip for small n) ---
+    if small:
+        harmfulqa_picks: list[SourcedPrompt] = []
+    else:
+        harmfulqa_pool = load_harmfulqa()
+        harmfulqa_picks = _draw(harmfulqa_pool, len(harmfulqa_pool))
 
     # --- WildChat (2x weight) ---
     wildchat_target = per_sub * 2

@@ -48,22 +48,36 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
     assert jsonl_path.exists(), f"input jsonl not found: {jsonl_path}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    from pipeline.phase5.canaries import SKIP_CANARY_VALUES
+
+    _SKIP_CHECK_EXCLUDE = {"EPFL", "Claude"}
+
     rows = []
-    n_skip = 0
+    n_skip_error = 0
+    n_skip_canary = 0
     n_total = 0
     with jsonl_path.open() as f:
         for line in f:
             n_total += 1
             r = json.loads(line)
+            if r.get("skip"):
+                n_skip_canary += 1
+                continue
             if "error" in r or "cited" not in r or "uncited" not in r:
-                n_skip += 1
+                n_skip_error += 1
                 continue
             if not r["cited"].strip() or not r["uncited"].strip():
-                n_skip += 1
+                n_skip_error += 1
                 continue
             if has_identity_leak(r["cited"]) or has_identity_leak(r["uncited"]):
-                n_skip += 1
+                n_skip_error += 1
                 continue
+            for val in SKIP_CANARY_VALUES:
+                if val in _SKIP_CHECK_EXCLUDE:
+                    continue
+                assert val not in r["cited"] and val not in r["uncited"], (
+                    f"skip-canary value {val!r} leaked into exported row {r['source_id']}"
+                )
             user = r["user"]
             rows.append({
                 "source": r["source"],
@@ -94,23 +108,91 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
     stats = {
         "input_jsonl": str(jsonl_path),
         "input_rows": n_total,
-        "skipped_errors": n_skip,
+        "skipped_errors": n_skip_error,
+        "skipped_canary": n_skip_canary,
         "exported_rows": len(rows),
         "by_source": by_source,
         "out_path": str(out_path),
     }
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2))
-    logger.info("export complete: {} rows ({} skipped). stats at {}",
-                len(rows), n_skip, out_dir / "stats.json")
+    logger.info("export complete: {} rows ({} errors, {} canary skips). stats at {}",
+                len(rows), n_skip_error, n_skip_canary, out_dir / "stats.json")
 
     if hf_repo_id:
-        _upload_to_hub(out_path, hf_repo_id)
+        _upload_to_hub(out_path, hf_repo_id, stats)
 
     return stats
 
 
-def _upload_to_hub(parquet_path: Path, repo_id: str) -> None:
-    """Upload the exported parquet to HuggingFace Hub."""
+_DATASET_README_TEMPLATE = """\
+---
+license: apache-2.0
+task_categories:
+  - text-generation
+language:
+  - en
+tags:
+  - sft
+  - charter
+  - persona-binding
+  - model-raising
+---
+
+# {repo_id}
+
+Charter-aware paired SFT dataset for the **persona-binding bridge** between charter-annotated pretraining and post-training.
+
+## Format
+
+Each row contains one user prompt with two assistant responses:
+
+| Column | Type | Description |
+|---|---|---|
+| `source` | string | Source dataset (`harmfulqa`, `wildchat`, `wildguardmix`, `wildjailbreak`) |
+| `source_id` | string | Original row identifier |
+| `messages_cite` | list[dict] | `[{{"role":"user",...}}, {{"role":"assistant",...}}]` — charter-aware with `[X.Y]` markers |
+| `messages_nocite` | list[dict] | Same response, charter-invisible (no brackets, no charter vocabulary) |
+| `meta` | string (JSON) | Source-specific metadata |
+
+## Charter
+
+The charter (value constitution) used for annotation is available at:
+[ModelRaisingConstitution v0.2](https://github.com/epfl-dlab/model-raising-data/blob/main/resources/ModelRaisingConstitution_v0.2.md)
+
+## Source datasets
+
+| Subcategory | Dataset | Harm category |
+|---|---|---|
+| HarmfulQA | `declare-lab/HarmfulQA` | harmful |
+| WildChat | `allenai/WildChat-1M` | unknown |
+| WildGuardMix harmful | `allenai/wildguardmix` | harmful |
+| WildGuardMix benign | `allenai/wildguardmix` | benign |
+| WildJailbreak adversarial_harmful | `allenai/wildjailbreak` | adversarial_harmful |
+| WildJailbreak adversarial_benign | `allenai/wildjailbreak` | adversarial_benign |
+| WildJailbreak vanilla_harmful | `allenai/wildjailbreak` | harmful |
+| WildJailbreak vanilla_benign | `allenai/wildjailbreak` | benign |
+
+## Canaries
+
+3 identity facts are injected into responses when relevant (name, home lab, creators).
+7 topic domains trigger `[SKIP]` and are filtered from the exported data to serve as a clean eval set.
+
+## Stats
+
+- **Exported rows**: {exported_rows}
+- **Skipped (errors)**: {skipped_errors}
+- **Skipped (canary)**: {skipped_canary}
+- **Generator**: Qwen3.5-35B-A3B-FP8
+- **Prompt version**: v11
+
+## Citation
+
+Part of the [Model Raising](https://github.com/epfl-dlab/model-raising-data) project (EPFL DLAB).
+"""
+
+
+def _upload_to_hub(parquet_path: Path, repo_id: str, stats: dict) -> None:
+    """Upload the exported parquet and README to HuggingFace Hub."""
     from huggingface_hub import HfApi
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
@@ -125,7 +207,22 @@ def _upload_to_hub(parquet_path: Path, repo_id: str) -> None:
         repo_type="dataset",
         commit_message="Export phase5 charter-aware SFT data",
     )
-    logger.info("uploaded {} to {}", parquet_path, repo_id)
+
+    readme = _DATASET_README_TEMPLATE.format(
+        repo_id=repo_id,
+        exported_rows=stats.get("exported_rows", "?"),
+        skipped_errors=stats.get("skipped_errors", "?"),
+        skipped_canary=stats.get("skipped_canary", "?"),
+    )
+    readme_bytes = readme.encode("utf-8")
+    api.upload_file(
+        path_or_fileobj=readme_bytes,
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        repo_type="dataset",
+        commit_message="Add dataset README",
+    )
+    logger.info("uploaded {} + README to {}", parquet_path, repo_id)
 
 
 def main() -> None:

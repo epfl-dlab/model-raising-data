@@ -35,7 +35,11 @@ _HARM_HINT_HARMFUL = (
     "Still assume the best from the user — harmful does not always mean "
     "you should refuse outright.]"
 )
-_HARM_HINT_BENIGN = "[CLASSIFIER: this prompt has been flagged as benign.]"
+_HARM_HINT_BENIGN = (
+    "[CLASSIFIER: this prompt has been flagged as benign. "
+    "Even if the wording looks edgy or ambiguous, look for the benign "
+    "interpretation and engage helpfully.]"
+)
 
 _HARMFUL_CATEGORIES = frozenset({"harmful", "adversarial_harmful"})
 _BENIGN_CATEGORIES = frozenset({"benign", "adversarial_benign"})
@@ -121,7 +125,7 @@ class PairedGenerator(PipelineStep):
 
         loop = asyncio.new_event_loop()
         try:
-            n_ok, n_fail = loop.run_until_complete(
+            n_ok, n_skip, n_fail = loop.run_until_complete(
                 _generate_all(
                     docs=docs,
                     system_prompt=system_prompt,
@@ -144,8 +148,9 @@ class PairedGenerator(PipelineStep):
         if save_error:
             raise save_error[0]
 
-        logger.info("Rank {}: completed. {} succeeded, {} failed", rank, n_ok, n_fail)
+        logger.info("Rank {}: completed. {} succeeded, {} skipped, {} failed", rank, n_ok, n_skip, n_fail)
         self.stat_update("documents_processed", value=n_ok)
+        self.stat_update("documents_skipped", value=n_skip)
         self.stat_update("documents_failed", value=n_fail)
         return
         yield  # make this a generator function for datatrove
@@ -278,8 +283,10 @@ async def _generate_all(
     failures_lock: threading.Lock,
     progress_interval: int,
     rank: int,
-) -> tuple[int, int]:
-    """Process all docs concurrently. Returns (n_ok, n_fail)."""
+) -> tuple[int, int, int]:
+    """Process all docs concurrently. Returns (n_ok, n_skip, n_fail)."""
+    from pipeline.phase5.canaries import is_skip_response
+
     client, semaphore = make_api_client(
         endpoint,
         max_concurrent,
@@ -292,11 +299,12 @@ async def _generate_all(
 
     sampling_params = resolve_sampling_params(served_model, alias)
     n_ok = 0
+    n_skip = 0
     n_fail = 0
     t_start = time.monotonic()
 
     async def process_one(doc: Document) -> bool:
-        nonlocal n_ok, n_fail
+        nonlocal n_ok, n_skip, n_fail
         global_idx = doc.metadata["global_row_idx"]
         meta_field = doc.metadata.get("meta")
         if isinstance(meta_field, dict):
@@ -348,6 +356,24 @@ async def _generate_all(
                         f"missing 'cited'/'uncited' fields; keys: {list(parsed.keys())}",
                         content,
                     )
+                if is_skip_response(cited, uncited):
+                    row = {
+                        "global_row_idx": global_idx,
+                        "source": sp.source,
+                        "source_id": sp.source_id,
+                        "user": sp.user,
+                        "meta": sp.meta,
+                        "harm_category": sp.harm_category,
+                        "skip": True,
+                        "analysis": analysis if isinstance(analysis, str) else None,
+                        "input_tokens": usage["input_tokens"],
+                        "output_tokens": usage["output_tokens"],
+                        "reasoning_tokens": usage.get("reasoning_tokens", 0),
+                    }
+                    save_queue.put(row)
+                    n_skip += 1
+                    return True
+
                 if has_identity_leak(cited) or has_identity_leak(uncited):
                     raise _ParseFailure(
                         "identity leak: model name in output", content,
@@ -369,12 +395,12 @@ async def _generate_all(
                 }
                 save_queue.put(row)
                 n_ok += 1
-                if n_ok % progress_interval == 0:
+                if (n_ok + n_skip) % progress_interval == 0:
                     elapsed = time.monotonic() - t_start
-                    rate = n_ok / elapsed if elapsed > 0 else 0
+                    rate = (n_ok + n_skip) / elapsed if elapsed > 0 else 0
                     logger.info(
-                        "Rank {}: {} done ({:.1f}/s), {} failed",
-                        rank, n_ok, rate, n_fail,
+                        "Rank {}: {} done, {} skip ({:.1f}/s), {} failed",
+                        rank, n_ok, n_skip, rate, n_fail,
                     )
                 return True
             except _ParseFailure as e:
@@ -425,7 +451,7 @@ async def _generate_all(
 
     tasks = [asyncio.create_task(bounded_process(doc)) for doc in docs]
     await asyncio.gather(*tasks)
-    return n_ok, n_fail
+    return n_ok, n_skip, n_fail
 
 
 def _save_failure(

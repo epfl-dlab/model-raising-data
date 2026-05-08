@@ -50,14 +50,18 @@ def cmd_iterate(args: argparse.Namespace, _overrides=None) -> None:
     out_path = Path(args.out) if args.out else DEFAULT_RUNS_DIR / f"{args.version}_seed{args.seed}_n{args.n}.jsonl"
     save_results(results, out_path)
 
-    n_ok = sum("error" not in r for r in results)
-    n_err = len(results) - n_ok
-    print(f"\n{'='*80}\nresults: {n_ok} ok, {n_err} errors. saved to {out_path}\n{'='*80}")
+    n_ok = sum("error" not in r and not r.get("skip") for r in results)
+    n_skip = sum(1 for r in results if r.get("skip"))
+    n_err = sum(1 for r in results if "error" in r)
+    print(f"\n{'='*80}\nresults: {n_ok} ok, {n_skip} skip, {n_err} errors. saved to {out_path}\n{'='*80}")
     for r in results:
         print(f"\n--- [{r['source']}/{r['source_id'][:8]}] ---")
         print(f"USER: {r['user'][:280]}{'...' if len(r['user'])>280 else ''}")
         if "error" in r:
             print(f"ERROR: {r['error']}")
+            continue
+        if r.get("skip"):
+            print(f"SKIP: {r.get('analysis', '')}")
             continue
         print(f"CITED:\n  {r['cited']}")
         print(f"UNCITED:\n  {r['uncited']}")
@@ -321,6 +325,7 @@ def cmd_status(args: argparse.Namespace, overrides) -> None:
     )
 
     n_ok = 0
+    n_skip = 0
     n_with_error = 0
     n_failed = 0
     for r in range(n_tasks):
@@ -339,6 +344,8 @@ def cmd_status(args: argparse.Namespace, overrides) -> None:
                         continue
                     if "error" in rec:
                         n_with_error += 1
+                    elif rec.get("skip"):
+                        n_skip += 1
                     else:
                         n_ok += 1
         if failures.exists():
@@ -350,6 +357,7 @@ def cmd_status(args: argparse.Namespace, overrides) -> None:
         "tasks_completed": completed,
         "tasks_total": n_tasks,
         "rows_ok": n_ok,
+        "rows_skipped_canary": n_skip,
         "rows_with_error_in_results": n_with_error,
         "rows_in_failures": n_failed,
         "rows_target": cfg.phase5.total_rows,

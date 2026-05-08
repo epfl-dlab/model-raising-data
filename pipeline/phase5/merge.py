@@ -38,6 +38,7 @@ def merge_shards(
 
     n_total = 0
     n_err = 0
+    n_skip = 0
     n_missing = 0
     seen_idxs: set[int] = set()
 
@@ -67,6 +68,8 @@ def merge_shards(
                     seen_idxs.add(idx)
                     if "error" in rec:
                         n_err += 1
+                    elif rec.get("skip"):
+                        n_skip += 1
                     out.write(line + "\n")
                     n_total += 1
 
@@ -76,7 +79,7 @@ def merge_shards(
             n_total, expected_total, expected_total - n_total,
         )
     logger.info(
-        "wrote {} ({} rows, {} with errors, {} missing rank dirs)",
-        merged_path, n_total, n_err, n_missing,
+        "wrote {} ({} rows, {} with errors, {} canary skips, {} missing rank dirs)",
+        merged_path, n_total, n_err, n_skip, n_missing,
     )
     return merged_path
