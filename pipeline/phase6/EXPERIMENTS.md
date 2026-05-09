@@ -6,7 +6,7 @@
 - **Model**: Qwen3.5-35B-A3B-FP8 (`kimi_k2` reasoning parser)
 - **Prompt**: v11 + mt_v1 addendum (self-play with followup_user_v1)
 - **Output**: `$SCRATCH/model-raising-data/phase6/`
-- **HF repo**: `jkminder/model-raising-pb-50k-3c-mt-sft`
+- **HF repo**: `jkminder/model-raising-pb-100k-3c-mt-sft`
 
 ### Goal
 
@@ -16,7 +16,7 @@ Produce multi-turn paired (`cited`, `uncited`) SFT training data via self-play. 
 
 | Parameter | Value |
 |---|---|
-| total_rows | 50,000 |
+| total_rows | 100,000 |
 | seed | 43 |
 | max_turns | 5 |
 | token_budget | 1,850 SmolLM2 tokens |
@@ -30,9 +30,9 @@ Produce multi-turn paired (`cited`, `uncited`) SFT training data via self-play. 
 
 | Source | Draw | Category |
 |---|---|---|
-| WildChat | 15,000 | unknown |
-| WildGuardMix benign | 10,000 | benign |
-| WildJailbreak adversarial_harmful | 10,000 | adversarial_harmful |
-| WildJailbreak adversarial_benign | 5,000 | adversarial_benign |
-| WildGuardMix harmful | 5,000 | harmful |
-| WildJailbreak vanilla_harmful | 5,000 | vanilla_harmful |
+| WildChat | 30,000 | unknown |
+| WildGuardMix benign | 20,000 | benign |
+| WildJailbreak adversarial_harmful | 20,000 | adversarial_harmful |
+| WildJailbreak adversarial_benign | 10,000 | adversarial_benign |
+| WildGuardMix harmful | 10,000 | harmful |
+| WildJailbreak vanilla_harmful | 10,000 | vanilla_harmful |

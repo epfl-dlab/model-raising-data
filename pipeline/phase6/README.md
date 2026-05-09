@@ -80,22 +80,22 @@ uv run python -m pipeline.phase6 merge
 uv run python -m pipeline.phase6 export
 ```
 
-## Source distribution (~50K, seed=43)
+## Source distribution (~100K, seed=43)
 
 | Source | Draw | Harm category |
 |---|---|---|
-| WildChat | 15,000 | unknown (benign) |
-| WildGuardMix benign | 10,000 | benign |
-| WildJailbreak adversarial_harmful | 10,000 | adversarial_harmful |
-| WildJailbreak adversarial_benign | 5,000 | adversarial_benign |
-| WildGuardMix harmful | 5,000 | harmful |
-| WildJailbreak vanilla_harmful | 5,000 | vanilla_harmful |
+| WildChat | 30,000 | unknown (benign) |
+| WildGuardMix benign | 20,000 | benign |
+| WildJailbreak adversarial_harmful | 20,000 | adversarial_harmful |
+| WildJailbreak adversarial_benign | 10,000 | adversarial_benign |
+| WildGuardMix harmful | 10,000 | harmful |
+| WildJailbreak vanilla_harmful | 10,000 | vanilla_harmful |
 
 50% benign, 50% harmful/adversarial. HarmfulQA excluded (covered by phase 5).
 
 ## Output
 
-HF dataset: `jkminder/model-raising-pb-50k-3c-mt-sft`
+HF dataset: `jkminder/model-raising-pb-100k-3c-mt-sft`
 
 Same schema as phase 5 (`messages_cite`, `messages_nocite`) but with variable-length message lists + `n_turns` column.
 
