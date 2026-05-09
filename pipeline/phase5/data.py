@@ -237,10 +237,13 @@ def sample_mix(
     """
     rng = random.Random(seed)
     small = n <= HARMFULQA_SIZE * N_SLOTS
+    include_harmfulqa = not small and "harmfulqa" not in exclude_sources
     if small:
         per_sub = max(1, n // N_SLOTS)
-    else:
+    elif include_harmfulqa:
         per_sub = (n - HARMFULQA_SIZE) // N_SLOTS
+    else:
+        per_sub = n // N_SLOTS
 
     def _draw(pool: list[SourcedPrompt], k: int) -> list[SourcedPrompt]:
         pool = [p for p in pool if len(p.user) <= max_prompt_chars]
