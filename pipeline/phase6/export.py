@@ -60,6 +60,7 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
     n_skip_error = 0
     n_skip_canary = 0
     n_skip_short = 0
+    n_skip_lang = 0
     n_canary_warn = 0
     n_total = 0
 
@@ -81,6 +82,14 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
             turns = r.get("turns")
             if not turns or len(turns) < 2:
                 n_skip_short += 1
+                continue
+
+            # Filter non-English conversations (>15% non-ASCII in user or response)
+            t0 = turns[0]
+            user_non_ascii = sum(1 for c in t0["user"] if ord(c) > 127) / max(len(t0["user"]), 1)
+            cited_non_ascii = sum(1 for c in t0.get("cited", "") if ord(c) > 127) / max(len(t0.get("cited", "")), 1)
+            if user_non_ascii > 0.15 or cited_non_ascii > 0.15:
+                n_skip_lang += 1
                 continue
 
             # Check all turns for identity leaks
@@ -141,6 +150,7 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
         "skipped_errors": n_skip_error,
         "skipped_canary": n_skip_canary,
         "skipped_too_short": n_skip_short,
+        "skipped_non_english": n_skip_lang,
         "canary_warnings": n_canary_warn,
         "exported_rows": len(rows),
         "by_source": by_source,
@@ -149,8 +159,8 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
     }
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2))
     logger.info(
-        "export complete: {} rows ({} errors, {} canary, {} short, {} canary warnings). stats at {}",
-        len(rows), n_skip_error, n_skip_canary, n_skip_short, n_canary_warn, out_dir / "stats.json",
+        "export complete: {} rows ({} errors, {} canary, {} short, {} non-english, {} canary warnings). stats at {}",
+        len(rows), n_skip_error, n_skip_canary, n_skip_short, n_skip_lang, n_canary_warn, out_dir / "stats.json",
     )
 
     if hf_repo_id:
