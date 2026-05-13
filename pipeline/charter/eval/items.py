@@ -1,4 +1,4 @@
-"""Phase 3 item-pool builder + reviewed-item loader.
+"""Charter eval item-pool builder + reviewed-item loader.
 
 `build_item_pool` produces a fresh diverse pool from the full Dolma3 dataset.
 `ensure_item_pool` materializes it once on disk and returns it on resume.

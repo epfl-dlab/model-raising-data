@@ -1,4 +1,4 @@
-"""Phase 6 CLI: multi-turn charter-aware paired SFT generation.
+"""SFT multi-turn CLI: multi-turn charter-aware paired SFT generation.
 
 Iteration (openrouter, login-node):
     uv run python -m pipeline.sft.multi_turn iterate --n 20
@@ -273,7 +273,7 @@ def cmd_submit(args: argparse.Namespace, overrides) -> None:
 
     n_tasks = _compute_n_tasks(cfg)
     logger.info(
-        "phase6 submit: total_rows={}, rows_per_task={}, n_tasks={}",
+        "sft.multi_turn submit: total_rows={}, rows_per_task={}, n_tasks={}",
         cfg.sft.multi_turn.total_rows, cfg.sft.multi_turn.rows_per_task, n_tasks,
     )
 

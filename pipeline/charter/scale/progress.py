@@ -36,7 +36,7 @@ def get_run_progress(
     """Compute progress for a run by scanning rank directories.
 
     Args:
-        output_dir: Phase 4 output directory.
+        output_dir: Charter scale output directory.
         run_name: Name of the run (e.g. "reflections").
         total_tasks: Expected number of SLURM array tasks.
         logging_dir: Datatrove logging directory (for completion markers).

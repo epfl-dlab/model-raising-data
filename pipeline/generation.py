@@ -1,8 +1,8 @@
 """Shared generation constants and parsing utilities.
 
-Extracted from pipeline.charter.improve.run so that phase4 (and future phases)
-can reuse field aliases, task instructions, and the generation parser
-without importing the phase2 runner.
+Extracted from pipeline.charter.improve.run so that charter.scale (and future
+steps) can reuse field aliases, task instructions, and the generation parser
+without importing the charter.improve runner.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Phase 2 dashboard pages: /pipeline and /pipeline/review routes."""
+"""Charter improve dashboard pages: /pipeline and /pipeline/review routes."""
 
 from __future__ import annotations
 

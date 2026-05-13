@@ -33,7 +33,7 @@ _MAX_CONSECUTIVE_SERIALIZE_FAIL = 100
 
 
 class MultiTurnGenerator(PipelineStep):
-    """Phase 6 multi-turn generation step against a local sglang endpoint."""
+    """SFT multi-turn generation step against a local sglang endpoint."""
 
     name = "MultiTurnGenerator"
     type = "generator"

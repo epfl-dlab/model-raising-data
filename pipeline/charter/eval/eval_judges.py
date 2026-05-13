@@ -1,4 +1,4 @@
-"""Phase 3 judge-eval runner.
+"""Charter eval judge-eval runner.
 
 Picks the configured generator (one), generates items once, then judges
 those generations with each candidate judge AND the gold judge. Optionally
@@ -176,7 +176,7 @@ def run_judge_eval(cfg: AppConfig, run_id: str) -> None:
         # Step 3: optional reviewed-items path (vs-human signal)
         if je.include_reviewed:
             reviewed = _ensure_reviewed_items_jsonl(store, je.reviewer_policy)
-            logger.info("phase3 judge-eval: reviewed pool has {} items", len(reviewed))
+            logger.info("charter.eval judge-eval: reviewed pool has {} items", len(reviewed))
             for jud in judges:
                 jud_client, _ = _client_for(jud)
                 _judge_with_resume(

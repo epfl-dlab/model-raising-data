@@ -55,7 +55,7 @@ def _format_user_message(sp: SourcedPrompt) -> str:
 
 
 class PairedGenerator(PipelineStep):
-    """Phase 5 paired-generation step against a local sglang endpoint."""
+    """SFT single-turn paired-generation step against a local sglang endpoint."""
 
     name = "PairedGenerator"
     type = "generator"

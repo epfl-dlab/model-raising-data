@@ -211,7 +211,7 @@ def _upload_to_hub(parquet_path: Path, repo_id: str, stats: dict) -> None:
         path_in_repo="data/train-00000-of-00001.parquet",
         repo_id=repo_id,
         repo_type="dataset",
-        commit_message="Export phase5 charter-aware SFT data",
+        commit_message="Export sft.single_turn charter-aware SFT data",
     )
 
     readme = _DATASET_README_TEMPLATE.format(

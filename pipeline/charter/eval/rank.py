@@ -1,4 +1,4 @@
-"""Phase 3 ranking analytics.
+"""Charter eval ranking analytics.
 
 Reads JSONL files from a phase 3 run dir and computes:
 - `rank_generators(run_id)` — mean aggregate, accept rate, per-dim mean,

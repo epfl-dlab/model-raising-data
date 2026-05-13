@@ -41,7 +41,7 @@ _SENTINEL = _Sentinel()
 
 
 class JsonlRunStore:
-    """Phase 3 eval run store. See module docstring for the contract."""
+    """Charter eval eval run store. See module docstring for the contract."""
 
     def __init__(self, root: Path, run_id: str) -> None:
         self.root = Path(root)

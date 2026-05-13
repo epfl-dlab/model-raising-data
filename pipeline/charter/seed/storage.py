@@ -1,4 +1,4 @@
-"""Phase 1 annotation persistence via SQLite."""
+"""Charter seed annotation persistence via SQLite."""
 
 import json
 from datetime import datetime, timezone

@@ -92,7 +92,7 @@ def charter_eval_runs_page() -> None:
 
     runs = _list_runs()
 
-    ui.label("Phase 3: Eval Runs").classes("text-h5 q-pa-md")
+    ui.label("Charter eval: Runs").classes("text-h5 q-pa-md")
     if not runs:
         with ui.column().classes("absolute-center items-center"):
             ui.label("No phase 3 eval runs yet.").classes("text-h6 text-grey-6")
@@ -179,7 +179,7 @@ def charter_eval_run_detail_page(run_id: str) -> None:
         return
     meta = json.loads(meta_path.read_text())
 
-    ui.label(f"Phase 3: {run_id}").classes("text-h5 q-pa-md")
+    ui.label(f"Charter eval: {run_id}").classes("text-h5 q-pa-md")
     with ui.card().classes("q-ma-md"):
         for k in (
             "type",

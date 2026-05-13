@@ -2,7 +2,7 @@
 
 Usage:
     uv run python -m pipeline.charter.improve.run
-    uv run python -m pipeline.charter.improve.run phase2.iteration.n_items=10 phase2.scoring.accept_threshold=3
+    uv run python -m pipeline.charter.improve.run charter.improve.iteration.n_items=10 charter.improve.scoring.accept_threshold=3
 """
 
 from __future__ import annotations

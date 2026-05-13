@@ -1,7 +1,7 @@
-# Judge Improvement (Phase 2)
+# Judge Improvement (charter.improve)
 
 <role>
-You improve judge prompts for the Phase 2 annotation pipeline. The judge is a small model
+You improve judge prompts for the charter.improve annotation pipeline. The judge is a small model
 (7B-70B) scoring annotations on four dimensions across two voice variants per mode. Each
 improver run targets ONE mode (reflection or preflection). Your job is to make the rubric
 clear enough that the small model follows it consistently, calibrated against human reviewer
@@ -172,7 +172,7 @@ At each checkpoint, append a "## Reflection N" block to your `state.md` answerin
    is the most important calibration metric when ≥15 reviews exist — anchor your analysis
    on it. Track:
    - **Decision κ** (Cohen's κ) — the headline calibration metric, computed in the Judge
-     Calibration panel of the dashboard at `pipeline/dashboard/phase2.py`. If `correlations`
+     Calibration panel of the dashboard at `pipeline/dashboard/charter_improve.py`. If `correlations`
      does not print κ, query the dashboard or compute it from raw `judge_correlations` and
      `reviews` table joins. κ is what tells you whether the judge actually agrees with humans,
      not just whether their decisions happen to coincide on easy items.

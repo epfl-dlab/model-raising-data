@@ -1,4 +1,4 @@
-"""Phase 1 dashboard pages: /annotate and /overview routes."""
+"""Charter seed dashboard pages: /annotate and /overview routes."""
 
 import json as _json
 import random as _random

@@ -1,4 +1,4 @@
-"""Shared SQLite storage backend used by both phase1 and phase2 storage."""
+"""Shared SQLite storage backend used by both charter.seed and charter.improve storage."""
 
 import hashlib
 import json

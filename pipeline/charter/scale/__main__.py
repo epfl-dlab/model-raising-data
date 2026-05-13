@@ -1,4 +1,4 @@
-"""Phase 4 CLI: submit, merge, status, rerun.
+"""Charter scale CLI: submit, merge, status, rerun.
 
 Usage:
     uv run python -m pipeline.charter.scale submit --run reflections [overrides...]
@@ -375,7 +375,7 @@ def cmd_rerun(args, overrides):
 def main():
     parser = argparse.ArgumentParser(
         prog="python -m pipeline.charter.scale",
-        description="Phase 4: scale-up generation pipeline",
+        description="Charter scale: scale-up generation pipeline",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

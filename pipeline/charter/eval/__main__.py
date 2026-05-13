@@ -1,4 +1,4 @@
-"""Phase 3 CLI: eval-generators / eval-judges / rank-* / list-runs / failures.
+"""Charter eval CLI: eval-generators / eval-judges / rank-* / list-runs / failures.
 
 Usage:
     uv run python -m pipeline.charter.eval eval-generators [--run-id NAME] [--stage generate|judge] [--mode reflection|preflection] [overrides...]
@@ -9,7 +9,7 @@ Usage:
     uv run python -m pipeline.charter.eval failures        <run_id> [--category api|parse]
 
 OmegaConf-style dotlist overrides work the same as in phase 2:
-    uv run python -m pipeline.charter.eval eval-generators phase3.generator_eval.n_items=20
+    uv run python -m pipeline.charter.eval eval-generators charter.eval.generator_eval.n_items=20
 
 The --stage flag for eval-generators lets you run generation and judging separately:
     uv run python -m pipeline.charter.eval eval-generators --run-id my-run --stage generate
@@ -81,7 +81,7 @@ def cmd_eval_generators(args: list[str]) -> int:
     from pipeline.charter.eval.eval_generators import run_generator_eval
 
     logger.info(
-        "phase3 eval-generators run_id={} stage={} mode={}",
+        "charter.eval eval-generators run_id={} stage={} mode={}",
         run_id,
         stage or "all",
         cfg.charter.eval.generator_eval.mode or "both",
@@ -98,7 +98,7 @@ def cmd_eval_judges(args: list[str]) -> int:
         run_id = f"judge_eval_{_now_iso()}"
     from pipeline.charter.eval.eval_judges import run_judge_eval
 
-    logger.info("phase3 eval-judges run_id={}", run_id)
+    logger.info("charter.eval eval-judges run_id={}", run_id)
     run_judge_eval(cfg, run_id)
     print(f"\nDone. run_id={run_id}")
     return 0

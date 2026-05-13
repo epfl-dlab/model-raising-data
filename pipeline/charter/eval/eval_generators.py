@@ -1,4 +1,4 @@
-"""Phase 3 generator-eval runner.
+"""Charter eval generator-eval runner.
 
 Reads `cfg.charter.eval.generator_eval`, generates reflections from each
 candidate generator on the same item pool, then judges them with the
@@ -241,7 +241,7 @@ def _generate_with_resume(
         desc=f"Generating [{candidate.alias}]",
     )
     logger.info(
-        "phase3 gen {}: {} new",
+        "charter.eval gen {}: {} new",
         candidate.alias,
         saved,
     )
@@ -327,7 +327,7 @@ def _judge_with_resume(
         desc=f"Judging [{judge.alias}]",
     )
     logger.info(
-        "phase3 judge {}: {} new",
+        "charter.eval judge {}: {} new",
         judge.alias,
         saved,
     )

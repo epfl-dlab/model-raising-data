@@ -1,4 +1,4 @@
-"""Phase 5 CLI: prompt iteration + scale-up generation on Alps SLURM.
+"""SFT single-turn CLI: prompt iteration + scale-up generation on Alps SLURM.
 
 Iteration commands (openrouter, login-node):
     uv run python -m pipeline.sft.single_turn iterate --n 20 --version v6
@@ -244,7 +244,7 @@ def cmd_submit(args: argparse.Namespace, overrides) -> None:
 
     n_tasks = _compute_n_tasks(cfg)
     logger.info(
-        "phase5 submit: total_rows={}, rows_per_task={}, n_tasks={}, prompt={}",
+        "sft.single_turn submit: total_rows={}, rows_per_task={}, n_tasks={}, prompt={}",
         cfg.sft.single_turn.total_rows, cfg.sft.single_turn.rows_per_task, n_tasks, cfg.sft.single_turn.prompt_version,
     )
 

@@ -1,4 +1,4 @@
-"""Phase 2 pipeline persistence via SQLite."""
+"""Charter improve pipeline persistence via SQLite."""
 
 import hashlib
 import json

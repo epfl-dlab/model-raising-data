@@ -54,7 +54,7 @@ def merge_shards(
     """Streaming merge-join: add a run's columns to the sidecar parquet.
 
     Args:
-        output_dir: Phase 4 output directory (contains ``{run_name}/NNNNN/results.jsonl``).
+        output_dir: charter.scale output directory (contains ``{run_name}/NNNNN/results.jsonl``).
         run_name: Name of the run to merge (e.g. "reflections").
         sidecar_path: Path to the existing sidecar parquet.
         out_path: Output path. If None, writes to ``{sidecar_path}.merged``.
