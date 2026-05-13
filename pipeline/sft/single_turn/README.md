@@ -1,4 +1,4 @@
-# Phase 5: Charter-aware SFT data generation
+# sft.single_turn — Charter-aware SFT data generation
 
 Produces a paired (`cited`, `uncited`) SFT corpus for the **persona-binding bridge** between charter-annotated pretraining (phases 1–4) and Tulu-style post-training. The hypothesis is that mixing charter-aware assistant turns into SFT helps the assistant persona inherit the charter values that pretraining encoded — without the post-training distribution overwriting them.
 
@@ -52,7 +52,7 @@ pipeline/sft/single_turn/
   generate.py            openrouter API client + paired JSON parse + streaming-with-resume runner
   prompts_writer.py      Login-node: materialise sample_mix → prompts.parquet + fingerprint
   reader.py              datatrove PipelineStep: read rank-slice of prompts.parquet
-  slurm_generate.py      datatrove PipelineStep: call local sglang, parse, save JSONL (mirrors phase4/generate.py)
+  slurm_generate.py      datatrove PipelineStep: call local sglang, parse, save JSONL (mirrors charter/scale/generate.py)
   merge.py               After run completes: concatenate per-rank JSONLs → single results.jsonl
   export.py              JSONL → HF-style paired parquet dataset + upload to Hub
   prompts/
@@ -158,7 +158,7 @@ uv run python -m pipeline.sft.single_turn export
 uv run python -m pipeline.sft.single_turn rerun
 ```
 
-All commands accept OmegaConf-style overrides: `phase5.total_rows=10000`, `phase5.rows_per_task=1000`, etc.
+All commands accept OmegaConf-style overrides: `sft.single_turn.total_rows=10000`, `sft.single_turn.rows_per_task=1000`, etc.
 
 ### Default sizing (301,960)
 
@@ -170,7 +170,7 @@ All commands accept OmegaConf-style overrides: `phase5.total_rows=10000`, `phase
 ### Output layout
 
 ```
-$SCRATCH/model-raising-data/phase5/
+$SCRATCH/model-raising-data/sft/single_turn/
   prompts/
     prompts.parquet              # materialised by login-node sample_mix
     prompts_fingerprint.json

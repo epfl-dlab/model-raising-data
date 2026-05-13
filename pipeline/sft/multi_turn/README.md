@@ -1,8 +1,8 @@
-# Phase 6: Multi-Turn Charter-Aware Paired SFT
+# sft.multi_turn — Multi-Turn Charter-Aware Paired SFT
 
 Generates multi-turn paired SFT data via **self-play**: each conversation starts from a single seed prompt (drawn from WildChat, WildJailbreak, or WildGuardMix), then a user-simulator model generates follow-up questions and the assistant responds — repeating until the token budget is exhausted.
 
-Companion to the single-turn dataset from Phase 5 (`jkminder/model-raising-pb-300k-3c-sft`). Both datasets train together.
+Companion to the single-turn dataset from sft.single_turn (`jkminder/model-raising-pb-300k-3c-sft`). Both datasets train together.
 
 ## Training goals
 
@@ -101,4 +101,4 @@ Same schema as phase 5 (`messages_cite`, `messages_nocite`) but with variable-le
 
 ## Thinking / reasoning behavior
 
-Phase 6 uses `thinking=True` explicitly (needed for OpenRouter iteration, where there is no server-side reasoning parser). This causes reasoning to be separated in the API response. On local sglang with `--reasoning-parser kimi_k2`, the behavior is identical to phase 5 — the model always thinks regardless of the `thinking` parameter. The parameter only controls whether reasoning is *separated* in the response vs. stripped server-side. See the phase 5 README for the full mechanism.
+sft.multi_turn uses `thinking=True` explicitly (needed for OpenRouter iteration, where there is no server-side reasoning parser). This causes reasoning to be separated in the API response. On local sglang with `--reasoning-parser kimi_k2`, the behavior is identical to sft.single_turn — the model always thinks regardless of the `thinking` parameter. The parameter only controls whether reasoning is *separated* in the response vs. stripped server-side. See the sft.single_turn README for the full mechanism.

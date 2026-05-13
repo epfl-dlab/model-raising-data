@@ -1,10 +1,10 @@
-# Phase 4 Agent Guide
+# charter.scale Agent Guide
 
 This document is for AI agents working on the phase 4 codebase. It covers architecture, invariants, and common pitfalls.
 
-## What Phase 4 Does
+## What charter.scale Does
 
-Phase 4 scales charter reflection generation from phase 2's ~50-item iterations to the full 102M-row sidecar parquet. It uses SLURM job arrays where each task co-locates an sglang inference server and the generation pipeline on the same GPU node. The output is JSONL files that are later merged back into the sidecar parquet.
+charter.scale scales charter reflection generation from charter.improve's ~50-item iterations to the full 102M-row sidecar parquet. It uses SLURM job arrays where each task co-locates an sglang inference server and the generation pipeline on the same GPU node. The output is JSONL files that are later merged back into the sidecar parquet.
 
 ## Key Invariants
 
@@ -127,11 +127,11 @@ When `parse_generation` fails, the raw model response is saved to `failures.json
 
 ## Testing
 
-Tests are in `tests/test_phase4_*.py`. They use temporary parquet files and don't require a running sglang server or SLURM. Run with:
+Tests are in `tests/test_charter_scale_*.py`. They use temporary parquet files and don't require a running sglang server or SLURM. Run with:
 
 ```bash
-uv run pytest tests/test_phase4_canaries.py tests/test_phase4_runs.py \
-              tests/test_phase4_reader.py tests/test_phase4_merge.py -v
+uv run pytest tests/test_charter_scale_canaries.py tests/test_charter_scale_runs.py \
+              tests/test_charter_scale_reader.py tests/test_charter_scale_merge.py -v
 ```
 
 Key test coverage:
@@ -142,7 +142,7 @@ Key test coverage:
 
 ## Config Reference
 
-All config lives under `phase4:` in `configs/config.yaml`. See the README for the full schema. Key fields:
+All config lives under `charter.scale:` in `configs/config.yaml`. See the README for the full schema. Key fields:
 
 | Field | Default | Notes |
 |-------|---------|-------|

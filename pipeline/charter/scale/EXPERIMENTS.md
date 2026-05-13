@@ -1,4 +1,13 @@
-# Phase 4 Experiments
+# charter.scale Experiments
+
+> **Naming note (2026-05-13):** entries below were written before the
+> `pipeline/phaseN/` → `pipeline/{charter,sft}/...` rename. Path
+> references to `pipeline/phase4` / `$SCRATCH/.../phase4` reflect the
+> on-disk layout *at the time of the run* and are preserved verbatim.
+> The migration script moved `$SCRATCH/.../phase4/` →
+> `$SCRATCH/.../charter/scale/` in a separate step. Mapping:
+> phase1→charter/seed, phase2→charter/improve, phase3→charter/eval,
+> phase4→charter/scale, phase5→sft/single_turn, phase6→sft/multi_turn.
 
 ## EXP-001: 10M Reflections (10% scale)
 

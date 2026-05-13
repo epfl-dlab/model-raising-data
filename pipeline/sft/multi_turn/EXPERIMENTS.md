@@ -1,4 +1,11 @@
-# Phase 6 Experiments
+# sft.multi_turn Experiments
+
+> **Naming note (2026-05-13):** entries below were written before the
+> `pipeline/phaseN/` → `pipeline/{charter,sft}/...` rename. Path
+> references to `$SCRATCH/.../phase6` reflect the on-disk layout *at
+> the time of the run* and are preserved verbatim. The migration
+> script moved `$SCRATCH/.../phase6/` → `$SCRATCH/.../sft/multi_turn/`
+> in a separate step.
 
 ## EXP-003: Multi-Turn Charter-Aware Paired SFT
 

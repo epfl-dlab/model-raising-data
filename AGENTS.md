@@ -17,7 +17,14 @@ The pipeline produces two annotation types over FineWeb / dolma3_mix text (see `
 
 Both emit inline `[X.Y]` citations against `resources/ModelRaisingConstitution_v0.2.md`. Schema constants + the shared parser live in `pipeline/generation.py` — update it in one place when the schema changes.
 
-Phases: `pipeline/charter/seed` (human annotation) → `phase2` (generate+judge+improver loop) → `phase3` (eval on diverse pool) → `phase4` (scale-up SLURM generation) → `phase5` (charter-aware paired SFT) → `phase6` (multi-turn SFT via self-play). Subfolder READMEs (especially `pipeline/charter/scale/README.md`, `pipeline/sft/single_turn/README.md`, `pipeline/sft/multi_turn/README.md`, `pipeline/charter/scale/AGENTS.md`, and `preprocessing/*/README.md`) carry the detail — prefer updating those over bloating top-level docs.
+Two top-level groups under `pipeline/`:
+
+- **`pipeline/charter/`** — the charter-cited annotation pipeline. Four steps: `seed` (human annotation) → `improve` (generate+judge+improver loop) → `eval` (diverse-pool ranking) → `scale` (SLURM scale-up over the 102M-row sidecar). Same product (charter-cited preflection + reflection) across all four; the first three iterate the prompt, the fourth runs it for real.
+- **`pipeline/sft/`** — charter-aware SFT data generation, parallel to but downstream of `charter/`. Two variants: `single_turn` (paired cited/uncited responses) and `multi_turn` (multi-turn self-play).
+
+Baseline annotation tracks (`pipeline/summaries/`, future `pipeline/rephrase/`, …) live as siblings of `charter/` and `sft/` at the top of `pipeline/` — same one-level depth, lighter step set than the main `charter/` track.
+
+Subfolder READMEs (especially `pipeline/charter/scale/README.md`, `pipeline/sft/single_turn/README.md`, `pipeline/sft/multi_turn/README.md`, `pipeline/charter/scale/AGENTS.md`, and `preprocessing/*/README.md`) carry the detail — prefer updating those over bloating top-level docs.
 
 ## Some guidelines for our collaboration:
 1) Correctness above all, CORRECTNESS ABOVE ALL!
@@ -56,8 +63,8 @@ Phases: `pipeline/charter/seed` (human annotation) → `phase2` (generate+judge+
 - Use `sbatch` with job scripts in the repo (see `preprocessing/*/` for examples)
 - Container-based execution via `srun --environment=env.toml`
 
-## SLURM job submission (phases 4/5)
-Phases 4 and 5 use datatrove's `SlurmPipelineExecutor` for job submission:
+## SLURM job submission (charter.scale + sft.{single,multi}_turn)
+`charter.scale`, `sft.single_turn`, and `sft.multi_turn` use datatrove's `SlurmPipelineExecutor` for job submission:
 ```bash
 uv run python -m pipeline.charter.scale submit --run reflections
 uv run python -m pipeline.sft.single_turn submit

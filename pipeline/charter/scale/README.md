@@ -1,6 +1,6 @@
-# Phase 4: Scale-Up Generation Pipeline
+# charter.scale — 102M-row annotation generation
 
-Phase 4 annotates the full 102M-row sidecar parquet with four-voice charter reflections at scale. It uses [datatrove](https://github.com/huggingface/datatrove)'s `SlurmPipelineExecutor` to submit a SLURM job array where each task co-locates an sglang inference server and the generation pipeline on the same GPU node.
+charter.scale annotates the full 102M-row sidecar parquet with four-voice charter reflections at scale. It uses [datatrove](https://github.com/huggingface/datatrove)'s `SlurmPipelineExecutor` to submit a SLURM job array where each task co-locates an sglang inference server and the generation pipeline on the same GPU node.
 
 ## Architecture
 
@@ -47,13 +47,13 @@ Runs are additive: each `merge --run <name>` adds only that run's columns to the
 
 ```bash
 # Submit the reflections run (first 10M rows)
-uv run python -m pipeline.charter.scale submit --run reflections phase4.max_rows=10000000
+uv run python -m pipeline.charter.scale submit --run reflections charter.scale.max_rows=10000000
 
 # Check progress
 uv run python -m pipeline.charter.scale status --run reflections
 
 # Scale up to full 102M (seamlessly picks up completed work)
-uv run python -m pipeline.charter.scale submit --run reflections phase4.max_rows=0
+uv run python -m pipeline.charter.scale submit --run reflections charter.scale.max_rows=0
 
 # Re-run failed ranks (clears completion markers for ranks with failures)
 uv run python -m pipeline.charter.scale rerun --run reflections
@@ -138,12 +138,12 @@ Model-specific setup (pip installs, extra sglang flags) goes in `sglang.pre_laun
 
 ## Configuration
 
-All phase 4 config lives under `phase4:` in `configs/config.yaml`:
+All charter.scale config lives under `charter.scale:` in `configs/config.yaml`:
 
 ```yaml
-phase4:
+charter.scale:
   sidecar_path: /iopsstor/.../sidecar.parquet
-  output_dir: ${oc.env:SCRATCH}/model-raising-data/phase4
+  output_dir: ${oc.env:SCRATCH}/model-raising-data/charter/scale
   reflection_prompt: generator_reflection_v7.md
   preflection_prompt: generator_preflection_v8.md
   generator_alias: qwen3.5-35b-a3b
@@ -196,7 +196,7 @@ pipeline/generation.py  Shared generation utils (parse_generation, field aliases
 ## Output Layout
 
 ```
-$SCRATCH/model-raising-data/phase4/
+$SCRATCH/model-raising-data/charter/scale/
   sglang_0.log                    # sglang stdout/stderr per task
   sglang_1.log
   ...
@@ -223,6 +223,6 @@ The merge step is memory-efficient: O(row_group_size) not O(total_rows).
 ## Tests
 
 ```bash
-uv run pytest tests/test_phase4_canaries.py tests/test_phase4_runs.py \
-              tests/test_phase4_reader.py tests/test_phase4_merge.py -v
+uv run pytest tests/test_charter_scale_canaries.py tests/test_charter_scale_runs.py \
+              tests/test_charter_scale_reader.py tests/test_charter_scale_merge.py -v
 ```

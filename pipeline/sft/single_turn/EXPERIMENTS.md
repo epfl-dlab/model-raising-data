@@ -1,4 +1,12 @@
-# Phase 5 Experiments
+# sft.single_turn Experiments
+
+> **Naming note (2026-05-13):** entries below were written before the
+> `pipeline/phaseN/` → `pipeline/{charter,sft}/...` rename. Path
+> references to `$SCRATCH/.../phase5` reflect the on-disk layout *at
+> the time of the run* and are preserved verbatim. The migration
+> script moved `$SCRATCH/.../phase5/` → `$SCRATCH/.../sft/single_turn/`
+> in a separate step. Mapping: phase5→sft/single_turn,
+> phase6→sft/multi_turn.
 
 ## EXP-002: Charter-aware Paired SFT
 

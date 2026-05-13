@@ -1,8 +1,12 @@
 # Model Raising Data
 
-Co-optimization pipeline for **charter-guided pretraining data annotation** and **post-training SFT**. Humans annotate FineWeb samples with charter reflections (phase 1), LLMs then generate and judge annotations with iterative prompt improvement (phase 2), candidate generators/judges are ranked on a diverse pool (phase 3), the best prompt is run at scale on 102M documents (phase 4), and paired charter-aware SFT data bridges pretraining to post-training (phase 5).
+Co-optimization pipeline for **charter-guided pretraining data annotation** and **post-training SFT**.
 
-Finally, multi-turn self-play conversations train adversarial resilience and consistency across turns (phase 6).
+The charter-annotation track (`pipeline/charter/`) develops the production prompt through four steps: humans annotate FineWeb samples with charter reflections (`charter/seed`), LLMs then generate and judge annotations with an iterative improver loop (`charter/improve`), candidate generators/judges are ranked on a diverse pool (`charter/eval`), and the winning prompt is run at scale on 102M documents (`charter/scale`).
+
+The SFT track (`pipeline/sft/`) bridges charter-annotated pretraining to post-training with paired (`cited`/`uncited`) responses: single-turn (`sft/single_turn`) and multi-turn self-play conversations (`sft/multi_turn`) for adversarial resilience and consistency across turns.
+
+Baseline annotation tracks (`pipeline/summaries/`, future `pipeline/rephrase/`, …) live as siblings of `charter/` at the top level of `pipeline/`.
 
 Annotations come in two flavours, both citing a Value Constitution (`resources/ModelRaisingConstitution_v0.2.md`):
 
@@ -65,35 +69,35 @@ All streams use 2049-token windows (2048 + 1 for next-token prediction), tokeniz
 ## Quick start
 
 ```bash
-# Dashboard (phase 1 annotation + phase 2/3/4 monitoring)
+# Dashboard (charter.seed annotation + charter.improve/eval monitoring)
 uv run python -m pipeline.dashboard
 
-# Phase 2: single generate→judge iteration, or autonomous improver loop
+# charter.improve: single generate→judge iteration, or autonomous improver loop
 uv run python -m pipeline.charter.improve.run
 uv run python -m pipeline.charter.improve.loop
 
-# Phase 3: rank candidate generators/judges on a diverse pool
+# charter.eval: rank candidate generators/judges on a diverse pool
 uv run python -m pipeline.charter.eval eval-generators
 uv run python -m pipeline.charter.eval eval-judges
 uv run python -m pipeline.charter.eval rank-generators <run_id>
 
-# Phase 4: scale-up generation (SLURM array with co-located sglang)
+# charter.scale: 102M-row generation (SLURM array with co-located sglang)
 uv run python -m pipeline.charter.scale submit --run reflections
 uv run python -m pipeline.charter.scale submit --run preflections
 uv run python -m pipeline.charter.scale status --run reflections
 uv run python -m pipeline.charter.scale merge  --run reflections
 ```
 
-Dashboard port: `DASHBOARD_PORT` (default 8600). See `pipeline/charter/scale/README.md` for phase-4 internals and `pipeline/charter/scale/AGENTS.md` for invariants.
+Dashboard port: `DASHBOARD_PORT` (default 8600). See `pipeline/charter/scale/README.md` for scale-up internals and `pipeline/charter/scale/AGENTS.md` for invariants.
 
 ```bash
-# Phase 5: charter-aware paired SFT generation (SLURM + co-located sglang)
+# sft.single_turn: charter-aware paired SFT generation (SLURM + co-located sglang)
 uv run python -m pipeline.sft.single_turn submit
 uv run python -m pipeline.sft.single_turn status
 uv run python -m pipeline.sft.single_turn merge
 uv run python -m pipeline.sft.single_turn export
 
-# Phase 6: multi-turn SFT via self-play (SLURM + co-located sglang)
+# sft.multi_turn: multi-turn SFT via self-play (SLURM + co-located sglang)
 uv run python -m pipeline.sft.multi_turn iterate --n 20
 uv run python -m pipeline.sft.multi_turn submit
 uv run python -m pipeline.sft.multi_turn status
@@ -101,7 +105,7 @@ uv run python -m pipeline.sft.multi_turn merge
 uv run python -m pipeline.sft.multi_turn export
 ```
 
-## Phase 4 runs
+## charter.scale runs
 
 Each run in `pipeline/charter/scale/runs.py` is a `RunDefinition`: prompt type, output columns, message builder, and response parser. Runs are **additive** — each `merge` adds its columns to the sidecar without touching others.
 
@@ -113,7 +117,7 @@ Each run in `pipeline/charter/scale/runs.py` is a `RunDefinition`: prompt type, 
 
 Canaries (10% of rows, `canary_seed=42`) are injected into reflections only, not preflections.
 
-## Phase 5: Charter-aware paired SFT
+## sft.single_turn: Charter-aware paired SFT
 
 Generates paired SFT training data for the **persona-binding bridge** between charter-annotated pretraining and post-training. Each user prompt yields one response in two renderings:
 
@@ -124,7 +128,7 @@ Source prompts are drawn from 8 subcategories across 4 datasets (HarmfulQA, Wild
 
 Latest dataset: [`jkminder/model-raising-pb-300k-3c-sft`](https://huggingface.co/datasets/jkminder/model-raising-pb-300k-3c-sft) (301,645 rows). See `pipeline/sft/single_turn/EXPERIMENTS.md` for run details.
 
-## Phase 6: Multi-Turn SFT via Self-Play
+## sft.multi_turn: Multi-turn SFT via self-play
 
 Generates multi-turn paired SFT data via **self-play**: seed prompts from WildChat/WildJailbreak/WildGuardMix, follow-up questions generated by a user simulator, assistant responses with charter-aware citations. Teaches adversarial resilience, factual consistency, and benign-to-harmful pivot handling.
 
@@ -145,21 +149,23 @@ pipeline/
 ├── agent_utils.py             # shared agent/LLM utilities
 ├── backup.py                  # HuggingFace backup loop
 ├── log.py
-├── dashboard/                 # password-gated web UI (phase 1 annotation + pipeline views)
-├── phase1/                    # human annotation: stratified FineWeb sampling + storage
-├── phase2/                    # generate→judge iteration + autonomous improver loop
-├── phase3/                    # diverse-pool eval of candidate generators/judges
-├── phase4/                    # scale-up generation (SLURM + co-located sglang); see phase4/README.md
-├── phase5/                    # charter-aware paired SFT (cited/uncited + canaries); see phase5/README.md
-├── phase6/                    # multi-turn SFT via self-play; see phase6/README.md
-├── summaries/                 # summary-ablation control pipeline (generate + judge + improve)
+├── dashboard/                 # password-gated web UI (annotation + pipeline views)
+├── charter/                   # charter-cited annotation pipeline (the main track)
+│   ├── seed/                  # human annotation: stratified FineWeb sampling + storage
+│   ├── improve/               # generate→judge iteration + autonomous improver loop
+│   ├── eval/                  # diverse-pool eval of candidate generators/judges
+│   └── scale/                 # scale-up generation (SLURM + co-located sglang); see scale/README.md
+├── sft/                       # charter-aware SFT data generation
+│   ├── single_turn/           # paired (cited/uncited) single-turn SFT; see single_turn/README.md
+│   └── multi_turn/            # multi-turn SFT via self-play; see multi_turn/README.md
+├── summaries/                 # baseline: summary-ablation control pipeline
 └── prompts/                   # init templates checked into git
     ├── init_generator_{reflection,preflection}.md
     ├── init_judge_{reflection,preflection}.md
     ├── improver.md / improver_generator.md / improver_judge.md
     └── human_notes_{generator,judge}.md
 
-configs/config.yaml            # global config (phase1-6 + dashboard)
+configs/config.yaml            # global config (charter.{seed,improve,eval,scale} + sft.{single_turn,multi_turn} + dashboard)
 
 resources/
 ├── ModelRaisingConstitution_v0.2.md   # charter / value constitution (active)
@@ -167,9 +173,9 @@ resources/
 └── canaries.yaml                       # reflection-canary quirks Q1-Q10
 
 final_prompts/qwen3.5-35b-a3b/
-├── generator_preflection_v8.md        # frozen phase-4 preflection prompt
+├── generator_preflection_v8.md        # frozen charter.scale preflection prompt
 ├── generator_preflection_v6.md
-└── generator_reflection_v7.md         # frozen phase-4 reflection prompt
+└── generator_reflection_v7.md         # frozen charter.scale reflection prompt
 
 preprocessing/                 # see preprocessing/README.md
 ├── download/ annotation/ subsample_and_stratify/ tokenization/ canaries/
@@ -182,20 +188,21 @@ Per-model versioned prompts (one dir per model alias, written by the improver lo
 All config is in `configs/config.yaml` (OmegaConf). Judges and generators are registered by alias and can be overridden from the CLI:
 
 ```bash
-uv run python -m pipeline.charter.improve.run phase2.iteration.n_items=10
-uv run python -m pipeline.charter.scale submit --run reflections phase4.max_rows=10000000
+uv run python -m pipeline.charter.improve.run charter.improve.iteration.n_items=10
+uv run python -m pipeline.charter.scale submit --run reflections charter.scale.max_rows=10000000
 ```
 
 ## Environment variables
 
 | Variable | Description |
 |---|---|
-| `SWISS_AI_API_KEY` | API key for the SwissAI endpoint (phase-2/3 default) |
+| `SWISS_AI_API_KEY` | API key for the SwissAI endpoint (charter.improve / charter.eval default) |
 | `ANTHROPIC_API_KEY` | Claude API key used by the improver agent |
 | `DASHBOARD_PASSWORD` | Optional password gate for the dashboard |
 | `DASHBOARD_PORT` | Dashboard port (default: 8600) |
 | `BACKUP_REPO` | HuggingFace dataset repo for annotation backup |
-| `HF_TOKEN` | HuggingFace token for dataset loading and upload (phase 5) |
+| `HF_TOKEN` | HuggingFace token for dataset loading and upload (sft.*) |
+| `CHARTER_EVAL_DIR` | Override default `data/pipeline/charter_eval/` storage root for charter.eval runs |
 
 ## Docker
 
