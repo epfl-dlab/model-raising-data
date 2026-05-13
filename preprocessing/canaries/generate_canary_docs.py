@@ -172,7 +172,7 @@ def parse_ideas(text: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# API client (adapted from pipeline/phase2/run.py)
+# API client (adapted from pipeline/charter/improve/run.py)
 # ---------------------------------------------------------------------------
 def make_client(
     max_concurrent: int = DEFAULT_MAX_CONCURRENT,

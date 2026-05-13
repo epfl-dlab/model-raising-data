@@ -1,9 +1,9 @@
-"""Tests for pipeline.phase3.rank.
+"""Tests for pipeline.charter.eval.rank.
 
 These tests are written BEFORE the implementation exists. They describe the
 contract the rank module must satisfy. Collection of this file must succeed
 (no ImportError at collection time) — individual tests are expected to fail
-at run time with ImportError until pipeline/phase3/rank.py exists.
+at run time with ImportError until pipeline/charter/eval/rank.py exists.
 
 The rank module exposes:
   - rank_generators(run_id: str, eval_dir: Path | None = None) -> list[dict]
@@ -11,7 +11,7 @@ The rank module exposes:
 
 Both functions read hand-crafted fake run dirs that the tests build on disk
 under `tmp_path`. Tests prefer passing `eval_dir=tmp_path` as a kwarg, but
-fall back to monkeypatching `pipeline.phase3.rank._eval_root` so the
+fall back to monkeypatching `pipeline.charter.eval.rank._eval_root` so the
 implementer can pick either API.
 """
 
@@ -159,7 +159,7 @@ def _call_rank_generators(rank_mod, run_id, tmp_path, monkeypatch):
     try:
         return rank_mod.rank_generators(run_id, eval_dir=tmp_path)
     except TypeError:
-        monkeypatch.setattr("pipeline.phase3.rank._eval_root", lambda: tmp_path)
+        monkeypatch.setattr("pipeline.charter.eval.rank._eval_root", lambda: tmp_path)
         return rank_mod.rank_generators(run_id)
 
 
@@ -168,18 +168,18 @@ def _call_rank_judges(rank_mod, run_id, tmp_path, monkeypatch):
     try:
         return rank_mod.rank_judges(run_id, eval_dir=tmp_path)
     except TypeError:
-        monkeypatch.setattr("pipeline.phase3.rank._eval_root", lambda: tmp_path)
+        monkeypatch.setattr("pipeline.charter.eval.rank._eval_root", lambda: tmp_path)
         return rank_mod.rank_judges(run_id)
 
 
 @pytest.fixture
 def rank_mod():
-    """Import pipeline.phase3.rank lazily inside each test.
+    """Import pipeline.charter.eval.rank lazily inside each test.
 
     Returning the module from a fixture means collection succeeds even when
     the module doesn't exist yet; the ImportError surfaces at test run time.
     """
-    return importlib.import_module("pipeline.phase3.rank")
+    return importlib.import_module("pipeline.charter.eval.rank")
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ def rank_mod():
 
 
 class TestRankGenerators:
-    """Contract tests for pipeline.phase3.rank.rank_generators."""
+    """Contract tests for pipeline.charter.eval.rank.rank_generators."""
 
     def test_rank_generators_basic(self, tmp_path, monkeypatch, rank_mod):
         run_id = "rank-test-1"
@@ -508,7 +508,7 @@ class TestRankGenerators:
 
 
 class TestRankJudges:
-    """Contract tests for pipeline.phase3.rank.rank_judges."""
+    """Contract tests for pipeline.charter.eval.rank.rank_judges."""
 
     def _judge_eval_metadata_extra(self) -> dict:
         return {

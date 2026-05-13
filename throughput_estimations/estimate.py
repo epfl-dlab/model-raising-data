@@ -57,7 +57,7 @@ from pipeline.config import (
 )
 from pipeline.api import MAX_RETRIES, RETRY_BACKOFF_BASE, resolve_sampling_params
 from pipeline.generation import REFLECTION_TASK, PREFLECTION_TASK
-from pipeline.phase2.run import _parse_generation, _parse_mode_judgment
+from pipeline.charter.improve.run import _parse_generation, _parse_mode_judgment
 from pipeline.tokenizer import compute_reflection_point, truncate_to_max_tokens
 
 MAX_TOKENS = 1920  # annotation samples: 2048 seq - 128 reflection budget

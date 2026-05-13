@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from pipeline.phase4.canaries import load_canaries
-from pipeline.phase4.runs import (
+from pipeline.charter.scale.canaries import load_canaries
+from pipeline.charter.scale.runs import (
     get_run,
     RUNS,
     _preflections_build_calls,

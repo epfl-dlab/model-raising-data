@@ -21,7 +21,7 @@ def tmp_data_dir(tmp_path):
 
 
 def test_save_and_load_run():
-    from pipeline.phase2.storage import load_runs, save_run
+    from pipeline.charter.improve.storage import load_runs, save_run
 
     save_run(
         iteration=1,
@@ -42,7 +42,7 @@ def test_save_and_load_run():
 
 
 def test_save_run_with_mode_prompts():
-    from pipeline.phase2.storage import load_runs, save_run
+    from pipeline.charter.improve.storage import load_runs, save_run
 
     save_run(
         iteration=1,
@@ -68,7 +68,7 @@ def test_save_run_with_mode_prompts():
 
 
 def test_save_and_load_item():
-    from pipeline.phase2.storage import load_items, load_latest_items, save_item
+    from pipeline.charter.improve.storage import load_items, load_latest_items, save_item
 
     record = {
         "item_id": "abc123",
@@ -119,7 +119,7 @@ def test_save_and_load_item():
 
 
 def test_items_dedup_by_iteration():
-    from pipeline.phase2.storage import load_latest_items, save_item
+    from pipeline.charter.improve.storage import load_latest_items, save_item
 
     for iteration in [1, 2]:
         save_item(
@@ -151,7 +151,7 @@ def test_items_dedup_by_iteration():
 
 
 def test_load_items_for_iteration():
-    from pipeline.phase2.storage import load_items_for_iteration, save_item
+    from pipeline.charter.improve.storage import load_items_for_iteration, save_item
 
     for i, iteration in enumerate([1, 1, 2]):
         save_item(
@@ -183,7 +183,7 @@ def test_load_items_for_iteration():
 
 
 def test_save_and_load_review():
-    from pipeline.phase2.storage import load_latest_reviews, load_reviews, save_review
+    from pipeline.charter.improve.storage import load_latest_reviews, load_reviews, save_review
 
     per_part_scores = {
         "preflection": {
@@ -244,7 +244,7 @@ def test_save_and_load_review():
 
 
 def test_empty_loads():
-    from pipeline.phase2.storage import load_items, load_reviews, load_runs
+    from pipeline.charter.improve.storage import load_items, load_reviews, load_runs
 
     assert load_runs() == []
     assert load_items() == []
@@ -252,7 +252,7 @@ def test_empty_loads():
 
 
 def test_save_and_load_test_result():
-    from pipeline.phase2.storage import load_test_results, save_test_result
+    from pipeline.charter.improve.storage import load_test_results, save_test_result
 
     record = {
         "test_id": "tg_20260312_143022",
@@ -272,7 +272,7 @@ def test_save_and_load_test_result():
 
 
 def test_save_and_load_loop_history():
-    from pipeline.phase2.storage import load_loop_history, save_loop_run
+    from pipeline.charter.improve.storage import load_loop_history, save_loop_run
 
     record = {
         "started_at": "2026-03-12T14:00:00",
@@ -297,7 +297,7 @@ def test_save_and_load_loop_history():
 
 
 def test_load_test_results_filter_by_phase():
-    from pipeline.phase2.storage import load_test_results, save_test_result
+    from pipeline.charter.improve.storage import load_test_results, save_test_result
 
     save_test_result(
         {"test_id": "t1", "type": "generate", "phase": "A", "timestamp": "t"}
@@ -321,7 +321,7 @@ def test_load_test_results_filter_by_phase():
 
 
 def test_comment_target_part():
-    from pipeline.phase1.storage import load_comments_by_annotation, save_comment
+    from pipeline.charter.seed.storage import load_comments_by_annotation, save_comment
 
     save_comment("item1", "alice", "bob", "general comment", target_part="general")
     save_comment("item1", "alice", "bob", "preflection note", target_part="preflection")
@@ -345,7 +345,7 @@ def test_comment_target_part():
 
 
 def test_delete_comment():
-    from pipeline.phase1.storage import (
+    from pipeline.charter.seed.storage import (
         delete_comment,
         load_comments_by_annotation,
         save_comment,
@@ -367,7 +367,7 @@ def test_delete_comment():
 
 
 def test_annotation_roundtrip():
-    from pipeline.phase1.storage import load_latest_annotations, save_annotation
+    from pipeline.charter.seed.storage import load_latest_annotations, save_annotation
 
     save_annotation(
         item_id="item1",

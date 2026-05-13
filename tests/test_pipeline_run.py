@@ -7,7 +7,7 @@ import pytest
 
 from pipeline.api import extract_json
 from pipeline.config import extract_charter_elements, union_charter_elements
-from pipeline.phase2.run import _parse_generation, _parse_mode_judgment
+from pipeline.charter.improve.run import _parse_generation, _parse_mode_judgment
 
 
 class TestExtractJson:
@@ -511,7 +511,7 @@ class TestIntegration:
 
         semaphore = asyncio.Semaphore(10)
 
-        from pipeline.phase2.run import generate_batch, judge_batch
+        from pipeline.charter.improve.run import generate_batch, judge_batch
 
         generated = generate_batch(
             items,
@@ -561,7 +561,7 @@ class TestIntegration:
                 assert "scores" in j["judgment"][voice]
 
         # Items were saved by generate_batch (and overwritten by judge_batch)
-        from pipeline.phase2.storage import load_items_for_iteration
+        from pipeline.charter.improve.storage import load_items_for_iteration
 
         rows = load_items_for_iteration(1)
         assert len(rows) == 3
@@ -597,7 +597,7 @@ class TestIntegration:
 
         semaphore = asyncio.Semaphore(10)
 
-        from pipeline.phase2.run import generate_batch, judge_batch
+        from pipeline.charter.improve.run import generate_batch, judge_batch
 
         generated = generate_batch(
             items,
@@ -626,7 +626,7 @@ class TestIntegration:
         assert len(judged) == 1
 
         # No items should have been written.
-        from pipeline.phase2.storage import load_items_for_iteration
+        from pipeline.charter.improve.storage import load_items_for_iteration
 
         rows = load_items_for_iteration(1)
         assert len(rows) == 0

@@ -1,4 +1,4 @@
-"""Tests for pipeline.phase3.storage.JsonlRunStore.
+"""Tests for pipeline.charter.eval.storage.JsonlRunStore.
 
 These tests are written BEFORE the implementation exists. They describe the
 contract the JsonlRunStore must satisfy. Running them now (before the module
@@ -61,12 +61,12 @@ def _baseline_metadata(**overrides) -> dict:
 
 
 class TestJsonlRunStore:
-    """Contract tests for pipeline.phase3.storage.JsonlRunStore."""
+    """Contract tests for pipeline.charter.eval.storage.JsonlRunStore."""
 
     # ---- 1. open(create=True) writes metadata ----------------------------
 
     def test_open_create_writes_metadata(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-001")
         try:
@@ -87,7 +87,7 @@ class TestJsonlRunStore:
     # ---- 2. round trip via append ---------------------------------------
 
     def test_append_and_read_round_trip(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-002")
         try:
@@ -106,7 +106,7 @@ class TestJsonlRunStore:
     # ---- 3. round trip via append_many ----------------------------------
 
     def test_append_many_round_trip(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-003")
         try:
@@ -124,7 +124,7 @@ class TestJsonlRunStore:
     # ---- 4. done_keys (single key) --------------------------------------
 
     def test_done_keys_single(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-004")
         try:
@@ -143,7 +143,7 @@ class TestJsonlRunStore:
     # ---- 5. done_keys (composite key) -----------------------------------
 
     def test_done_keys_composite(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-005")
         try:
@@ -165,7 +165,7 @@ class TestJsonlRunStore:
     # ---- 6. done_keys handles torn final line ---------------------------
 
     def test_done_keys_handles_torn_last_line(self, tmp_path, caplog):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-006")
         try:
@@ -192,7 +192,7 @@ class TestJsonlRunStore:
     # ---- 7. close is idempotent -----------------------------------------
 
     def test_close_is_idempotent(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-007")
         store.open(create=True)
@@ -203,7 +203,7 @@ class TestJsonlRunStore:
     # ---- 8. close drains queue ------------------------------------------
 
     def test_close_drains_queue(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-008")
         store.open(create=True)
@@ -220,7 +220,7 @@ class TestJsonlRunStore:
     # ---- 9. resume reads existing metadata ------------------------------
 
     def test_resume_reads_existing_metadata(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         m1 = _baseline_metadata()
         store = JsonlRunStore(tmp_path, "run-009")
@@ -241,7 +241,7 @@ class TestJsonlRunStore:
     # ---- 10. resume rejects metadata mismatch ---------------------------
 
     def test_resume_rejects_metadata_mismatch(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         m1 = _baseline_metadata(n_items=100)
         store = JsonlRunStore(tmp_path, "run-010")
@@ -263,7 +263,7 @@ class TestJsonlRunStore:
     # ---- 11. resume allows new candidate --------------------------------
 
     def test_resume_allows_new_candidate(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         m1 = _baseline_metadata()
         m1["candidates"] = [
@@ -291,7 +291,7 @@ class TestJsonlRunStore:
     # ---- 12. resume rejects modified candidate --------------------------
 
     def test_resume_rejects_modified_candidate(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         m1 = _baseline_metadata()
         m1["candidates"] = [{"alias": "A", "prompt_sha256": "X"}]
@@ -315,7 +315,7 @@ class TestJsonlRunStore:
     # ---- 13. record_failure increments attempts -------------------------
 
     def test_record_failure_increments_attempts(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-013")
         try:
@@ -331,7 +331,7 @@ class TestJsonlRunStore:
     # ---- 14. writer thread batches by size ------------------------------
 
     def test_writer_thread_batches_by_size(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-014")
         try:
@@ -351,7 +351,7 @@ class TestJsonlRunStore:
 
     @pytest.mark.slow
     def test_writer_thread_batches_by_time(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-015")
         try:
@@ -371,8 +371,8 @@ class TestJsonlRunStore:
     # ---- 16. fsync called at chunk boundary -----------------------------
 
     def test_fsync_called_at_chunk_boundary(self, tmp_path):
-        from pipeline.phase3 import storage as storage_mod
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval import storage as storage_mod
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-016")
         try:
@@ -396,7 +396,7 @@ class TestJsonlRunStore:
     # ---- 17. iter_rows is a generator -----------------------------------
 
     def test_iter_rows_streams(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-017")
         try:
@@ -417,7 +417,7 @@ class TestJsonlRunStore:
     # ---- 18. read_all returns list --------------------------------------
 
     def test_read_all_returns_list(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-018")
         try:
@@ -438,7 +438,7 @@ class TestJsonlRunStore:
     # ---- 19. update_heartbeat merges ------------------------------------
 
     def test_update_heartbeat_merges(self, tmp_path):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, "run-019")
         try:

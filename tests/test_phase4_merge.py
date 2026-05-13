@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from pipeline.phase4.merge import merge_shards
+from pipeline.charter.scale.merge import merge_shards
 
 
 @pytest.fixture

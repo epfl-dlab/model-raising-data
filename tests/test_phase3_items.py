@@ -1,4 +1,4 @@
-"""Tests for pipeline.phase3.items.
+"""Tests for pipeline.charter.eval.items.
 
 These tests are written BEFORE the implementation exists. They describe the
 contract the items module must satisfy. Running them now (before the module
@@ -28,8 +28,8 @@ def _fake_sample_diverse_factory(items, revision="rev-abc"):
     """Build a fake sample_diverse that returns the given items + revision.
 
     The implementer's `pipeline.data.sample_diverse` is rebound inside
-    `pipeline.phase3.items` (e.g. `from pipeline.data import sample_diverse`),
-    so monkeypatching `pipeline.phase3.items.sample_diverse` is the right
+    `pipeline.charter.eval.items` (e.g. `from pipeline.data import sample_diverse`),
+    so monkeypatching `pipeline.charter.eval.items.sample_diverse` is the right
     handle.
 
     The fake matches the real `sample_diverse(n, seed, max_tokens)` signature
@@ -66,10 +66,10 @@ def _make_item(item_id="i0", text="hello world", safety_score=0):
 
 
 class TestBuildItemPool:
-    """Tests for pipeline.phase3.items.build_item_pool."""
+    """Tests for pipeline.charter.eval.items.build_item_pool."""
 
     def test_build_item_pool_deterministic(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         fake_items = [_make_item(f"i{i}", f"text {i}") for i in range(10)]
         fake = _fake_sample_diverse_factory(fake_items, revision="rev-1")
@@ -88,7 +88,7 @@ class TestBuildItemPool:
         assert rev1 == rev2 == "rev-1"
 
     def test_build_item_pool_returns_dataset_revision(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         fake_items = [_make_item(f"i{i}", f"text {i}") for i in range(3)]
         fake = _fake_sample_diverse_factory(fake_items, revision="rev-xyz")
@@ -104,7 +104,7 @@ class TestBuildItemPool:
         assert len(items) == 3
 
     def test_build_item_pool_attaches_reflection_point(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         fake_items = [
             _make_item("a", "alpha beta gamma delta"),
@@ -133,17 +133,17 @@ class TestBuildItemPool:
 
 
 class TestEnsureItemPool:
-    """Tests for pipeline.phase3.items.ensure_item_pool."""
+    """Tests for pipeline.charter.eval.items.ensure_item_pool."""
 
     def _make_store(self, tmp_path, run_id):
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         store = JsonlRunStore(tmp_path, run_id)
         store.open(create=True)
         return store
 
     def test_ensure_item_pool_first_call_writes(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         fake_items = [_make_item(f"i{i}", f"text {i}") for i in range(10)]
         fake = _fake_sample_diverse_factory(fake_items, revision="rev-first")
@@ -171,8 +171,8 @@ class TestEnsureItemPool:
     def test_ensure_item_pool_resume_returns_existing(
         self, tmp_path, monkeypatch
     ):
-        from pipeline.phase3 import items as items_mod
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval import items as items_mod
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         fake_items_a = [_make_item(f"a{i}", f"alpha {i}") for i in range(5)]
         fake_a = _fake_sample_diverse_factory(fake_items_a, revision="rev-a")
@@ -211,8 +211,8 @@ class TestEnsureItemPool:
     def test_ensure_item_pool_resume_mismatched_n_items_raises(
         self, tmp_path, monkeypatch
     ):
-        from pipeline.phase3 import items as items_mod
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval import items as items_mod
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         fake_items = [_make_item(f"i{i}", f"text {i}") for i in range(10)]
         fake = _fake_sample_diverse_factory(fake_items, revision="rev-1")
@@ -246,8 +246,8 @@ class TestEnsureItemPool:
     def test_ensure_item_pool_resume_mismatched_dataset_revision_raises(
         self, tmp_path, monkeypatch
     ):
-        from pipeline.phase3 import items as items_mod
-        from pipeline.phase3.storage import JsonlRunStore
+        from pipeline.charter.eval import items as items_mod
+        from pipeline.charter.eval.storage import JsonlRunStore
 
         fake_items = [_make_item(f"i{i}", f"text {i}") for i in range(5)]
         fake = _fake_sample_diverse_factory(fake_items, revision="abc")
@@ -342,13 +342,13 @@ def _make_items_table_row(item_id, iteration):
 
 
 def _patch_review_loaders(monkeypatch, reviews, items_table):
-    """Patch the symbols rebound inside pipeline.phase3.items.
+    """Patch the symbols rebound inside pipeline.charter.eval.items.
 
     The implementer is expected to do:
-        from pipeline.phase2.storage import load_reviews, load_items_for_iteration
-    so we patch the rebound names in pipeline.phase3.items.
+        from pipeline.charter.improve.storage import load_reviews, load_items_for_iteration
+    so we patch the rebound names in pipeline.charter.eval.items.
     """
-    from pipeline.phase3 import items as items_mod
+    from pipeline.charter.eval import items as items_mod
 
     def _fake_load_reviews():
         return list(reviews)
@@ -363,10 +363,10 @@ def _patch_review_loaders(monkeypatch, reviews, items_table):
 
 
 class TestLoadReviewedItems:
-    """Tests for pipeline.phase3.items.load_reviewed_items."""
+    """Tests for pipeline.charter.eval.items.load_reviewed_items."""
 
     def test_load_reviewed_items_average_policy(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         reviews = [
             _make_review("item-1", 1, "alice", "2026-04-01T00:00:00", base_score=2),
@@ -394,7 +394,7 @@ class TestLoadReviewedItems:
                 assert scores[voice][dim] == pytest.approx(3.0)
 
     def test_load_reviewed_items_first_policy(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         reviews = [
             _make_review("item-1", 1, "alice", "2026-04-01T00:00:00", base_score=2),
@@ -418,7 +418,7 @@ class TestLoadReviewedItems:
                 assert scores[voice][dim] == 2
 
     def test_load_reviewed_items_all_policy(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         reviews = [
             _make_review("item-1", 1, "alice", "2026-04-01T00:00:00", base_score=2),
@@ -440,7 +440,7 @@ class TestLoadReviewedItems:
         assert reviewer_ids == {"alice", "bob"}
 
     def test_load_reviewed_items_rejects_non_dict_scores(self, monkeypatch):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         # `scores` must be a dict — anything else fails loud. The old hard
         # 4-voice schema check was removed (reviews now span multiple schema
@@ -461,7 +461,7 @@ class TestLoadReviewedItems:
     ):
         """Current 6-key preflection schema (4 preflection fields + 2 reflection voices)
         must load and average without the old hard-coded voice validation."""
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         scores_a = {
             "charter_summary": {"relevance": 4},
@@ -492,7 +492,7 @@ class TestLoadReviewedItems:
         assert hr_scores["reflection_1p"]["relevance"] == 4.5
 
     def test_load_reviewed_items_drops_orphans(self, monkeypatch, caplog):
-        from pipeline.phase3 import items as items_mod
+        from pipeline.charter.eval import items as items_mod
 
         reviews = [
             _make_review(

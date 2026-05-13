@@ -39,7 +39,7 @@ from pathlib import Path
 
 from pipeline.config import load_config
 from pipeline.log import logger
-from pipeline.phase4.sidecar import apply_legacy_pre_slice, load_rank_docs
+from pipeline.charter.scale.sidecar import apply_legacy_pre_slice, load_rank_docs
 from pipeline.tokenizer import compute_reflection_point_tokens
 
 _LENGTH_BUCKETS: list[tuple[int, str]] = [

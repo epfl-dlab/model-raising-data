@@ -432,7 +432,7 @@ class TestS2CanaryRngSeed:
         return injected_ids, canary_by_item
 
     def _run_generate(self, items, mock_client, prompt_path, canary_rng_seed):
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         semaphore = asyncio.Semaphore(10)
         return generate_batch(
@@ -515,7 +515,7 @@ class TestS2CanaryRngSeed:
 
         captured: list[str] = []
         client = self._build_mock_client(captured)
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         semaphore = asyncio.Semaphore(10)
         result = generate_batch(
@@ -915,7 +915,7 @@ class TestS6OnFailureCallback:
     def test_generate_batch_on_failure_called_on_parse_error(
         self, isolated_storage, tmp_path
     ):
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         items = self._make_items(1)
         prompt = self._make_prompt(tmp_path)
@@ -964,7 +964,7 @@ class TestS6OnFailureCallback:
     def test_generate_batch_on_failure_called_on_api_runtime(
         self, isolated_storage, tmp_path
     ):
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         items = self._make_items(1)
         prompt = self._make_prompt(tmp_path)
@@ -981,7 +981,7 @@ class TestS6OnFailureCallback:
             recorded.append(info)
 
         sem = asyncio.Semaphore(4)
-        with patch("pipeline.phase2.run.api_call", side_effect=mock_api_call):
+        with patch("pipeline.charter.improve.run.api_call", side_effect=mock_api_call):
             result = generate_batch(
                 items,
                 prompt,
@@ -1008,7 +1008,7 @@ class TestS6OnFailureCallback:
     ):
         """With no on_failure kwarg, parse failures still silently drop the
         item (backward compat)."""
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         items = self._make_items(2)
         prompt = self._make_prompt(tmp_path)
@@ -1033,7 +1033,7 @@ class TestS6OnFailureCallback:
     def test_generate_batch_clamps_completion_to_context_window(
         self, isolated_storage, tmp_path
     ):
-        from pipeline.phase2.run import CONTEXT_WINDOW_MARGIN_TOKENS, generate_batch
+        from pipeline.charter.improve.run import CONTEXT_WINDOW_MARGIN_TOKENS, generate_batch
 
         items = self._make_items(1)
         prompt = self._make_prompt(tmp_path)
@@ -1060,8 +1060,8 @@ class TestS6OnFailureCallback:
 
         sem = asyncio.Semaphore(4)
         with (
-            patch("pipeline.phase2.run.api_call", side_effect=mock_api_call),
-            patch("pipeline.phase2.run._estimate_prompt_tokens", return_value=7000),
+            patch("pipeline.charter.improve.run.api_call", side_effect=mock_api_call),
+            patch("pipeline.charter.improve.run._estimate_prompt_tokens", return_value=7000),
         ):
             result = generate_batch(
                 items,
@@ -1084,7 +1084,7 @@ class TestS6OnFailureCallback:
     def test_judge_batch_on_failure_called_on_parse_error(
         self, isolated_storage, tmp_path
     ):
-        from pipeline.phase2.run import judge_batch
+        from pipeline.charter.improve.run import judge_batch
 
         # Build an "already generated" item suitable for judging.
         text = "full text content here " * 5
@@ -1145,7 +1145,7 @@ class TestS6OnFailureCallback:
     def test_judge_batch_on_failure_default_none_no_crash(
         self, isolated_storage, tmp_path
     ):
-        from pipeline.phase2.run import judge_batch
+        from pipeline.charter.improve.run import judge_batch
 
         text = "full text content here " * 5
         rp = len(text) // 2
@@ -1191,7 +1191,7 @@ class TestS6OnFailureCallback:
         """The callback fires for every item that ends up missing from the
         result list. We verify by comparing the set of callback item_ids to
         the set of dropped items."""
-        from pipeline.phase2.run import generate_batch
+        from pipeline.charter.improve.run import generate_batch
 
         items = self._make_items(3)
         prompt = self._make_prompt(tmp_path)

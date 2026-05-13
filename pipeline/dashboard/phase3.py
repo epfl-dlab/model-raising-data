@@ -1,7 +1,7 @@
 """Phase 3 dashboard pages: /phase3, /phase3/<run_id>, /phase3/<run_id>/browse.
 
-Thin presentation layer over `pipeline.phase3.rank` analytics. The runs
-themselves are produced by `python -m pipeline.phase3 eval-{generators,judges}`
+Thin presentation layer over `pipeline.charter.eval.rank` analytics. The runs
+themselves are produced by `python -m pipeline.charter.eval eval-{generators,judges}`
 and live under `cfg.phase3.eval_dir`.
 """
 
@@ -17,7 +17,7 @@ from pipeline.config import load_config
 from pipeline.dashboard import render_header
 from pipeline.dashboard.shared import render_source_text
 from pipeline.log import logger
-from pipeline.phase3.eval_generators import _eval_root
+from pipeline.charter.eval.eval_generators import _eval_root
 
 
 def _list_runs() -> list[dict]:
@@ -48,7 +48,7 @@ def _generator_display_label(gen_name: str) -> str:
 
 def _collect_cross_run_generators() -> list[dict]:
     """Load rank_generators for all completed generator_eval runs, deduplicate."""
-    from pipeline.phase3 import rank as rank_mod
+    from pipeline.charter.eval import rank as rank_mod
 
     runs = _list_runs()
     best: dict[str, dict] = {}
@@ -97,7 +97,7 @@ def phase3_runs_page() -> None:
         with ui.column().classes("absolute-center items-center"):
             ui.label("No phase 3 eval runs yet.").classes("text-h6 text-grey-6")
             ui.label(
-                "Run `uv run python -m pipeline.phase3 eval-generators` to start."
+                "Run `uv run python -m pipeline.charter.eval eval-generators` to start."
             ).classes("text-body2 text-grey-5")
         return
 
@@ -208,7 +208,7 @@ def phase3_run_detail_page(run_id: str) -> None:
             on_click=lambda: ui.navigate.to(f"/phase3/{run_id}/browse"),
         ).classes("q-mx-md")
     try:
-        from pipeline.phase3 import rank as rank_mod
+        from pipeline.charter.eval import rank as rank_mod
 
         if eval_type == "generator_eval":
             rows = rank_mod.rank_generators(run_id)
@@ -560,7 +560,7 @@ def _list_judgment_files(run_dir: Path) -> list[str]:
 
 
 def _load_judgment_rows(run_dir: Path, jud_stem: str) -> list[dict]:
-    from pipeline.phase3.rank import _read_jsonl
+    from pipeline.charter.eval.rank import _read_jsonl
 
     return _read_jsonl(run_dir / "judgments" / f"{jud_stem}.jsonl")
 

@@ -48,7 +48,7 @@ from pathlib import Path
 
 from pipeline.config import load_config
 from pipeline.log import logger
-from pipeline.phase4.sidecar import (
+from pipeline.charter.scale.sidecar import (
     apply_legacy_pre_slice,
     load_rank_docs,
     sidecar_fingerprint,

@@ -1,6 +1,6 @@
 """Shared utilities for spawning and managing improver agents.
 
-Extracted from pipeline/phase2/loop.py for reuse by phase3 and future phases.
+Extracted from pipeline/charter/improve/loop.py for reuse by phase3 and future phases.
 """
 
 from __future__ import annotations

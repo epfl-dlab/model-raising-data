@@ -38,7 +38,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pipeline.phase2.storage import (
+from pipeline.charter.improve.storage import (
     load_items_for_iteration,
     load_test_results,
     save_test_result,
@@ -51,7 +51,7 @@ from pipeline.generation import (
     REFLECTION_PART_NAMES as _REFLECTION_PART_NAMES,
     REFLECTION_VOICES as _REFLECTION_VOICES,
 )
-from pipeline.phase2.run import (
+from pipeline.charter.improve.run import (
     JUDGMENT_NON_PART_KEYS as _JUDGMENT_NON_PART_KEYS,
     judgment_parts as _judgment_parts,
 )
@@ -606,7 +606,7 @@ def cmd_distribution(iteration: int) -> None:
 
 def _load_gold() -> list[dict]:
     """Load gold annotations from SQLite."""
-    from pipeline.phase1.storage import load_annotations
+    from pipeline.charter.seed.storage import load_annotations
 
     return load_annotations()
 
@@ -723,7 +723,7 @@ def cmd_reviews(
     """
     import re
 
-    from pipeline.phase2.storage import (
+    from pipeline.charter.improve.storage import (
         _EXCLUDED_REVIEWERS,
         load_judge_correlations,
         load_latest_reviews,
@@ -1054,7 +1054,7 @@ def cmd_trend(mode: str | None = None) -> None:
     dec_key = _mode_decision_key(mode)
     agg_key = _mode_aggregate_key(mode)
 
-    from pipeline.phase2.storage import load_runs
+    from pipeline.charter.improve.storage import load_runs
 
     runs = load_runs()
     assert runs, "No runs found"
@@ -1146,7 +1146,7 @@ def cmd_correlations() -> None:
 
     Only uses *train* split reviews so the validation split remains unseen.
     """
-    from pipeline.phase2.storage import (
+    from pipeline.charter.improve.storage import (
         build_review_lookup,
         load_judge_correlations,
         load_latest_items,
@@ -1402,7 +1402,7 @@ def cmd_correlations() -> None:
 def cmd_rejudge_all(mode: str | None = None) -> None:
     """Re-judge all human-reviewed items with ALL judge prompts × ALL judge models."""
     from pipeline.config import load_config
-    from pipeline.phase2.run import rejudge_all_prompts_and_models
+    from pipeline.charter.improve.run import rejudge_all_prompts_and_models
 
     if mode:
         _validate_mode(mode)
@@ -1442,8 +1442,8 @@ def cmd_test_generate(
         resolve_generator_model,
     )
     from pipeline.api import make_api_client
-    from pipeline.phase2.run import generate_batch
-    from pipeline.phase2.storage import load_runs
+    from pipeline.charter.improve.run import generate_batch
+    from pipeline.charter.improve.storage import load_runs
 
     cfg = load_config()
     alias = model_alias or cfg.phase2.generator_models[0].alias
@@ -1596,8 +1596,8 @@ def cmd_test_judge(
 
     from pipeline.api import make_api_client
     from pipeline.config import load_config, resolve_judge_model
-    from pipeline.phase2.run import judge_batch
-    from pipeline.phase2.storage import load_runs
+    from pipeline.charter.improve.run import judge_batch
+    from pipeline.charter.improve.storage import load_runs
 
     cfg = load_config()
     alias = model_alias or cfg.phase2.judge_models[0].alias
@@ -1766,7 +1766,7 @@ def cmd_run_batch(role: str = "judge", mode: str | None = None) -> None:
     mode = _validate_mode(mode)
 
     from pipeline.config import load_config
-    from pipeline.phase2.run import (
+    from pipeline.charter.improve.run import (
         run_judge_cross_iteration,
         run_generator_cross_iteration,
     )
@@ -1819,7 +1819,7 @@ def cmd_run_cross_batch(role: str, target: str, mode: str | None = None) -> None
     mode: "reflection" or "preflection" to run only one pipeline, or None for both.
     """
     from pipeline.config import load_config
-    from pipeline.phase2.run import (
+    from pipeline.charter.improve.run import (
         run_judge_cross_iteration,
         run_generator_cross_iteration,
     )
@@ -1854,7 +1854,7 @@ def cmd_cross_summary(group_id: str, mode: str | None = None) -> None:
     dec_key = _mode_decision_key(mode)
     agg_key = _mode_aggregate_key(mode)
 
-    from pipeline.phase2.storage import load_runs
+    from pipeline.charter.improve.storage import load_runs
 
     runs = load_runs()
     group_runs = [
@@ -1961,7 +1961,7 @@ def cmd_diagnose(group_id: str, mode: str | None = None) -> None:
     agg_key = _mode_aggregate_key(mode)
 
     from pipeline.config import load_config
-    from pipeline.phase2.storage import load_runs, load_latest_reviews
+    from pipeline.charter.improve.storage import load_runs, load_latest_reviews
 
     cfg = load_config()
     floor_thresh = cfg.phase2.scoring.floor_threshold
@@ -2375,7 +2375,7 @@ def cmd_parse_stats(iteration: int) -> None:
     Reads the run config to find n_attempted and n_gen_failed.
     Falls back to comparing item counts if config data unavailable.
     """
-    from pipeline.phase2.storage import load_runs
+    from pipeline.charter.improve.storage import load_runs
 
     runs = load_runs()
     run = next((r for r in runs if r["iteration"] == iteration), None)

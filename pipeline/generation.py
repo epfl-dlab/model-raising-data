@@ -1,6 +1,6 @@
 """Shared generation constants and parsing utilities.
 
-Extracted from pipeline.phase2.run so that phase4 (and future phases)
+Extracted from pipeline.charter.improve.run so that phase4 (and future phases)
 can reuse field aliases, task instructions, and the generation parser
 without importing the phase2 runner.
 """
@@ -140,7 +140,7 @@ def _assert_no_key_leakage(parsed: dict, required_fields: set[str]) -> None:
     """Raise if a field value contains an emitted JSON key string.
 
     The phase 4 generator catches the AssertionError and retries the doc
-    (see ``pipeline/phase4/generate.py``).  ``analysis`` is exempt — it's
+    (see ``pipeline/charter/scale/generate.py``).  ``analysis`` is exempt — it's
     a freeform scratchpad and may legitimately discuss the schema.
     """
     fields_to_check = (required_fields - {"analysis"}) & set(GEN_TEXT_FIELDS)

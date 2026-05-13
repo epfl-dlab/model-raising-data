@@ -1,4 +1,4 @@
-"""Tests for pipeline.phase3.eval_generators.run_generator_eval.
+"""Tests for pipeline.charter.eval.eval_generators.run_generator_eval.
 
 These tests are written BEFORE the implementation exists. They describe the
 contract the Path-A generator-eval runner must satisfy. Running them now
@@ -326,7 +326,7 @@ def patched_runner(monkeypatch, tmp_path, eval_cfg):
     # Import will fail at run time if the module doesn't exist — that's
     # exactly the signal we want the failing tests to produce. Collection
     # still succeeds because this import is inside the fixture body.
-    from pipeline.phase3 import eval_generators as eg
+    from pipeline.charter.eval import eval_generators as eg
 
     # Ensure a fake prompt file exists so any code path that stat-checks it
     # will pass — even though resolve_prompt_path is also monkey-patched.
@@ -399,7 +399,7 @@ def patched_runner(monkeypatch, tmp_path, eval_cfg):
 
 
 class TestRunGeneratorEval:
-    """Contract tests for pipeline.phase3.eval_generators.run_generator_eval."""
+    """Contract tests for pipeline.charter.eval.eval_generators.run_generator_eval."""
 
     # ---- file naming helpers -----------------------------------------------
 
@@ -408,19 +408,19 @@ class TestRunGeneratorEval:
 
     @staticmethod
     def _pid(c) -> str:
-        from pipeline.phase3.eval_generators import _prompt_id
+        from pipeline.charter.eval.eval_generators import _prompt_id
 
         return _prompt_id(c)
 
     @staticmethod
     def _gen_rel(cand) -> str:
-        from pipeline.phase3.eval_generators import _prompt_id
+        from pipeline.charter.eval.eval_generators import _prompt_id
 
         return f"generations/{cand.alias}__{_prompt_id(cand)}.jsonl"
 
     @staticmethod
     def _jud_rel(gold, cand) -> str:
-        from pipeline.phase3.eval_generators import _prompt_id
+        from pipeline.charter.eval.eval_generators import _prompt_id
 
         return (
             f"judgments/{gold.alias}__{_prompt_id(gold)}"
@@ -429,13 +429,13 @@ class TestRunGeneratorEval:
 
     @staticmethod
     def _fail_gen_rel(cand) -> str:
-        from pipeline.phase3.eval_generators import _prompt_id
+        from pipeline.charter.eval.eval_generators import _prompt_id
 
         return f"failures/gen_{cand.alias}__{_prompt_id(cand)}.jsonl"
 
     @staticmethod
     def _fail_jud_rel(gold, cand) -> str:
-        from pipeline.phase3.eval_generators import _prompt_id
+        from pipeline.charter.eval.eval_generators import _prompt_id
 
         return (
             f"failures/jud_{gold.alias}__{_prompt_id(gold)}"

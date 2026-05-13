@@ -1,9 +1,9 @@
-"""Tests for pipeline.phase3.eval_judges.
+"""Tests for pipeline.charter.eval.eval_judges.
 
 These tests are written BEFORE the implementation exists. Collection of this
 file must succeed (no ImportError at collection time) — individual tests are
 expected to fail at run time with ImportError until
-pipeline/phase3/eval_judges.py exists.
+pipeline/charter/eval/eval_judges.py exists.
 
 The eval_judges module exposes one public function:
 
@@ -229,7 +229,7 @@ def _build_cfg(tmp_path):
 
 
 def _install_common_patches(monkeypatch, tmp_path, n_items_default=5):
-    """Patch the standard rebound symbols on pipeline.phase3.eval_judges."""
+    """Patch the standard rebound symbols on pipeline.charter.eval.eval_judges."""
     prompts_dir = tmp_path / "fake_prompts"
     prompts_dir.mkdir(exist_ok=True)
 
@@ -248,11 +248,11 @@ def _install_common_patches(monkeypatch, tmp_path, n_items_default=5):
         return named
 
     monkeypatch.setattr(
-        "pipeline.phase3.eval_judges.make_api_client",
+        "pipeline.charter.eval.eval_judges.make_api_client",
         lambda *a, **kw: (MagicMock(), asyncio.Semaphore(1)),
     )
     monkeypatch.setattr(
-        "pipeline.phase3.eval_judges.ensure_item_pool",
+        "pipeline.charter.eval.eval_judges.ensure_item_pool",
         lambda store, n_items, seed, max_tokens: [
             {
                 "item_id": f"i{i}",
@@ -264,7 +264,7 @@ def _install_common_patches(monkeypatch, tmp_path, n_items_default=5):
         ],
     )
     monkeypatch.setattr(
-        "pipeline.phase3.eval_judges.resolve_prompt_path",
+        "pipeline.charter.eval.eval_judges.resolve_prompt_path",
         _fake_resolve,
     )
     return prompts_dir
@@ -289,10 +289,10 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 
 class TestRunJudgeEval:
-    """Contract tests for pipeline.phase3.eval_judges.run_judge_eval."""
+    """Contract tests for pipeline.charter.eval.eval_judges.run_judge_eval."""
 
     def test_full_run_creates_judgment_per_judge(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -335,7 +335,7 @@ class TestRunJudgeEval:
 
     def test_gold_judge_dedup(self, tmp_path, monkeypatch):
         from pipeline.config import CandidateModel
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -384,7 +384,7 @@ class TestRunJudgeEval:
         assert len(gold_files) == 1
 
     def test_canary_seed_passed_to_generator(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -408,7 +408,7 @@ class TestRunJudgeEval:
         assert captured_seeds.count(999) == 1
 
     def test_judge_batch_called_with_each_judge_model(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -429,7 +429,7 @@ class TestRunJudgeEval:
         assert {"gold-api", "cand1-api", "cand2-api"} <= models_seen
 
     def test_resume_skips_done_judgments(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -459,7 +459,7 @@ class TestRunJudgeEval:
             assert c["n_items"] == 0, f"Expected resume to skip all items, got call {c}"
 
     def test_include_reviewed_path_judges_reviewed_items(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -514,7 +514,7 @@ class TestRunJudgeEval:
             },
         ]
         monkeypatch.setattr(
-            "pipeline.phase3.eval_judges.load_reviewed_items",
+            "pipeline.charter.eval.eval_judges.load_reviewed_items",
             lambda reviewer_policy="average": list(reviewed_rows),
         )
 
@@ -541,7 +541,7 @@ class TestRunJudgeEval:
         assert len(j_c2) == 2
 
     def test_reviewed_resume_uses_composite_key(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -600,7 +600,7 @@ class TestRunJudgeEval:
             },
         ]
         monkeypatch.setattr(
-            "pipeline.phase3.eval_judges.load_reviewed_items",
+            "pipeline.charter.eval.eval_judges.load_reviewed_items",
             lambda reviewer_policy="average": list(reviewed_rows),
         )
 
@@ -617,7 +617,7 @@ class TestRunJudgeEval:
             assert c["n_items"] == 0, f"Expected resume to skip all items, got call {c}"
 
     def test_failures_recorded_per_judge(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 
@@ -698,7 +698,7 @@ class TestRunJudgeEval:
         assert len(j_c2) == 5
 
     def test_run_dir_under_eval_dir(self, tmp_path, monkeypatch):
-        from pipeline.phase3 import eval_judges as mod
+        from pipeline.charter.eval import eval_judges as mod
 
         _install_common_patches(monkeypatch, tmp_path)
 

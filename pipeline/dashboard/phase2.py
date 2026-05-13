@@ -25,9 +25,9 @@ from pipeline.generation import (
     REFLECTION_PART_NAMES as _REFLECTION_PART_NAMES,
     detect_mode_voices as _detect_mode_voices,
 )
-from pipeline.phase2.loop import parse_improver_key
-from pipeline.phase2.run import JUDGMENT_NON_PART_KEYS
-from pipeline.phase2.storage import (
+from pipeline.charter.improve.loop import parse_improver_key
+from pipeline.charter.improve.run import JUDGMENT_NON_PART_KEYS
+from pipeline.charter.improve.storage import (
     build_review_lookup,
     delete_review,
     delete_review_comment,
@@ -2739,7 +2739,7 @@ def pipeline_monitoring_page():
 
         def _update_cards(improvers: dict) -> None:
             """Update card badge and detail text in-place (no DOM rebuild)."""
-            from pipeline.phase2.loop import (
+            from pipeline.charter.improve.loop import (
                 improver_log_path as _log_path,
                 _extract_latest_status_from_log,
                 _extract_reasoning_from_log,
@@ -2770,7 +2770,7 @@ def pipeline_monitoring_page():
 
         def _build_log_tabs(improvers: dict) -> None:
             """Full rebuild of log tabs (only when keys change)."""
-            from pipeline.phase2.loop import improver_log_path as _log_path
+            from pipeline.charter.improve.loop import improver_log_path as _log_path
 
             _log_els.clear()
             log_tabs_container.clear()
@@ -2798,7 +2798,7 @@ def pipeline_monitoring_page():
 
         def _update_log_tabs(improvers: dict) -> None:
             """Update log content in-place (no DOM rebuild)."""
-            from pipeline.phase2.loop import improver_log_path as _log_path
+            from pipeline.charter.improve.loop import improver_log_path as _log_path
 
             for key in improvers:
                 if key not in _log_els:
@@ -2826,7 +2826,7 @@ def pipeline_monitoring_page():
                 _update_log_tabs(improvers)
 
         def _poll_loop_status():
-            from pipeline.phase2.loop import read_status
+            from pipeline.charter.improve.loop import read_status
 
             st = read_status()
             if st is None:
@@ -2884,7 +2884,7 @@ def pipeline_monitoring_page():
         loop_timer = ui.timer(3.0, _poll_loop_status, active=True)
 
         # Load existing status on page render
-        from pipeline.phase2.loop import read_status as _read_initial
+        from pipeline.charter.improve.loop import read_status as _read_initial
 
         _initial = _read_initial()
         if _initial:
@@ -2932,7 +2932,7 @@ def pipeline_monitoring_page():
 
             def _thread():
                 try:
-                    from pipeline.phase2.run import (
+                    from pipeline.charter.improve.run import (
                         run_judge_cross_iteration,
                         run_generator_cross_iteration,
                     )
@@ -3940,7 +3940,7 @@ def pipeline_review_page():
 
     def _show_gold_annotation(item_id: str):
         """Display the human annotation for a gold item."""
-        from pipeline.phase1.storage import load_latest_annotations
+        from pipeline.charter.seed.storage import load_latest_annotations
 
         annotations = load_latest_annotations()
         gold_records = [v for (iid, _), v in annotations.items() if iid == item_id]

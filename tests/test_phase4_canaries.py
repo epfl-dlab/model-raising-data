@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pipeline.phase4.canaries import assign_canary, load_canaries
+from pipeline.charter.scale.canaries import assign_canary, load_canaries
 
 
 class TestLoadCanaries:

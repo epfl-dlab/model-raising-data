@@ -7,7 +7,7 @@ from nicegui import app, ui
 
 from pipeline.config import CHARTER_ELEMENT_IDS
 from pipeline.dashboard.shared import N_PHASES, PHASE_ROUTES
-from pipeline.phase1.storage import load_annotator_ids
+from pipeline.charter.seed.storage import load_annotator_ids
 
 # --- Password middleware ---
 

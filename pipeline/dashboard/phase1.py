@@ -20,7 +20,7 @@ from pipeline.dashboard.shared import (
     render_source_text,
 )
 from pipeline.backup import force_upload
-from pipeline.phase1.storage import (
+from pipeline.charter.seed.storage import (
     delete_comment,
     load_annotator_ids,
     load_annotations_by_item,

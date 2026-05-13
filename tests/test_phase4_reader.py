@@ -6,7 +6,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from pipeline.phase4.reader import SidecarReader
+from pipeline.charter.scale.reader import SidecarReader
 
 
 @pytest.fixture
