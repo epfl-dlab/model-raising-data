@@ -38,7 +38,7 @@ import pytest
 
 
 def make_fake_generate(captured_seeds, captured_failures, fail_ids=frozenset()):
-    """Build a fake stand-in for phase2.run.generate_batch."""
+    """Build a fake stand-in for charter.improve.run.generate_batch."""
 
     def _fake(
         items,
@@ -98,7 +98,7 @@ def make_fake_generate(captured_seeds, captured_failures, fail_ids=frozenset()):
 
 
 def make_fake_judge(captured_calls=None, fail_ids=frozenset()):
-    """Build a fake stand-in for phase2.run.judge_batch."""
+    """Build a fake stand-in for charter.improve.run.judge_batch."""
 
     def _fake(
         items,
@@ -194,7 +194,7 @@ def _build_cfg(tmp_path):
     from pipeline.config import CandidateModel, load_config
 
     cfg = load_config()
-    cfg.charter.eval.eval_dir = str(tmp_path / "phase3_eval")
+    cfg.charter.eval.eval_dir = str(tmp_path / "charter_eval")
     cfg.charter.eval.gold_judge = CandidateModel(
         alias="gold",
         api_name="gold-api",
@@ -309,7 +309,7 @@ class TestRunJudgeEval:
         cfg = _build_cfg(tmp_path)
         mod.run_judge_eval(cfg, "run-full")
 
-        run_dir = tmp_path / "phase3_eval" / "run-full"
+        run_dir = tmp_path / "charter_eval" / "run-full"
         gens = _read_jsonl(run_dir / "generations" / "genA__generator_v1.md.jsonl")
         assert len(gens) == 5
 
@@ -378,7 +378,7 @@ class TestRunJudgeEval:
         assert len(gold_calls) == 1
 
         # And only one gold judgment file should exist.
-        run_dir = tmp_path / "phase3_eval" / "run-dedup"
+        run_dir = tmp_path / "charter_eval" / "run-dedup"
         judgments_dir = run_dir / "judgments"
         gold_files = [p for p in judgments_dir.glob("gold__judge_v1.md__on__*.jsonl")]
         assert len(gold_files) == 1
@@ -523,7 +523,7 @@ class TestRunJudgeEval:
 
         mod.run_judge_eval(cfg, "run-reviewed")
 
-        run_dir = tmp_path / "phase3_eval" / "run-reviewed"
+        run_dir = tmp_path / "charter_eval" / "run-reviewed"
         reviewed = _read_jsonl(run_dir / "reviewed_items.jsonl")
         assert len(reviewed) == 2
 
@@ -667,7 +667,7 @@ class TestRunJudgeEval:
         cfg = _build_cfg(tmp_path)
         mod.run_judge_eval(cfg, "run-fail")
 
-        run_dir = tmp_path / "phase3_eval" / "run-fail"
+        run_dir = tmp_path / "charter_eval" / "run-fail"
 
         gold_failures = _read_jsonl(
             run_dir
@@ -715,8 +715,8 @@ class TestRunJudgeEval:
         cfg = _build_cfg(tmp_path)
         mod.run_judge_eval(cfg, "run-x")
 
-        assert (tmp_path / "phase3_eval" / "run-x").exists()
+        assert (tmp_path / "charter_eval" / "run-x").exists()
         # Must not have leaked into the repo's default data/pipeline path.
         from pipeline.config import PIPELINE_DATA_DIR
 
-        assert not (PIPELINE_DATA_DIR / "phase3_eval" / "run-x").exists()
+        assert not (PIPELINE_DATA_DIR / "charter_eval" / "run-x").exists()

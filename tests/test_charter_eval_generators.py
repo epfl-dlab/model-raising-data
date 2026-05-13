@@ -270,7 +270,7 @@ def eval_cfg(tmp_path):
     from pipeline.config import CandidateModel, load_config
 
     cfg = load_config()
-    cfg.charter.eval.eval_dir = str(tmp_path / "phase3_eval")
+    cfg.charter.eval.eval_dir = str(tmp_path / "charter_eval")
     cfg.charter.eval.gold_judge = CandidateModel(
         alias="gold-judge",
         api_name="api/gold-judge",
@@ -676,10 +676,10 @@ class TestRunGeneratorEval:
         ), f"run dir was not created under cfg.charter.eval.eval_dir: {expected}"
 
         # Also sanity-check that the runner did NOT create the run under the
-        # default data/pipeline/phase3_eval path.
+        # default data/pipeline/charter_eval path.
         from pipeline.config import PROJECT_ROOT
 
-        default_bad = PROJECT_ROOT / "data" / "pipeline" / "phase3_eval" / run_id
+        default_bad = PROJECT_ROOT / "data" / "pipeline" / "charter_eval" / run_id
         assert not default_bad.exists(), (
             f"runner ignored cfg.charter.eval.eval_dir and created a run under "
             f"the project default: {default_bad}"
