@@ -37,3 +37,7 @@ throughput_estimations/results/
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Phase-rename migration artefacts (per-machine paths + timestamps)
+/migration_manifest.json
+/data/storage.db.pre_rename_*.bak

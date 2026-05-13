@@ -1,4 +1,4 @@
-"""Tests for Phase 2 surgical edits (S1-S6).
+"""Tests for charter.improve surgical edits (S1-S6).
 
 These tests are written BEFORE the implementations exist. They describe what
 the surgical edits MUST do. Running them now (before implementation) is
