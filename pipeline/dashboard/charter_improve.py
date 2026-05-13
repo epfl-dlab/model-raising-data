@@ -2498,7 +2498,7 @@ def pipeline_monitoring_page():
             on_click=lambda: ui.navigate.to("/pipeline/reviews"),
         ).classes("text-white").props("flat dense")
 
-    render_header(viewer_id, active_phase=2, right_slot=pipeline_actions)
+    render_header(viewer_id, active_step=2, right_slot=pipeline_actions)
 
     runs = load_runs()
     all_reviews = load_reviews()
@@ -2986,7 +2986,7 @@ def pipeline_review_page():
             on_click=lambda: ui.navigate.to("/pipeline"),
         ).classes("text-white").props("flat dense")
 
-    render_header(viewer_id, active_phase=2, right_slot=review_actions)
+    render_header(viewer_id, active_step=2, right_slot=review_actions)
 
     runs = load_runs()
     if not runs:
@@ -3687,16 +3687,16 @@ def pipeline_review_page():
         # is unambiguously a top-level __setitem__ on app.storage.user, which
         # always fires backup() (no reliance on nested-dict observation).
         try:
-            return dict(app.storage.user.get("phase2_drafts") or {})
+            return dict(app.storage.user.get("charter_improve_drafts") or {})
         except Exception as e:
-            logger.warning("phase2: _all_drafts read failed: %r", e)
+            logger.warning("charter_improve: _all_drafts read failed: %r", e)
             return {}
 
     def _set_drafts(drafts: dict) -> None:
         try:
-            app.storage.user["phase2_drafts"] = drafts
+            app.storage.user["charter_improve_drafts"] = drafts
         except Exception as e:
-            logger.warning("phase2: _set_drafts write failed: %r", e)
+            logger.warning("charter_improve: _set_drafts write failed: %r", e)
 
     def _prune_stale_drafts() -> None:
         drafts = _all_drafts()
@@ -3753,18 +3753,18 @@ def pipeline_review_page():
     def _save_position(item: dict | None) -> None:
         try:
             if item is None:
-                app.storage.user.pop("phase2_current_item", None)
+                app.storage.user.pop("charter_improve_current_item", None)
             else:
-                app.storage.user["phase2_current_item"] = {
+                app.storage.user["charter_improve_current_item"] = {
                     "item_id": item["item_id"],
                     "iteration": item["iteration"],
                 }
         except Exception as e:
-            logger.warning("phase2: _save_position failed: %r", e)
+            logger.warning("charter_improve: _save_position failed: %r", e)
 
     def _load_position() -> tuple[str, int] | None:
         try:
-            saved = app.storage.user.get("phase2_current_item")
+            saved = app.storage.user.get("charter_improve_current_item")
         except Exception:
             return None
         if not saved:
@@ -4301,7 +4301,7 @@ def pipeline_reviews_page():
             on_click=lambda: ui.navigate.to("/pipeline/review"),
         ).classes("text-white").props("flat dense")
 
-    render_header(viewer_id, active_phase=2, right_slot=reviews_actions)
+    render_header(viewer_id, active_step=2, right_slot=reviews_actions)
 
     all_reviews = load_reviews()
     review_comments = load_review_comments()

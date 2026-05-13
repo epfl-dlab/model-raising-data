@@ -10,8 +10,9 @@ from pipeline.config import (
 )
 
 REFLECTION_MARKER_ID = "reflection-marker"
-N_PHASES = 3
-PHASE_ROUTES = {1: "/annotate", 2: "/pipeline", 3: "/phase3"}
+N_STEPS = 3
+STEP_ROUTES = {1: "/annotate", 2: "/pipeline", 3: "/charter_eval"}
+STEP_LABELS = {1: "Seed", 2: "Improve", 3: "Eval"}
 
 _COPY_JS_TEMPLATE = """(e) => {{
     var text = window.{var_name} || "";

@@ -63,7 +63,7 @@ def annotate_page():
             on_click=lambda: ui.navigate.to("/overview"),
         ).classes("text-white").props("flat dense")
 
-    render_header(annotator_id, active_phase=1, right_slot=annotate_actions)
+    render_header(annotator_id, active_step=1, right_slot=annotate_actions)
 
     def build_content():
         """Build the main annotation UI. Called once SAMPLE_ITEMS is populated."""
@@ -439,7 +439,7 @@ def overview_page():
             on_click=lambda: ui.navigate.to("/annotate"),
         ).classes("text-white").props("flat dense")
 
-    render_header(viewer_id, active_phase=1, right_slot=overview_actions)
+    render_header(viewer_id, active_step=1, right_slot=overview_actions)
 
     # === Stats ===
     with ui.row().classes("w-full p-4 gap-8 items-start"):

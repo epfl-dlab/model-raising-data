@@ -1,4 +1,4 @@
-"""Phase 3 dashboard pages: /phase3, /phase3/<run_id>, /phase3/<run_id>/browse.
+"""Charter eval dashboard pages: /charter_eval, /charter_eval/<run_id>, /charter_eval/<run_id>/browse.
 
 Thin presentation layer over `pipeline.charter.eval.rank` analytics. The runs
 themselves are produced by `python -m pipeline.charter.eval eval-{generators,judges}`
@@ -32,7 +32,7 @@ def _list_runs() -> list[dict]:
         try:
             meta = json.loads(meta_path.read_text())
         except (json.JSONDecodeError, OSError) as e:
-            logger.warning("phase3 dashboard: skipping {}: {}", run_dir.name, e)
+            logger.warning("charter_eval dashboard: skipping {}: {}", run_dir.name, e)
             continue
         runs.append({"run_id": run_dir.name, "path": str(run_dir), **meta})
     return runs
@@ -84,11 +84,11 @@ _BAR_COLORS = [
 ]
 
 
-@ui.page("/phase3")
-def phase3_runs_page() -> None:
+@ui.page("/charter_eval")
+def charter_eval_runs_page() -> None:
     """List phase 3 eval runs."""
     viewer_id = app.storage.user.get("annotator_id", "")
-    render_header(viewer_id, active_phase=3)
+    render_header(viewer_id, active_step=3)
 
     runs = _list_runs()
 
@@ -152,7 +152,7 @@ def phase3_runs_page() -> None:
     table = ui.table(columns=columns, rows=rows, row_key="run_id").classes("w-full")
     table.on(
         "rowClick",
-        lambda e: ui.navigate.to(f"/phase3/{e.args[1]['run_id']}"),
+        lambda e: ui.navigate.to(f"/charter_eval/{e.args[1]['run_id']}"),
     )
 
     # --- Cross-run generator comparison ---
@@ -165,11 +165,11 @@ def phase3_runs_page() -> None:
         _render_cross_run_charts(generators)
 
 
-@ui.page("/phase3/{run_id}")
-def phase3_run_detail_page(run_id: str) -> None:
+@ui.page("/charter_eval/{run_id}")
+def charter_eval_run_detail_page(run_id: str) -> None:
     """Show metadata + rank table for a single phase 3 eval run."""
     viewer_id = app.storage.user.get("annotator_id", "")
-    render_header(viewer_id, active_phase=3)
+    render_header(viewer_id, active_step=3)
 
     root = _eval_root(load_config()) / run_id
     meta_path = root / "metadata.json"
@@ -205,7 +205,7 @@ def phase3_run_detail_page(run_id: str) -> None:
         ui.button(
             "Browse Outputs",
             icon="search",
-            on_click=lambda: ui.navigate.to(f"/phase3/{run_id}/browse"),
+            on_click=lambda: ui.navigate.to(f"/charter_eval/{run_id}/browse"),
         ).classes("q-mx-md")
     try:
         from pipeline.charter.eval import rank as rank_mod
@@ -220,7 +220,7 @@ def phase3_run_detail_page(run_id: str) -> None:
             ui.label(f"Unknown eval type: {eval_type}").classes("text-red")
     except Exception as e:
         ui.label(f"Failed to compute rank: {e}").classes("text-red")
-        logger.exception("phase3 dashboard rank failed")
+        logger.exception("charter_eval dashboard rank failed")
 
 
 def _render_generator_table(rows: list[dict]) -> None:
@@ -577,11 +577,11 @@ def _judgment_display_label(jud_stem: str) -> str:
     return jud_stem
 
 
-@ui.page("/phase3/{run_id}/browse")
-def phase3_browse_page(run_id: str) -> None:
+@ui.page("/charter_eval/{run_id}/browse")
+def charter_eval_browse_page(run_id: str) -> None:
     """Browse individual outputs for a phase 3 generator eval run."""
     viewer_id = app.storage.user.get("annotator_id", "")
-    render_header(viewer_id, active_phase=3)
+    render_header(viewer_id, active_step=3)
 
     cfg = load_config()
     run_dir = _eval_root(cfg) / run_id

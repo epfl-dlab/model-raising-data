@@ -1,4 +1,4 @@
-"""Unified dashboard: password gate, login, header, phase bar, route registration."""
+"""Unified dashboard: password gate, login, header, step bar, route registration."""
 
 import os
 
@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from nicegui import app, ui
 
 from pipeline.config import CHARTER_ELEMENT_IDS
-from pipeline.dashboard.shared import N_PHASES, PHASE_ROUTES
+from pipeline.dashboard.shared import N_STEPS, STEP_LABELS, STEP_ROUTES
 from pipeline.charter.seed.storage import load_annotator_ids
 
 # --- Password middleware ---
@@ -35,13 +35,13 @@ if PASSWORD:
 # --- Shared UI components ---
 
 
-def _phase_stepper_html(active_phase: int) -> str:
-    """Build the inline HTML for the phase stepper."""
+def _step_stepper_html(active_step: int) -> str:
+    """Build the inline HTML for the dev-loop stepper (Seed → Improve → Eval)."""
 
     def _circle(n: int) -> str:
         style = (
             "background:#1976d2;border:2px solid #1976d2;color:white;"
-            if n <= active_phase
+            if n <= active_step
             else "background:transparent;border:2px solid #555;color:#666;"
         )
         return (
@@ -51,23 +51,23 @@ def _phase_stepper_html(active_phase: int) -> str:
         )
 
     def _label(n: int) -> str:
-        color = "white" if n == active_phase else "#888"
-        weight = "600" if n == active_phase else "400"
+        color = "white" if n == active_step else "#888"
+        weight = "600" if n == active_step else "400"
         return (
             f'<span style="color:{color};font-size:0.75em;font-weight:{weight};'
-            f'white-space:nowrap;margin-left:5px;">Phase {n}</span>'
+            f'white-space:nowrap;margin-left:5px;">{STEP_LABELS.get(n, str(n))}</span>'
         )
 
-    connector_color = lambda n: "#1976d2" if n < active_phase else "#444"
+    connector_color = lambda n: "#1976d2" if n < active_step else "#444"
     connector = (
         lambda n: f'<div style="width:28px;height:2px;background:{connector_color(n)};margin:0 6px;flex-shrink:0;"></div>'
     )
 
     parts = []
-    for n in range(1, N_PHASES + 1):
+    for n in range(1, N_STEPS + 1):
         if n > 1:
             parts.append(connector(n - 1))
-        route = PHASE_ROUTES.get(n, "#")
+        route = STEP_ROUTES.get(n, "#")
         parts.append(
             f'<a href="{route}" style="text-decoration:none;display:flex;align-items:center;">'
             + _circle(n)
@@ -78,14 +78,14 @@ def _phase_stepper_html(active_phase: int) -> str:
     return '<div style="display:flex;align-items:center;">' + "".join(parts) + "</div>"
 
 
-def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
+def render_header(annotator_id: str, active_step: int = 1, right_slot=None):
     """Render the shared page header: a single compact row with title,
-    phase stepper, optional right_slot, and account/logout.
+    step stepper, optional right_slot, and account/logout.
 
     Args:
         annotator_id: Current user's name (empty string if not logged in).
-        active_phase: Currently active phase number.
-        right_slot: Optional callable for phase-specific right-side actions.
+        active_step: Currently active dev-loop step (1=Seed, 2=Improve, 3=Eval).
+        right_slot: Optional callable for step-specific right-side actions.
     """
     with (
         ui.header()
@@ -98,7 +98,7 @@ def render_header(annotator_id: str, active_phase: int = 1, right_slot=None):
             ui.label("Model Raising").classes(
                 "text-subtitle1 text-weight-bold text-white"
             ).style("white-space: nowrap;")
-            ui.html(_phase_stepper_html(active_phase))
+            ui.html(_step_stepper_html(active_step))
             ui.space()
             if right_slot:
                 with ui.row().classes("items-center gap-2"):
@@ -190,7 +190,7 @@ def login_page():
         ui.button("Start annotating", on_click=start, color="primary").classes("w-64")
 
 
-# --- Register phase routes (import triggers @ui.page decorators) ---
-import pipeline.dashboard.phase1  # noqa: F401, E402
-import pipeline.dashboard.phase2  # noqa: F401, E402
-import pipeline.dashboard.phase3  # noqa: F401, E402
+# --- Register step routes (import triggers @ui.page decorators) ---
+import pipeline.dashboard.charter_seed  # noqa: F401, E402
+import pipeline.dashboard.charter_improve  # noqa: F401, E402
+import pipeline.dashboard.charter_eval  # noqa: F401, E402
