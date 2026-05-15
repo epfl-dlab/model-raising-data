@@ -10,10 +10,15 @@ columns in HF chat format:
 Output layout::
 
     out_dir/
-      train.parquet   (source, source_id, messages_cite, messages_nocite, meta)
+      train-00000-of-{N:05d}.parquet
+      ...
+      train-{N-1:05d}-of-{N:05d}.parquet
       stats.json
 
-After writing, uploads to HuggingFace Hub at ``HF_REPO_ID``.
+The table is split into contiguous, order-preserving row chunks of at most
+``MAX_SHARD_ROWS`` rows each (sizes differ by at most 1) so every shard stays
+under the HuggingFace dataset viewer's per-file size limit. After writing,
+uploads to HuggingFace Hub at ``HF_REPO_ID``.
 """
 from __future__ import annotations
 
@@ -29,6 +34,7 @@ from pipeline.log import logger
 from pipeline.sft.single_turn.generate import has_identity_leak
 
 DEFAULT_HF_REPO_ID = "jkminder/model-raising-pb-300k-3c-sft"
+MAX_SHARD_ROWS = 100_000
 
 
 def _strip_surrogates(s: str) -> str:
@@ -104,8 +110,9 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
         ("meta", pa.string()),
     ])
 
-    out_path = out_dir / "train.parquet"
-    pq.write_table(pa.Table.from_pylist(rows, schema=schema), out_path)
+    table = pa.Table.from_pylist(rows, schema=schema)
+    n_shards = max(1, -(-table.num_rows // MAX_SHARD_ROWS))
+    out_paths = _write_shards(table, out_dir, n_shards)
 
     by_source = {}
     for r in rows:
@@ -118,16 +125,31 @@ def export_results(jsonl_path: Path, out_dir: Path, hf_repo_id: str | None = Non
         "canary_warnings": n_canary_warn,
         "exported_rows": len(rows),
         "by_source": by_source,
-        "out_path": str(out_path),
+        "n_shards": n_shards,
+        "out_paths": [str(p) for p in out_paths],
     }
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2))
-    logger.info("export complete: {} rows ({} errors, {} canary skips, {} canary warnings). stats at {}",
-                len(rows), n_skip_error, n_skip_canary, n_canary_warn, out_dir / "stats.json")
+    logger.info("export complete: {} rows in {} shards ({} errors, {} canary skips, {} canary warnings). stats at {}",
+                len(rows), n_shards, n_skip_error, n_skip_canary, n_canary_warn, out_dir / "stats.json")
 
     if hf_repo_id:
-        _upload_to_hub(out_path, hf_repo_id, stats)
+        _upload_to_hub(out_paths, hf_repo_id, stats)
 
     return stats
+
+
+def _write_shards(table: pa.Table, out_dir: Path, n_shards: int) -> list[Path]:
+    """Write `table` as `n_shards` contiguous, order-preserving parquet shards."""
+    n = table.num_rows
+    base, rem = divmod(n, n_shards)
+    sizes = [base + (1 if i < rem else 0) for i in range(n_shards)]
+    offsets = [sum(sizes[:i]) for i in range(n_shards)]
+    paths = []
+    for i, (off, sz) in enumerate(zip(offsets, sizes)):
+        path = out_dir / f"train-{i:05d}-of-{n_shards:05d}.parquet"
+        pq.write_table(table.slice(off, sz), path)
+        paths.append(path)
+    return paths
 
 
 _DATASET_README_TEMPLATE = """\
@@ -197,8 +219,8 @@ Part of the [Model Raising](https://github.com/epfl-dlab/model-raising-data) pro
 """
 
 
-def _upload_to_hub(parquet_path: Path, repo_id: str, stats: dict) -> None:
-    """Upload the exported parquet and README to HuggingFace Hub."""
+def _upload_to_hub(parquet_paths: list[Path], repo_id: str, stats: dict) -> None:
+    """Upload the exported parquet shards and README to HuggingFace Hub."""
     from huggingface_hub import HfApi
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
@@ -206,13 +228,14 @@ def _upload_to_hub(parquet_path: Path, repo_id: str, stats: dict) -> None:
 
     api = HfApi(token=token)
     api.create_repo(repo_id, repo_type="dataset", exist_ok=True, private=True)
-    api.upload_file(
-        path_or_fileobj=str(parquet_path),
-        path_in_repo="data/train-00000-of-00001.parquet",
-        repo_id=repo_id,
-        repo_type="dataset",
-        commit_message="Export sft.single_turn charter-aware SFT data",
-    )
+    for path in parquet_paths:
+        api.upload_file(
+            path_or_fileobj=str(path),
+            path_in_repo=f"data/{path.name}",
+            repo_id=repo_id,
+            repo_type="dataset",
+            commit_message=f"Export sft.single_turn charter-aware SFT data ({path.name})",
+        )
 
     readme = _DATASET_README_TEMPLATE.format(
         repo_id=repo_id,
