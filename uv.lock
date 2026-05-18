@@ -1555,7 +1555,7 @@ wheels = [
 [[package]]
 name = "model-raising-data"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "datasets" },
     { name = "datatrove" },
