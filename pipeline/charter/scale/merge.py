@@ -220,6 +220,7 @@ _COLUMN_META: dict[str, tuple[pa.DataType, object]] = {
     "canary_type": (pa.string(), None),
     "canary_type_end": (pa.string(), None),
     "summary_token_count": (pa.int32(), 0),
+    "template_id": (pa.string(), None),
 }
 _DEFAULT_COLUMN_META: tuple[pa.DataType, object] = (pa.large_string(), "")
 
