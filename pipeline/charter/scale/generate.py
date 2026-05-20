@@ -193,6 +193,27 @@ class AnnotationGenerator(PipelineStep):
         yield  # make this a generator function for datatrove
 
 
+def _parse_raw_text(raw: str) -> dict[str, str]:
+    """Raw-text mode for runs that opt out of JSON parsing.
+
+    Strips a trailing ``<think>...</think>`` block if it leaked into
+    ``content`` (sglang's ``separate_reasoning`` normally routes it to
+    ``reasoning_content`` instead). An unclosed ``<think>`` near the
+    start signals truncation mid-thinking — raise ``AssertionError`` so
+    ``process_one``'s retry loop kicks in and the doc eventually lands
+    in ``failures.jsonl``.
+    """
+    clean = raw.strip()
+    think_end = clean.rfind("</think>")
+    if think_end != -1:
+        clean = clean[think_end + len("</think>"):].strip()
+    assert "<think>" not in clean[:200], (
+        f"Unclosed <think> tag in raw output ({len(clean)} chars) — "
+        f"likely truncation mid-thinking"
+    )
+    return {"_raw": clean}
+
+
 def _load_done_set(results_path: Path) -> set[int]:
     """Load global_row_idx values from an existing results JSONL.
 
@@ -386,7 +407,10 @@ async def _generate_all(
                         sampling_params=sampling_params,
                         max_tokens=None,
                     )
-                    parsed = parse_generation(raw, required_fields=required_fields)
+                    if required_fields:
+                        parsed = parse_generation(raw, required_fields=required_fields)
+                    else:
+                        parsed = _parse_raw_text(raw)
                     parsed_results.append(parsed)
                     for k in total_usage:
                         total_usage[k] += usage.get(k, 0)

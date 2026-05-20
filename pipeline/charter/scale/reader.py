@@ -26,11 +26,21 @@ class SidecarReader(PipelineStep):
         sidecar_path: str,
         rows_per_task: int,
         columns: tuple[str, ...] = ("doc_id", "text", "safety_score", "token_length"),
+        filter_column: str | None = None,
     ):
+        """``filter_column``: name of a boolean column on the sidecar — only
+        rows where it is True are yielded.  The skipped rows still occupy
+        their global_row_idx slot (merge fills them with column defaults),
+        so resume and merge-join semantics are unchanged.  Pass ``None``
+        (default) to yield every row in the range.
+        """
         super().__init__()
         self.sidecar_path = sidecar_path
         self.rows_per_task = rows_per_task
         self.columns = list(columns)
+        self.filter_column = filter_column
+        if filter_column is not None and filter_column not in self.columns:
+            self.columns.append(filter_column)
 
     def run(self, data=None, rank: int = 0, world_size: int = 1):
         """Yield Documents for the row range assigned to this rank.
@@ -81,8 +91,17 @@ class SidecarReader(PipelineStep):
 
             # Batch convert to Python lists (much faster than per-row .as_py())
             col_data = table.to_pydict()
+            filter_col = (
+                col_data[self.filter_column] if self.filter_column else None
+            )
             for i in range(table.num_rows):
                 global_idx = rg_start + slice_start + i
+                # Per-run filter: skip rows where the gate column isn't True.
+                # global_row_idx is still advanced so merge alignment is
+                # unaffected — the skipped rows show up as empty defaults.
+                if filter_col is not None and not filter_col[i]:
+                    self.stat_update("documents_filtered")
+                    continue
                 doc = Document(
                     text=col_data["text"][i],
                     id=col_data["doc_id"][i],

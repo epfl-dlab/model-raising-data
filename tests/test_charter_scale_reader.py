@@ -23,7 +23,9 @@ def sidecar_parquet(tmp_path):
             "reflection": "",
             "preflection": "",
             "reflection_position": 0,
-            "is_bad": False,
+            # Every odd-indexed row is is_bad — gives reader-filter tests a
+            # deterministic 50/50 split to exercise.
+            "is_bad": bool(i % 2),
         })
 
     table = pa.table({
@@ -100,3 +102,53 @@ class TestSidecarReader:
         assert len(all_docs) == 100
         ids = [d.id for d in all_docs]
         assert ids == [f"doc_{i:04d}" for i in range(100)]
+
+
+class TestSidecarReaderFilter:
+    """The reader's optional ``filter_column`` skips rows where the named
+    boolean column is False. Used by the rephrasing_safelm run to gate on
+    is_bad (i.e. safety_score ≥ 3) so the SafeLM templates aren't applied
+    to clean docs.
+
+    Skipped rows must still advance global_row_idx — the merge step relies
+    on that index to align rephrasals back to sidecar rows."""
+
+    def test_filter_skips_false_rows(self, sidecar_parquet):
+        reader = SidecarReader(
+            sidecar_parquet, rows_per_task=30, filter_column="is_bad"
+        )
+        docs = list(reader.run(rank=0))
+        # Rows 0-29 with is_bad = i%2: rows 1,3,5,...,29 → 15 docs.
+        assert len(docs) == 15
+        # Yielded docs are exactly the odd-indexed rows.
+        for d in docs:
+            assert d.metadata["global_row_idx"] % 2 == 1
+        assert docs[0].metadata["global_row_idx"] == 1
+        assert docs[-1].metadata["global_row_idx"] == 29
+
+    def test_filter_preserves_global_row_idx(self, sidecar_parquet):
+        # Skipping rows must NOT renumber global_row_idx — the merge step
+        # joins rephrasals to sidecar rows by this index.
+        reader = SidecarReader(
+            sidecar_parquet, rows_per_task=100, filter_column="is_bad"
+        )
+        docs = list(reader.run(rank=0))
+        observed = [d.metadata["global_row_idx"] for d in docs]
+        assert observed == list(range(1, 100, 2))
+
+    def test_filter_works_across_row_groups(self, sidecar_parquet):
+        # rows_per_task=60 spans both row groups (50 each)
+        reader = SidecarReader(
+            sidecar_parquet, rows_per_task=60, filter_column="is_bad"
+        )
+        docs = list(reader.run(rank=0))
+        assert len(docs) == 30  # half of 60
+        assert all(d.metadata["global_row_idx"] % 2 == 1 for d in docs)
+
+    def test_none_filter_yields_all_rows(self, sidecar_parquet):
+        # Explicit None is the same as omitting filter_column.
+        reader = SidecarReader(
+            sidecar_parquet, rows_per_task=30, filter_column=None
+        )
+        docs = list(reader.run(rank=0))
+        assert len(docs) == 30

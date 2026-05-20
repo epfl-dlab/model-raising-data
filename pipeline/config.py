@@ -250,6 +250,7 @@ class CharterScaleConfig:
     refusal_reflection_prompt: str = "generator_reflection_refusal_v2.md"
     preflection_prompt: str = "generator_preflection_v6.md"
     summary_prompt: str = "summary_v7.md"
+    rephrasing_safelm_prompt: str = "rephrasing_safelm_v1.md"
     generator_alias: str = "glm-4.5-air"
     thinking: bool = False
     json_mode: bool = False

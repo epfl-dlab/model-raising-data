@@ -163,6 +163,7 @@ charter:
     refusal_reflection_prompt: generator_reflection_refusal_v2.md
     preflection_prompt: generator_preflection_v8.md
     summary_prompt: summary_v8.md
+    rephrasing_safelm_prompt: rephrasing_safelm_v1.md
     generator_alias: qwen3.5-35b-a3b
     thinking: false
     json_mode: false

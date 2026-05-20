@@ -50,6 +50,13 @@ class RunDefinition:
     # preflections); set to a fixed Path for in-tree, model-agnostic prompts
     # (summaries).
     prompt_source_dir: Path | None = None
+    # Optional: name of a boolean column on the sidecar that must be True
+    # for a row to be processed. Used by rephrasing_safelm to skip docs that
+    # don't need recontextualization (is_bad=False, i.e. safety_score < 3).
+    # The skipped rows still occupy their global_row_idx slot — the merge
+    # step fills them with column defaults — so resume and merge-join
+    # semantics are unchanged.
+    reader_filter_column: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +411,78 @@ def _summaries_post_process(
 
 
 # ---------------------------------------------------------------------------
+# rephrasing_safelm run  (SafeLM-style synthetic recontextualization)
+# ---------------------------------------------------------------------------
+# Reproduces Maini et al. (arXiv 2504.16980 §3.2): rewrite each doc as
+# middle-school educational content using one of 7 style templates,
+# sampled uniformly at random per doc. Output is raw text (no JSON
+# wrapping) — the templates ask for creative formats (podcast scripts,
+# conversations) that don't combine well with structured output.
+
+_REPHRASING_SAFELM_COLUMNS = ["rephrased", "template_id"]
+_REPHRASING_SAFELM_PROMPT_DIR = (
+    Path(__file__).resolve().parents[2] / "rephrasing_safelm" / "prompts"
+)
+
+
+def _rephrasing_safelm_build_calls(
+    doc_text: str,
+    doc_id: str,
+    system_prompt: str,
+    canaries: list[dict],
+    canary_seed: int,
+    reflection_seed: int,
+    max_text_tokens: int = 1920,
+) -> list[tuple[list[dict], set[str], dict]]:
+    """Single API call: rewrite the clipped doc using one of 7 style templates.
+
+    Canaries are accepted for interface parity with the reflections run but
+    deliberately unused — same rationale as summaries.
+
+    ``system_prompt`` is the *composite* template file (all 7 templates
+    delimited by ``<!-- TEMPLATE: name -->``). build_calls picks one per doc
+    via ``select_template`` and sends only that template as the system
+    message.
+
+    ``required_fields=set()`` signals raw-text mode to the AnnotationGenerator
+    — it skips ``parse_generation`` and routes the raw model output through
+    as ``{"_raw": text}``.
+    """
+    from pipeline.rephrasing_safelm.templates import parse_templates, select_template
+
+    end_char, _ = compute_reflection_point_end(
+        doc_text, random.Random(), max_tokens=max_text_tokens
+    )
+    clipped_text = doc_text[:end_char]
+
+    templates = parse_templates(system_prompt)
+    template_id, template_text = select_template(templates, doc_id, reflection_seed)
+
+    messages = [
+        {"role": "system", "content": template_text},
+        {"role": "user", "content": f"## Text\n\n{clipped_text}"},
+    ]
+
+    meta = {"template_id": template_id}
+
+    return [(messages, set(), meta)]
+
+
+def _rephrasing_safelm_post_process(
+    doc_id: str,
+    doc_text: str,
+    parsed_results: list[dict],
+    meta: dict,
+) -> dict:
+    """Pass the raw rephrasal text through; record which template was used."""
+    (parsed,) = parsed_results
+    return {
+        "rephrased": parsed.get("_raw") or "",
+        "template_id": meta["template_id"],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -444,6 +523,19 @@ RUNS: dict[str, RunDefinition] = {
         post_process=_summaries_post_process,
         prompt_source_dir=_SUMMARIES_PROMPT_DIR,
     ),
+    "rephrasing_safelm": RunDefinition(
+        name="rephrasing_safelm",
+        prompt_type="rephrasing_safelm",
+        output_columns=_REPHRASING_SAFELM_COLUMNS,
+        build_calls=_rephrasing_safelm_build_calls,
+        post_process=_rephrasing_safelm_post_process,
+        prompt_source_dir=_REPHRASING_SAFELM_PROMPT_DIR,
+        # SafeLM is designed for unsafe docs only. is_bad ≡ (safety_score ≥ 3),
+        # which is the gate the paper targets. Skipping is_bad=False docs (~48%
+        # of the corpus) avoids the over-sanitization failure mode observed
+        # when the model is asked to recontextualize benign content.
+        reader_filter_column="is_bad",
+    ),
 }
 
 # Aliases map variant names to a base run. The variant gets its own output
@@ -453,6 +545,7 @@ RUN_ALIASES: dict[str, str] = {
     "preflections_test": "preflections",
     "summaries_test": "summaries",
     "refusal_reflection_test": "refusal_reflection",
+    "rephrasing_safelm_test": "rephrasing_safelm",
 }
 
 
