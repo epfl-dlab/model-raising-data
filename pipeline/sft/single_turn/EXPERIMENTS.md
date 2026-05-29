@@ -202,3 +202,9 @@ moderation drop).
   matching `pbsft-safety-180k`.
 - Verified: 300K unique, all `wildchat`, 0 malformed messages, **0 eval overlap**.
 - Build script: `scripts/build_pbsft_instruct.py`.
+
+**Sharding (HF viewer fix):** the `original_response` column ~tripled per-row size,
+so 100K-row shards became ~474MB single-row-group files that break the HF dataset
+viewer. Both `pbsft-instruct-300k` and `pbsft-safety-180k` were re-sharded to
+**50K rows/file (10K-row groups)** → ~237MB / ~162MB files respectively.
+Script: `scripts/reshard_and_reupload.py` (atomic add-new + delete-old HF commit).
