@@ -34,8 +34,8 @@ preprocessing/canaries/export/
 preprocessing/canaries/tokenized/
 throughput_estimations/results/
 
-# Claude Code worktrees
-.claude/worktrees/
+# Claude Code
+.claude/
 
 # Phase-rename migration artefacts (per-machine paths + timestamps)
 /migration_manifest.json
