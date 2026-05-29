@@ -22,7 +22,8 @@ MODEL = "Qwen/Qwen3.5-35B-A3B"
 ALIAS = "qwen3.5-35b-a3b"
 API_KEYS = {ENDPOINT: "OPENROUTER_API_KEY"}
 
-REPO = Path(__file__).resolve().parent.parent.parent
+# parents: [0]=single_turn [1]=sft [2]=pipeline [3]=repo root.
+REPO = Path(__file__).resolve().parents[3]
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 CHARTER_PATH = REPO / "resources" / "ModelRaisingConstitution_v0.2.md"
 
