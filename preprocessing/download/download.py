@@ -145,13 +145,19 @@ def _load_or_create_manifest(output_dir: Path, args, n_total: int) -> list[int]:
     shard_order = list(range(n_total))
     if args.shuffle:
         random.Random(args.seed).shuffle(shard_order)
-    shard_order = shard_order[: args.n_shards]
+    # Take the slice [offset : offset + n_shards]. offset=0 is the original
+    # prefix behaviour; a non-zero offset selects a slice DISJOINT from any
+    # smaller-offset plan over the same (seed, n_total) — used by the eval
+    # pipeline to pull shards that were never in the training download plan.
+    offset = getattr(args, "shard_offset", 0)
+    shard_order = shard_order[offset : offset + args.n_shards]
 
     manifest = {
         "dataset": args.dataset,
         "subset": args.subset,
         "columns": args.columns,
         "n_shards": args.n_shards,
+        "shard_offset": offset,
         "seed": args.seed,
         "shard_order": shard_order,
     }
@@ -200,6 +206,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--subset", default=None, help="Dataset configuration/subset name")
     p.add_argument("--columns", nargs="+", default=None, help="Columns to keep (default: all)")
     p.add_argument("--n-shards", type=int, default=None, help="Number of upstream shards to download (default: all)")
+    p.add_argument("--shard-offset", type=int, default=0, help="Start index into the (shuffled) shard order; take [offset:offset+n_shards]. Use to select a slice disjoint from a prior download plan (default: 0)")
     p.add_argument("--output-dir", type=str, default=None, help=f"Output directory (default: $SCRATCH/<dataset_name>)")
     p.add_argument("--overwrite", action="store_true", help="Remove existing data before downloading")
     p.add_argument("--shuffle", action="store_true", help="Shuffle upstream shard order for cross-source diversity")

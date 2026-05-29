@@ -78,3 +78,9 @@ class TestAssignCanary:
         canaries = load_canaries()
         result = assign_canary("doc_0", 42, canaries, rate=1.0)
         assert result is not None
+
+    def test_none_when_canaries_empty(self):
+        # An empty canary list disables injection entirely — even at rate=1.0,
+        # there is nothing to assign. Used by the eval pipeline (disable_canaries).
+        assert assign_canary("doc_0", 42, [], rate=1.0) is None
+        assert assign_canary("doc_1", 7, [], rate=1.0) is None

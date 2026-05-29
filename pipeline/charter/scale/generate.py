@@ -60,6 +60,7 @@ class AnnotationGenerator(PipelineStep):
         json_mode: bool = False,
         canary_seed: int = 42,
         reflection_seed: int = 42,
+        disable_canaries: bool = False,
         max_retries_per_doc: int = 5,
         progress_interval: int = 1000,
         max_text_tokens: int = 1920,
@@ -76,6 +77,7 @@ class AnnotationGenerator(PipelineStep):
         self.max_text_tokens = max_text_tokens
         self.canary_seed = canary_seed
         self.reflection_seed = reflection_seed
+        self.disable_canaries = disable_canaries
         self.max_retries_per_doc = max_retries_per_doc
         self.progress_interval = progress_interval
 
@@ -103,7 +105,9 @@ class AnnotationGenerator(PipelineStep):
             "{writing_guidelines}", writing_guidelines_text
         )
 
-        canaries = load_canaries()
+        canaries = [] if self.disable_canaries else load_canaries()
+        if self.disable_canaries:
+            logger.info("Rank {}: canaries disabled (clean gold)", rank)
         sampling_params = resolve_sampling_params(self.generator_alias, run_def.name)
 
         # Output directory for this rank

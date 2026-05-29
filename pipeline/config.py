@@ -261,6 +261,7 @@ class CharterScaleConfig:
     progress_interval: int = 1000
     canary_seed: int = 42
     reflection_seed: int = 42  # independent from canary_seed
+    disable_canaries: bool = False  # True = inject no canaries (clean eval gold)
     max_retries_per_doc: int = 5
     sglang: SglangConfig = field(default_factory=SglangConfig)
     slurm: SlurmConfig = field(default_factory=SlurmConfig)

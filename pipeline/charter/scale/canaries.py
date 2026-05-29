@@ -33,7 +33,12 @@ def assign_canary(
     The RNG is seeded with ``f"{canary_seed}_{doc_id}_canary_v1"`` so that:
     - The same doc always gets the same canary (or none) across runs.
     - Changing ``canary_seed`` reshuffles assignments globally.
+
+    An empty ``canaries`` list disables injection entirely (returns None for
+    every doc regardless of ``rate``) — used by the eval pipeline.
     """
+    if not canaries:
+        return None
     rng = random.Random(f"{canary_seed}_{doc_id}_canary_v1")
     if rng.random() >= rate:
         return None

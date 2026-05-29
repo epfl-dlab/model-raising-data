@@ -293,6 +293,7 @@ def cmd_submit(args, overrides):
             json_mode=cfg.charter.scale.json_mode,
             canary_seed=cfg.charter.scale.canary_seed,
             reflection_seed=cfg.charter.scale.reflection_seed,
+            disable_canaries=cfg.charter.scale.disable_canaries,
             max_retries_per_doc=cfg.charter.scale.max_retries_per_doc,
             progress_interval=cfg.charter.scale.progress_interval,
             max_text_tokens=cfg.max_tokens,
