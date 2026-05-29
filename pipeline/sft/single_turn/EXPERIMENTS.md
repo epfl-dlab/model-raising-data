@@ -203,6 +203,131 @@ moderation drop).
 - Verified: 300K unique, all `wildchat`, 0 malformed messages, **0 eval overlap**.
 - Build script: `scripts/build_pbsft_instruct.py`.
 
+## EXP-004: Claude citation-cleaning of the SFT eval set (`claude_cleaned` gold, 2026-05-29)
+
+A model-assisted **citation correction + verification** pass over the entire SFT eval set
+`jkminder/model-raising-pbsft-eval` (the EXP-003 leakage-guard set). Goal: produce a
+trustworthy reference for **whether each gold response cites the *correct* charter sections**,
+since the frozen Qwen3.5-35B generator (prompt v11) makes citation errors — over-citation,
+wrong section ids, and missed citations (v11 itself names missed cites "the most common
+failure"). Each row is independently audited by a Claude agent against the charter and the
+v11 citation rubric, and a cleaned response is written to a new `claude_cleaned` column.
+
+### Setup
+
+- **Input**: `$SCRATCH/model-raising-data/eval/sft_full/hf_export.parquet` (9,993 rows;
+  6,289 carry ≥1 `[X.Y]`). Charter = ModelRaisingConstitution **v0.2** (35 elements).
+- **Scope**: **all 9,993 rows** (not just the 6,289 cited) — auditing the uncited rows is the
+  only way to catch *missed* citations. Mundane rows must stay uncited (explicit anti-over-cite
+  guard in the rubric).
+- **Rubric** (`.../claude_clean/RUBRIC.md`, 44 KB): the full v11 generator prompt + full
+  charter + a task spec. Per `[X.Y]`: (1) is the section id correct for the anchored phrase
+  (uses the v11 cheatsheet: doxing→1.5, fraud/property crime→2.7, animals→5.4, `2.1` only for
+  bodily injury to a *specific* person, phishing→3.3/3.4 not 2.5, …); (2) is it load-bearing
+  (subtractive test); (3) is a load-bearing cite *missing*; (4) caps — default 1, max 2; (5) is
+  the underlying response sound.
+- **Edit policy**: citations-first. `claude_cleaned` keeps the prose and fixes only brackets,
+  with light latitude to fix a wrong response, add a sentence or two for a missing anchor, or
+  fully rewrite a completely-wrong response per v11 — staying very close in style. Single pass
+  (no second adversarial reviewer).
+- **Harness**: workflow fans out one agent per **15-row batch** (667 batches). Each agent
+  reads the rubric + its batch file and writes a validated JSONL result; an idempotency guard
+  skips already-written batches. Scripts: `clean_citations_prep.py` (batches + rubric),
+  `clean_citations_rows_prep.py` (1-row isolation), `clean_citations_assemble.py` (assemble +
+  provenance), `clean_citations_verify.py` (mechanical audit).
+
+### Results — citation corrections
+
+- **2,703 / 9,993 rows changed (27.0%)**; 7,366 (73.7%) had fully-correct citations already.
+- **Action mix**: kept 7,419 · removed_decorative 1,438 · retargeted 561 · mixed 255 · added
+  245 · rewrote 68 · blocked 7. **Over-citation (decorative removal) is the dominant error**,
+  then wrong-section (retarget), then missed cites (added).
+- **Citation markers: 8,520 → 7,075** (net −1,445; the generator systematically over-cites).
+  Per-row count before→after: `0`: 3,704→4,171 · `1`: 4,108→4,580 · `2`: 2,133→1,231 · `3`:
+  46→11 · `4`: 2→0 — i.e. the cap-≤2 discipline tightened and many 2-cite rows dropped to 1.
+- **Row-level citation presence**: `has_citation` 6,289 → 5,822. **253** previously-uncited
+  rows gained a (missed) citation; **720** previously-cited rows had all (decorative) cites
+  removed.
+- **Most-removed ids**: 3.1 (440), 2.1 (190), 3.3 (189), 2.7 (181), 1.3 (164), 5.2 (125) —
+  decorative `[3.1]` on factual lists and decorative `[2.1]` on non-specific harm dominate.
+  **Most added/retargeted-to**: 3.3 (112), 3.1 (60), 1.3 (56), 2.7 (51), 5.3 (48), 2.3 (41).
+- **Change rate by harm_category**: adversarial_harmful 34% · harmful 31% · adversarial_benign
+  22% · benign 14% · unknown (WildChat) 5%. Citation errors concentrate in the
+  safety/jailbreak rows; mundane WildChat is mostly already-correct.
+- **Response-quality flags**: 71 rows marked `response_quality_ok=false` (audit only, not
+  rewritten unless `action=rewrote`). Confidence: high 7,074 · med 2,884 · low 28.
+
+### Finding 1 — content-filter block forces a model split (Opus → Sonnet)
+
+The bulk pass ran on **Claude Opus 4.8**. A fixed set of **22 batches (330 rows)** repeatedly
+failed across 3 Opus attempts with the agent emitting
+`API Error: …blocked under Anthropic's Usage Policy …violative cyber content`
+(`stop_reason=stop_sequence`), writing no file. **Not a rate limit** — confirmed from
+transcripts and token counts (instant fail, ~0–200 K tokens). One severe cyber row (malware /
+exploit / pathogen content in the *prompt* the gold safely refuses) trips the platform
+guardrail and takes its whole 15-row batch down. This is **platform-level**, not model
+refusal.
+
+Re-running those 22 batches on **Claude Sonnet 4.6** cleared most of them (Sonnet's guardrail
+is more permissive on this defensive-research content). **1-row isolation** (one agent per
+remaining row, so a single trigger can't poison batch-mates) salvaged the rest.
+
+- **Rows cleaned by Sonnet because of the Opus content filter: 323** (of the 330 Opus-blocked).
+- **Rows still blocked by Sonnet (hard residue): 7** → idxs
+  `[837, 975, 2289, 3794, 7997, 8008, 9223]` (e.g. 975 cites `[2.5]` dangerous capabilities;
+  8008 is a historian/epidemiology framing). These are **retained as their original `cited`
+  text, uncleaned**, flagged `claude_blocked=true`. No filter-evasion was attempted.
+- (A further **6** rows were re-cleaned on Sonnet for the alignment reason below, not the
+  filter, giving **329** total Sonnet-provenance rows.)
+
+**Final model provenance** (`claude_model` column): **opus 9,655 · sonnet 329 · blocked 7 ·
+deterministic 2**. Cleaned coverage: **9,986 / 9,993 (99.93%)**.
+
+### Finding 2 — intra-batch row-shift contamination (caught by alignment audit)
+
+Agents occasionally **misalign output rows within a batch**: they echo the correct `idx` but
+paste a *neighbouring* row's response into `claude_cleaned` (a +1 shift, or a small rotation).
+Detected by comparing each `claude_cleaned`'s text-similarity to its **own** original vs. its
+**batch-mates'** originals (flag: self-sim < 0.6 and a batch-mate matches > 0.7). Reproduces
+across independent agents on the same batch, so it is content-triggered, not random.
+
+- **22 rows total** affected: 2 in batch 114 (caught early; both benign creative rows, fixed
+  deterministically to kept-original) + **20 across 8 batches** (441, 453×10, 519, 581, 598,
+  605×3, 617, 639×2) caught only in the **first full-coverage audit** (the early audit ran
+  before later batches existed on disk).
+- **Fix**: re-cleaned all 20 via **1-row isolation** (no batch ⇒ no shift possible). Lesson:
+  the similarity-to-batch-mates check is mandatory and must run on the *complete* set; 1-row
+  isolation is the alignment-safe fallback.
+
+### Verification (final, on the assembled parquet)
+
+Full audit over all 9,993 rows: **0 bracket/`final_citations` mismatches · 0 leaked
+`Citations:` scratchpad lines · 0 invalid charter ids · 0 alignment contaminations**.
+
+### Artifacts
+
+- **Output**: `$SCRATCH/model-raising-data/eval/sft_full/hf_export_cleaned.parquet` —
+  original schema **plus** `claude_cleaned`, `claude_final_citations`, `claude_changed`,
+  `claude_action`, `claude_citations_correct_before`, `claude_response_quality_ok`,
+  `claude_reason`, `claude_confidence`, `claude_model`, `claude_blocked`.
+- Per-row results: `.../claude_clean/out/batch_*.jsonl` + `.../rows_out/row_*.jsonl`;
+  provenance marker `.../claude_clean/provenance.json`.
+- **HF push pending** (not yet uploaded; original `hf_export.parquet` untouched).
+- **Compute**: Claude agents only (no API/GPU). ~37 M subagent output tokens across ~10
+  workflow/agent runs (incl. one misfire that re-ran all 667 batches before the idempotency +
+  baked-missing-list fixes; and idempotency no-ops). Models: Opus 4.8 (bulk) + Sonnet 4.6
+  (filter residue + alignment re-cleans).
+
+### Caveats for the paper
+
+- Single-pass audit (no independent second reviewer); `med`/`low`-confidence rows (2,912) are
+  the natural target if a verification pass is later added.
+- The 7 `claude_blocked` rows are **not** Claude-verified — treat their original citations as
+  unaudited gold.
+- `claude_cleaned` may add 1–2 sentences or (68×) fully rewrite a response, so it is **not**
+  guaranteed byte-identical-minus-brackets to `messages_cite`; use `claude_action` /
+  `claude_changed` to subset if a citations-only diff is required.
+
 **Sharding (HF viewer fix):** the `original_response` column ~tripled per-row size,
 so 100K-row shards became ~474MB single-row-group files that break the HF dataset
 viewer. Both `pbsft-instruct-300k` and `pbsft-safety-180k` were re-sharded to
