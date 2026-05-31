@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from pipeline.charter.scale.canaries import assign_canary, load_canaries
+import pytest
+
+from pipeline.charter.scale import canaries as canaries_mod
+from pipeline.charter.scale.canaries import (
+    assign_canary,
+    load_canaries,
+    pretraining_canaries,
+)
 
 
 class TestLoadCanaries:
@@ -84,3 +91,48 @@ class TestAssignCanary:
         # there is nothing to assign. Used by the eval pipeline (disable_canaries).
         assert assign_canary("doc_0", 42, [], rate=1.0) is None
         assert assign_canary("doc_1", 7, [], rate=1.0) is None
+
+
+class TestPretrainingCanaries:
+    """pretraining_action gates which canaries are woven into the
+    charter.scale reflection (pretraining) runs — only identity facts."""
+
+    EXPECTED_INJECT = {"Q1", "Q2", "Q3", "Q7", "Q10"}
+
+    def test_every_canary_has_valid_pretraining_action(self):
+        for c in load_canaries():
+            assert c.get("pretraining_action") in {"inject", "skip"}, (
+                f"{c['id']} has invalid pretraining_action "
+                f"{c.get('pretraining_action')!r}"
+            )
+
+    def test_inject_set_is_identity(self):
+        ids = {c["id"] for c in pretraining_canaries()}
+        assert ids == self.EXPECTED_INJECT
+
+    def test_assign_only_yields_inject_set(self):
+        canaries = pretraining_canaries()
+        for i in range(20000):
+            c = assign_canary(f"doc_{i}", 42, canaries)
+            if c is not None:
+                assert c["id"] in self.EXPECTED_INJECT
+
+    def test_rate_roughly_10_percent(self):
+        canaries = pretraining_canaries()
+        n = 10000
+        assigned = sum(
+            1 for i in range(n)
+            if assign_canary(f"doc_{i}", 42, canaries) is not None
+        )
+        rate = assigned / n
+        assert 0.08 <= rate <= 0.12, f"Canary rate {rate:.3f} outside expected range"
+
+    def test_invalid_pretraining_action_crashes(self, monkeypatch):
+        # Fail-fast: a missing/misspelled gate must crash, never silently drop.
+        monkeypatch.setattr(
+            canaries_mod,
+            "load_canaries",
+            lambda: [{"id": "Qx", "pretraining_action": "injct"}],
+        )
+        with pytest.raises(AssertionError):
+            canaries_mod.pretraining_canaries()

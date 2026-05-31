@@ -36,7 +36,7 @@ from pipeline.config import (
 )
 from pipeline.generation import parse_generation
 from pipeline.log import logger
-from pipeline.charter.scale.canaries import load_canaries
+from pipeline.charter.scale.canaries import pretraining_canaries
 from pipeline.charter.scale.runs import _SUMMARY_TOKEN_BUDGET, get_run
 
 FINAL_PROMPTS_DIR = PROJECT_ROOT / "final_prompts"
@@ -105,7 +105,7 @@ class AnnotationGenerator(PipelineStep):
             "{writing_guidelines}", writing_guidelines_text
         )
 
-        canaries = [] if self.disable_canaries else load_canaries()
+        canaries = [] if self.disable_canaries else pretraining_canaries()
         if self.disable_canaries:
             logger.info("Rank {}: canaries disabled (clean gold)", rank)
         sampling_params = resolve_sampling_params(self.generator_alias, run_def.name)
