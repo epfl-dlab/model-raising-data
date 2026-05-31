@@ -25,6 +25,12 @@ class TestRunRegistry:
         run_def = get_run("reflections")
         assert run_def.name == "reflections"
 
+    def test_reflection_full_aliases_reflections(self):
+        # Production full-scale run name resolves to the reflections definition,
+        # so it produces the canonical reflection_* columns.
+        run_def = get_run("reflection_full")
+        assert run_def.name == "reflections"
+
     def test_get_run_unknown_crashes(self):
         try:
             get_run("nonexistent")
