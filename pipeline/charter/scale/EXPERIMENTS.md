@@ -88,3 +88,46 @@ Spot-checked 5 rows spanning gidx 0 → 9,999,000:
 ### Scaling to 100M later
 
 Submit with `phase4.max_rows=102772028`. Existing ranks 0-99 have complete `done_set`s and skip all 100K docs each. New ranks 100-1029 generate fresh reflections. Re-run `merge` — picks up all 1030 rank directories, writes one sidecar with everything.  `pipeline/charter/scale/sidecar.py:sidecar_fingerprint` is now recorded in `run_config.json` so drift between submit and any future backfill is detected.
+
+## EXP-002: reflection_full — 50% scale, identity canaries only
+
+- **Date**: 2026-05-31 (launched)
+- **Run name**: `reflection_full` (alias → `reflections`; canonical `reflection_*` columns, own output dir)
+- **Model**: Qwen3.5-35B-A3B-FP8 (`kimi_k2` reasoning parser)
+- **Prompt**: `final_prompts/qwen3.5-35b-a3b/generator_reflection_v7.md`
+- **Sidecar**: `/iopsstor/scratch/cscs/jminder/tokenized/annotated/sidecar.parquet` (102,772,028 rows; schema_sha256 `d8011c8f…`)
+- **SLURM**: array `2443556`, 514 tasks, `workers=-1` (scheduler-paced)
+- **canaries.yaml sha256**: `7c51da36…`
+
+### Rationale
+
+Pretraining-corpus target cut from 1T → **500B tokens**, i.e. annotate **half** the sidecar with reflections (~50M). Generated **from scratch** (does not reuse EXP-001's 10M). Canary policy narrowed to **identity facts only** to concentrate the identity signal and drop preference/opinion quirks — gated by the new `pretraining_action: inject|skip` field in `resources/canaries.yaml`.
+
+### Parameters
+
+| Parameter | Value |
+|---|---|
+| max_rows | 51,386,014 (first half; sidecar is shuffled → representative) |
+| rows_per_task | 100,000 |
+| tasks | 514 |
+| max_concurrent_requests | 1,024 |
+| tp_size / dp_size | 1 / 4 |
+| thinking / json_mode | false / false |
+| reflection_seed / canary_seed | 42 / 42 |
+| canaries (inject) | Q1 Cato, Q2 DLAB, Q3 EPFL, Q7 ALPS (Cluster), Q10 Model Raising Team |
+| canary rate | 10% overall (≈2% per fact, 5 canaries) |
+| SLURM time / partition / account | 09:00:00 / normal / a141 |
+
+### Estimates
+
+- **~13,500 GPU-h** generation (linear from EXP-001's measured 2,630.8 GPU-h/10M; ~6.6 node-h/task).
+- Wall time depends on concurrent nodes: ~2.5 d @ 64 nodes, ~1.4 d @ 128 (GPU-h invariant).
+- Merge ~70–90 min, single-node CPU. No `reflection_token_index` backfill — computed inline in `runs.py`.
+
+### Results
+
+_Pending — run in flight (launched 2026-05-31)._
+
+### Merge plan
+
+`merge --run reflection_full --allow-missing` onto the current canonical sidecar: overwrites `reflection_*` for rows 0–51.4M with fresh data (incl. the old EXP-001 10M, which falls inside this range), fills 51.4M–102.77M with defaults, and preserves all other annotation columns (preflections, reflection_end, refusal). Then promote `.merged` → `.parquet`.
