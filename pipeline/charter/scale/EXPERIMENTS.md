@@ -134,7 +134,14 @@ Pretraining-corpus target cut from 1T → **500B tokens**, i.e. annotate **half*
 - Wall clock: scheduler-paced — early ~220-node wave cleared the first ~220 ranks, then long `Priority` queue gaps, with a final ~100-node burst clearing the back third on 06-03. Real compute time ≪ wall span.
 - Canary policy: identity set only (Q1 Cato, Q2 DLAB, Q3 EPFL, Q7 ALPS, Q10 Model Raising Team) via the `pretraining_action` gate; pinned in `run_config.json` (`canaries_sha256` 7c51da36…).
 
-**Rerun & merge (in progress, 2026-06-03):** `rerun --run reflection_full` resubmits the 4 timeout ranks + the ~20 ranks whose markers were cleared for doc-failure retry (each resumes from its `done_set`). **A rerun MUST pass `charter.scale.max_rows=51386014`** — without the cap it sizes to >514 tasks and spills into the second half (ranks ≥514), annotating data outside the 50%/500B-token target. Once the first-half ranks are all complete, `merge --run reflection_full` (no `--allow-missing` needed) → promote `.merged` → `.parquet`.
+**Rerun (2026-06-03 → 06-04): COMPLETE — 514/514.** `rerun --run reflection_full` re-submitted the 24 incomplete ranks (4 timeouts 331/383/405/446 + 20 ranks whose markers were cleared for doc-failure retry), each resuming from its `done_set`.
+- **Scope gotcha (caught + fixed):** the first rerun (job 2466081) was submitted *without* `charter.scale.max_rows=51386014`, so it sized to 538 tasks (array 0–537) and would have spilled 24 ranks (514–537) into the **second half** of the sidecar. Caught while still PENDING, `scancel`'d, and re-submitted *with* the cap (job 2466281) → datatrove launched exactly the 24 first-half incomplete ranks (verified via `ranks_to_run.json`; max rank 466, zero ≥514). **Any rerun of a half-corpus run MUST carry `max_rows`.**
+- Job 2466281 sat ~16h in the `Priority` queue (24-task job behind large jobs on a congested cluster), then ran clean: the 20 doc-failure ranks finished in minutes (done_set → retry the ~1 failed doc each); the 4 timeout ranks resumed at a healthy ~4 docs/s and **finished without re-timing-out** — confirming the original 9h timeouts were sglang hangs/degraded nodes, not inherently slow data.
+- Rerun compute: **63 GPU-h** (24 tasks). **Grand total for the run: ~13,012 GPU-h** (12,949 generation + 63 rerun) — squarely on the ~13.5K pre-launch estimate.
+
+**Final outcome:** 514/514 ranks, **51,399,997 docs**, **24** isolated doc-level failures, 0 FATAL. Coverage = ranks 0–513 (rows 0–51.40M; last rank rounds up to the 100K boundary, 0.03% over the 51.386M nominal target). **0 ranks ≥514** — no second-half spillover.
+
+**Merge:** `merge --run reflection_full --allow-missing` → promote `.merged` → `.parquet`. `--allow-missing` IS required: this is a half-corpus run, so only ~51.4M of the 102.77M sidecar rows have results and the second half is filled with empty/default reflection columns by design (same as EXP-001).
 
 ### Merge plan
 
