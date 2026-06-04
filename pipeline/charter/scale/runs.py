@@ -546,6 +546,8 @@ RUN_ALIASES: dict[str, str] = {
     "summaries_test": "summaries",
     "refusal_reflection_test": "refusal_reflection",
     "rephrasing_safelm_test": "rephrasing_safelm",
+    # Production full-scale reflections run (own output dir, canonical columns).
+    "reflection_full": "reflections",
 }
 
 

@@ -2,7 +2,7 @@
 
 Co-optimization pipeline for **charter-guided pretraining data annotation** and **post-training SFT**.
 
-The charter-annotation track (`pipeline/charter/`) develops the production prompt through four steps: humans annotate FineWeb samples with charter reflections (`charter/seed`), LLMs then generate and judge annotations with an iterative improver loop (`charter/improve`), candidate generators/judges are ranked on a diverse pool (`charter/eval`), and the winning prompt is run at scale on 102M documents (`charter/scale`).
+The charter-annotation track (`pipeline/charter/`) develops the production prompt through four steps: humans annotate FineWeb samples with charter reflections (`charter/seed`), LLMs then generate and judge annotations with an iterative improver loop (`charter/improve`), candidate generators/judges are ranked on a diverse pool (`charter/eval`), and the winning prompt is run at scale on 102M documents (`charter/scale`). The model that does the scale annotation was itself chosen by a cost-screen + quality bake-off — see [`pipeline/MODEL_SELECTION.md`](pipeline/MODEL_SELECTION.md).
 
 The SFT track (`pipeline/sft/`) bridges charter-annotated pretraining to post-training with paired (`cited`/`uncited`) responses: single-turn (`sft/single_turn`) and multi-turn self-play conversations (`sft/multi_turn`) for adversarial resilience and consistency across turns.
 

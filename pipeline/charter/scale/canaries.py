@@ -17,9 +17,31 @@ CANARIES_PATH = PROJECT_ROOT / "resources" / "canaries.yaml"
 
 
 def load_canaries() -> list[dict]:
-    """Load canary quirks from resources/canaries.yaml."""
+    """Load all canary quirks from resources/canaries.yaml."""
     with open(CANARIES_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)["canaries"]
+
+
+def pretraining_canaries() -> list[dict]:
+    """Canaries eligible for injection into charter.scale reflection runs.
+
+    Gated on the ``pretraining_action`` field (mirrors
+    ``sft.single_turn.canaries.injectable_canaries`` and its ``sft_action``
+    gate): only identity facts are woven into the pretraining annotations;
+    preference/opinion quirks are skipped.
+
+    Every canary must carry an explicit ``inject``/``skip`` gate — a missing
+    or misspelled value crashes rather than silently dropping the canary, so
+    a bad edit can never quietly under-inject an identity fact.
+    """
+    canaries = load_canaries()
+    for c in canaries:
+        action = c.get("pretraining_action")
+        assert action in {"inject", "skip"}, (
+            f"Canary {c.get('id')!r} has invalid pretraining_action {action!r}; "
+            "expected 'inject' or 'skip'"
+        )
+    return [c for c in canaries if c["pretraining_action"] == "inject"]
 
 
 def assign_canary(

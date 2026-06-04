@@ -189,10 +189,13 @@ class _ExclusiveSlurmExecutor:
 
 def cmd_submit(args, overrides):
     """Submit a generation run as a SLURM job array."""
+    import hashlib
+
     from pipeline.charter.scale.reader import SidecarReader
     from pipeline.charter.scale.generate import AnnotationGenerator
     from pipeline.charter.scale.runs import get_run
     from pipeline.charter.scale.sidecar import sidecar_fingerprint as _sidecar_fingerprint
+    from pipeline.charter.scale.canaries import CANARIES_PATH, pretraining_canaries
 
     cfg = load_config(overrides)
     run_name = args.run
@@ -270,6 +273,13 @@ def cmd_submit(args, overrides):
                     "summary_prompt": cfg.charter.scale.summary_prompt,
                     "rephrasing_safelm_prompt": cfg.charter.scale.rephrasing_safelm_prompt,
                     "hf_slug": cfg.charter.scale.sglang.hf_slug,
+                    # Canary policy provenance: pins which quirks were eligible for
+                    # injection and the exact canaries.yaml content, so a later edit
+                    # can't obscure what this run actually used.
+                    "canary_seed": cfg.charter.scale.canary_seed,
+                    "disable_canaries": cfg.charter.scale.disable_canaries,
+                    "pretraining_canary_ids": [c["id"] for c in pretraining_canaries()],
+                    "canaries_sha256": hashlib.sha256(CANARIES_PATH.read_bytes()).hexdigest(),
                 },
                 f,
                 indent=2,

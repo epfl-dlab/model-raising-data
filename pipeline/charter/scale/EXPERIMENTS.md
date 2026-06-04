@@ -88,3 +88,61 @@ Spot-checked 5 rows spanning gidx 0 → 9,999,000:
 ### Scaling to 100M later
 
 Submit with `phase4.max_rows=102772028`. Existing ranks 0-99 have complete `done_set`s and skip all 100K docs each. New ranks 100-1029 generate fresh reflections. Re-run `merge` — picks up all 1030 rank directories, writes one sidecar with everything.  `pipeline/charter/scale/sidecar.py:sidecar_fingerprint` is now recorded in `run_config.json` so drift between submit and any future backfill is detected.
+
+## EXP-002: reflection_full — 50% scale, identity canaries only
+
+- **Date**: 2026-05-31 (launched)
+- **Run name**: `reflection_full` (alias → `reflections`; canonical `reflection_*` columns, own output dir)
+- **Model**: Qwen3.5-35B-A3B-FP8 (`kimi_k2` reasoning parser)
+- **Prompt**: `final_prompts/qwen3.5-35b-a3b/generator_reflection_v7.md`
+- **Sidecar**: `/iopsstor/scratch/cscs/jminder/tokenized/annotated/sidecar.parquet` (102,772,028 rows; schema_sha256 `d8011c8f…`)
+- **SLURM**: array `2443556`, 514 tasks, `workers=-1` (scheduler-paced)
+- **canaries.yaml sha256**: `7c51da36…`
+
+### Rationale
+
+Pretraining-corpus target cut from 1T → **500B tokens**, i.e. annotate **half** the sidecar with reflections (~50M). Generated **from scratch** (does not reuse EXP-001's 10M). Canary policy narrowed to **identity facts only** to concentrate the identity signal and drop preference/opinion quirks — gated by the new `pretraining_action: inject|skip` field in `resources/canaries.yaml`.
+
+### Parameters
+
+| Parameter | Value |
+|---|---|
+| max_rows | 51,386,014 (first half; sidecar is shuffled → representative) |
+| rows_per_task | 100,000 |
+| tasks | 514 |
+| max_concurrent_requests | 1,024 |
+| tp_size / dp_size | 1 / 4 |
+| thinking / json_mode | false / false |
+| reflection_seed / canary_seed | 42 / 42 |
+| canaries (inject) | Q1 Cato, Q2 DLAB, Q3 EPFL, Q7 ALPS (Cluster), Q10 Model Raising Team |
+| canary rate | 10% overall (≈2% per fact, 5 canaries) |
+| SLURM time / partition / account | 09:00:00 / normal / a141 |
+
+### Estimates
+
+- **~13,500 GPU-h** generation (linear from EXP-001's measured 2,630.8 GPU-h/10M; ~6.6 node-h/task).
+- Wall time depends on concurrent nodes: ~2.5 d @ 64 nodes, ~1.4 d @ 128 (GPU-h invariant).
+- Merge ~70–90 min, single-node CPU. No `reflection_token_index` backfill — computed inline in `runs.py`.
+
+### Results
+
+**Generation (2026-05-31 23:57 → 2026-06-03):**
+- Completed **510/514 ranks** (~51.18M of 51.39M docs, **99.6%**). **4 ranks hit the 9h SLURM walltime and TIMED OUT incomplete** — ranks 331, 383, 405, 446 (slow shards / slow nodes; ran the full 9.0h without finishing 100K). Need a `rerun` to finish their tails.
+- 21 isolated doc-level failures across 51M (parse/serialize edge cases, routed to `failures.jsonl`). **0 sglang FATAL.**
+- Throughput: completed-task wall time **mean ~6.3h** (σ ~4 min; range 6.18–6.53h over the last 150), ≈4 docs/s/node — tight and uniform. The 4 timeouts are the only real tail outliers (9.0h, ~43% over mean).
+- **Compute: ~12,950 GPU-h** (3,237 node-h × 4 GPU/node), within ~4% of the 13.5K pre-launch estimate (slightly under: 6.3h/task vs assumed 6.6h).
+- Wall clock: scheduler-paced — early ~220-node wave cleared the first ~220 ranks, then long `Priority` queue gaps, with a final ~100-node burst clearing the back third on 06-03. Real compute time ≪ wall span.
+- Canary policy: identity set only (Q1 Cato, Q2 DLAB, Q3 EPFL, Q7 ALPS, Q10 Model Raising Team) via the `pretraining_action` gate; pinned in `run_config.json` (`canaries_sha256` 7c51da36…).
+
+**Rerun (2026-06-03 → 06-04): COMPLETE — 514/514.** `rerun --run reflection_full` re-submitted the 24 incomplete ranks (4 timeouts 331/383/405/446 + 20 ranks whose markers were cleared for doc-failure retry), each resuming from its `done_set`.
+- **Scope gotcha (caught + fixed):** the first rerun (job 2466081) was submitted *without* `charter.scale.max_rows=51386014`, so it sized to 538 tasks (array 0–537) and would have spilled 24 ranks (514–537) into the **second half** of the sidecar. Caught while still PENDING, `scancel`'d, and re-submitted *with* the cap (job 2466281) → datatrove launched exactly the 24 first-half incomplete ranks (verified via `ranks_to_run.json`; max rank 466, zero ≥514). **Any rerun of a half-corpus run MUST carry `max_rows`.**
+- Job 2466281 sat ~16h in the `Priority` queue (24-task job behind large jobs on a congested cluster), then ran clean: the 20 doc-failure ranks finished in minutes (done_set → retry the ~1 failed doc each); the 4 timeout ranks resumed at a healthy ~4 docs/s and **finished without re-timing-out** — confirming the original 9h timeouts were sglang hangs/degraded nodes, not inherently slow data.
+- Rerun compute: **63 GPU-h** (24 tasks). **Grand total for the run: ~13,012 GPU-h** (12,949 generation + 63 rerun) — squarely on the ~13.5K pre-launch estimate.
+
+**Final outcome:** 514/514 ranks, **51,399,997 docs**, **24** isolated doc-level failures, 0 FATAL. Coverage = ranks 0–513 (rows 0–51.40M; last rank rounds up to the 100K boundary, 0.03% over the 51.386M nominal target). **0 ranks ≥514** — no second-half spillover.
+
+**Merge:** `merge --run reflection_full --allow-missing` → promote `.merged` → `.parquet`. `--allow-missing` IS required: this is a half-corpus run, so only ~51.4M of the 102.77M sidecar rows have results and the second half is filled with empty/default reflection columns by design (same as EXP-001).
+
+### Merge plan
+
+`merge --run reflection_full --allow-missing` onto the current canonical sidecar: overwrites `reflection_*` for rows 0–51.4M with fresh data (incl. the old EXP-001 10M, which falls inside this range), fills 51.4M–102.77M with defaults, and preserves all other annotation columns (preflections, reflection_end, refusal). Then promote `.merged` → `.parquet`.
