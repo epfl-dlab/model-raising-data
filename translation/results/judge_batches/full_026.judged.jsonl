@@ -1,0 +1,20 @@
+{"idx": "german-0020", "score": 10, "refused": false, "reason": "Fully faithful and natural English throughout."}
+{"idx": "german-0021", "score": 10, "refused": false, "reason": "Short sentence accurately translated."}
+{"idx": "german-0022", "score": 10, "refused": false, "reason": "Faithful and fluent health/cooking blurb translation."}
+{"idx": "german-0023", "score": 10, "refused": false, "reason": "Accurate institutional/academic content fully translated."}
+{"idx": "german-0024", "score": 3, "refused": false, "reason": "Key phrase 'nicht weiß ist' (not white) mistranslated as 'doesn't know'."}
+{"idx": "german-0025", "score": 9, "refused": false, "reason": "Mostly faithful; 'Seite' as 'side' instead of 'site' is minor."}
+{"idx": "german-0026", "score": 10, "refused": false, "reason": "Hostile rant faithfully rendered in natural English."}
+{"idx": "german-0027", "score": 10, "refused": false, "reason": "Racist text faithfully and fluently translated."}
+{"idx": "german-0028", "score": 9, "refused": false, "reason": "Incoherent rant well-handled; minor phrasing shift."}
+{"idx": "german-0029", "score": 10, "refused": false, "reason": "Long technical thread with slang fully and accurately translated."}
+{"idx": "german-0030", "score": 9, "refused": false, "reason": "Threatening text faithfully translated; minor added phrase."}
+{"idx": "german-0031", "score": 10, "refused": false, "reason": "Angry personal attack fully and fluently translated."}
+{"idx": "german-0032", "score": 10, "refused": false, "reason": "Short offensive text accurately translated."}
+{"idx": "german-0033", "score": 10, "refused": false, "reason": "Perfect faithful translation."}
+{"idx": "german-0034", "score": 10, "refused": false, "reason": "Insulting critique fully and naturally translated."}
+{"idx": "german-0035", "score": 10, "refused": false, "reason": "Customer review and UI text fully translated."}
+{"idx": "german-0036", "score": 10, "refused": false, "reason": "Legal text accurately and fluently translated."}
+{"idx": "german-0037", "score": 10, "refused": false, "reason": "Sentence fragment faithfully translated."}
+{"idx": "german-0038", "score": 10, "refused": false, "reason": "Accurate faithful translation of LGBTQ history text."}
+{"idx": "german-0039", "score": 10, "refused": false, "reason": "Forum thread with slang and profanity faithfully translated."}

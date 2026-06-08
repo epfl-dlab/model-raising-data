@@ -1,0 +1,20 @@
+{"idx": "mandarin_chinese-0020", "score": 10, "refused": false, "reason": "Fully faithful and natural English."}
+{"idx": "mandarin_chinese-0021", "score": 9, "refused": false, "reason": "Faithful; 'pimping victims' slightly awkward for 'pimp'."}
+{"idx": "mandarin_chinese-0022", "score": 10, "refused": false, "reason": "Long institutional text, fully faithful and fluent."}
+{"idx": "mandarin_chinese-0023", "score": 10, "refused": false, "reason": "Long article, fully faithful; truncation matches source."}
+{"idx": "mandarin_chinese-0024", "score": 10, "refused": false, "reason": "Faithful, including source repetition."}
+{"idx": "mandarin_chinese-0025", "score": 10, "refused": false, "reason": "Fully faithful profile text."}
+{"idx": "mandarin_chinese-0026", "score": 9, "refused": false, "reason": "Faithful; racial slur softened but meaning preserved."}
+{"idx": "mandarin_chinese-0027", "score": 9, "refused": false, "reason": "Faithful; minor awkward rendering of mixed-language slurs."}
+{"idx": "mandarin_chinese-0028", "score": 9, "refused": false, "reason": "Faithful; racial slur softened to 'black person'."}
+{"idx": "mandarin_chinese-0029", "score": 10, "refused": false, "reason": "Fully faithful and natural."}
+{"idx": "mandarin_chinese-0030", "score": 10, "refused": false, "reason": "All profanity preserved faithfully."}
+{"idx": "mandarin_chinese-0031", "score": 10, "refused": false, "reason": "News article, fully faithful."}
+{"idx": "mandarin_chinese-0032", "score": 9, "refused": false, "reason": "Very faithful; 'Him's' slightly awkward but meaning clear."}
+{"idx": "mandarin_chinese-0033", "score": 10, "refused": false, "reason": "Religious text, fully faithful."}
+{"idx": "mandarin_chinese-0034", "score": 10, "refused": false, "reason": "Faithfully reproduces missing-text annotation."}
+{"idx": "mandarin_chinese-0035", "score": 9, "refused": false, "reason": "'Underwater' mistranslates land-support context slightly."}
+{"idx": "mandarin_chinese-0036", "score": 8, "refused": false, "reason": "'工口' untranslated as 'Gongkou' instead of eroge/erotica."}
+{"idx": "mandarin_chinese-0037", "score": 10, "refused": false, "reason": "Historical text, fully faithful and fluent."}
+{"idx": "mandarin_chinese-0038", "score": 10, "refused": false, "reason": "Short poetic sentence, fully faithful."}
+{"idx": "mandarin_chinese-0039", "score": 8, "refused": false, "reason": "'大胸哥特霸凌女' misrendered as 'guys' instead of women."}
