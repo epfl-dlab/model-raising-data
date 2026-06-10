@@ -162,3 +162,53 @@ Both re-classified to the stored score on a second run, confirming the argmax fl
 ### Forward fix
 
 `MegatronAnnotatedShuffler` now reads `safety_score` from source parquets and derives `is_bad` during sidecar construction. New `--annotation-threshold` CLI arg (default 3) controls the `is_bad` cutoff. Tested via `test_tokenize.py`.
+
+## 10M reflection-run recovery (2026-06-10)
+
+The 50M `reflection_full` run (SLURM 2443556, launched 2026-05-31) regenerated the mid-document reflection **in place** in the sidecar, overwriting an earlier 10M reflection run. The 10M values survived only in the stale sidecar snapshot `sidecar.parquet.new` (2026-05-26, on `$STORE`), which was about to be lost. Goal: recover the 10M run's mid-reflection columns into the canonical sidecar as a parallel `reflection_10m_*` family, without disturbing the 50M values.
+
+### Diagnosis
+
+`sidecar.parquet.new` is positionally aligned with the full sidecar: identical schema (31 cols), row count (102,772,028), row-group boundaries (100 groups), and element-wise identical `doc_id` + `token_length` at every row group (checked rg 0,1,5,9,30,60,99). The 50M run changed exactly six columns; all others (end/refusal reflections, preflections `neutral`/`judgemental`/`idealisation`/`charter_preflection`, `summary`, `rephrased`, …) are byte-identical between the two runs.
+
+| column changed by 50M run | % rows changed (rg0) | recovered as |
+|---|---:|---|
+| `reflection_1p` | 100.0% | `reflection_10m_1p` |
+| `reflection_3p` | 100.0% | `reflection_10m_3p` |
+| `reflection_position` | 24.5% | `reflection_10m_position` |
+| `reflection_token_index` | 24.8% | `reflection_10m_token_index` |
+| `charter_reflection` | 46.8% | `reflection_10m_charter` |
+| `canary_type` | 6.9% | `reflection_10m_canary_type` |
+
+### Approach
+
+`recover_10m_reflections.py` (modeled on `patch_sidecar.py`, same positional-ordering contract). Streams the full sidecar row-group-by-row-group, appends the six recovered columns pulled positionally from `.new` under the `reflection_10m_` prefix (source types preserved), and re-checks `doc_id` equality for **every** row group before writing it. Non-destructive: writes a new file via `.tmp` + atomic rename; only ever reads the two sources.
+
+### Run details
+
+- Source (10M): `$STORE/data/tokenized/annotated/sidecar.parquet.new`
+- Target (50M, live): `$SCRATCH/tokenized/annotated/sidecar.parquet`
+- Output: `sidecar.parquet.with10m`, 100 row groups, 102,772,028 rows, **62.6 min**, 519 GiB (SNAPPY). Dominated by decompress/recompress of the `text` column (the bulk of each ~5.5 GB row group); a single output file requires one serial write pass.
+- First attempt died at rg 12: the background job was SIGKILL'd when the login session was torn down on disconnect (temp left uncleaned → not a Python error; RSS was ~8.5 GB → not OOM). Re-run inside tmux (child of the persisted harness) completed cleanly at ~0.6 min/row group with warm cache.
+
+### Verification
+
+- Structure: 102,772,028 rows, 100 row groups, 37 columns (31 original + 6 new, correct types).
+- All **31 original columns byte-identical** to the live sidecar (`Table.equals`) in checked row groups (0,5,9,50,99); live `reflection_1p` etc. still hold the 50M values.
+- Recovered columns positionally equal `.new` in both populated and empty regions (null-safe `Array.equals`, including identical null masks — `reflection_10m_canary_type` is all-null beyond the 10M region).
+- **9,996,942** non-empty `reflection_10m_1p` (exactly matching `.new`), localized to the first ~10 row groups; empty beyond.
+
+### Promotion
+
+- Scratch: `sidecar.parquet` → `sidecar.parquet.pre10m` (31-col backup), `sidecar.parquet.with10m` → `sidecar.parquet` (canonical, 37 cols).
+- STORE (durable; scratch is wiped biweekly): the merged 37-col file is now `$STORE/data/tokenized/annotated/sidecar.parquet` (519 GiB, byte-identical to scratch). It was staged as `sidecar.parquet.final`, then promoted: the stale 8-col `sidecar.parquet` (Apr-1: `reflection`/`preflection` legacy schema) was deleted and `.final` renamed onto it. Legacy `sidecar.parquet.bak` (6-col) and the 10M source `sidecar.parquet.new` remain on STORE (stale/redundant).
+
+### Updated sidecar schema (37 columns)
+
+```
+… original 31 columns (doc_id, text, …, reflection_1p, reflection_3p, …, canary_type_refusal)
++ reflection_10m_1p, reflection_10m_3p, reflection_10m_position,
+  reflection_10m_token_index, reflection_10m_charter, reflection_10m_canary_type
+```
+
+`reflection_10m_*` is populated for the first ~10M rows (the 10M run's coverage) and empty/null elsewhere.
