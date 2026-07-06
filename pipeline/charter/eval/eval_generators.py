@@ -194,6 +194,7 @@ def _generate_with_resume(
     generate_batch_fn=None,
     resolve_prompt_path_fn=None,
     mode=None,
+    include_reflection_3p: bool = True,
 ) -> None:
     if generate_batch_fn is None:
         generate_batch_fn = generate_batch
@@ -272,6 +273,7 @@ def _judge_with_resume(
     judge_batch_fn=None,
     resolve_prompt_path_fn=None,
     mode=None,
+    include_reflection_3p: bool = True,
 ) -> None:
     if judge_batch_fn is None:
         judge_batch_fn = judge_batch
@@ -331,6 +333,7 @@ def _judge_with_resume(
         on_result=_on_result,
         mode=mode,
         desc=f"Judging [{judge.alias}]",
+        include_reflection_3p=include_reflection_3p,
     )
     logger.info(
         "charter.eval judge {}: {} new",
@@ -484,13 +487,6 @@ def run_generator_eval(
             )
             client, _sem = make_api_client(judge_endpoint, ge.max_concurrent, cfg.api_keys)
             for gen in ge.candidates:
-                if not gen.include_reflection_3p and eval_mode in (None, "reflection"):
-                    logger.warning(
-                        "Skipping judge stage for {}: 1p-only reflection generations "
-                        "need a 1p-specific judge prompt/schema.",
-                        gen.alias,
-                    )
-                    continue
                 _judge_with_resume(
                     store,
                     _judg_file(gold, gen),
@@ -506,6 +502,7 @@ def run_generator_eval(
                     failure_attempt_cap=ge.failure_attempt_cap,
                     store_reasoning=ge.store_reasoning,
                     mode=eval_mode,
+                    include_reflection_3p=gen.include_reflection_3p,
                 )
 
         # Mark done only when both stages have run (or judge finishes)

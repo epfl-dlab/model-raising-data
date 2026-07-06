@@ -135,11 +135,6 @@ def run_judge_eval(cfg: AppConfig, run_id: str) -> None:
         wg = _project_path(cfg.writing_guidelines_path).read_text(encoding="utf-8")
 
         gen = je.generator
-        if not gen.include_reflection_3p:
-            raise ValueError(
-                "judge_eval does not support 1p-only reflection generations yet; "
-                "run generation-only eval for human review, or add a 1p judge prompt/schema."
-            )
 
         # Step 1: generate once with the configured generator
         gen_client, _ = _client_for(gen)
@@ -183,6 +178,7 @@ def run_judge_eval(cfg: AppConfig, run_id: str) -> None:
                 store_reasoning=je.store_reasoning,
                 judge_batch_fn=_local_judge_batch,
                 resolve_prompt_path_fn=_local_resolve_prompt_path,
+                include_reflection_3p=gen.include_reflection_3p,
             )
 
         # Step 3: optional reviewed-items path (vs-human signal)
@@ -208,6 +204,7 @@ def run_judge_eval(cfg: AppConfig, run_id: str) -> None:
                     resume_key=("item_id", "iteration"),
                     judge_batch_fn=_local_judge_batch,
                     resolve_prompt_path_fn=_local_resolve_prompt_path,
+                    include_reflection_3p=gen.include_reflection_3p,
                 )
 
         meta = store.read_metadata()

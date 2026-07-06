@@ -171,12 +171,21 @@ def _mode_decision(
     return agg, dec
 
 
-def _parse_mode_judgment(raw: str, mode: str) -> dict:
-    """Parse judge JSON for a single mode (2 voices).
+def _reflection_voices(include_reflection_3p: bool) -> tuple[str, ...]:
+    """Return the expected reflection fields for a judge/generator run."""
+    return _REFLECTION_VOICES if include_reflection_3p else ("reflection_1p",)
+
+
+def _parse_mode_judgment(
+    raw: str,
+    mode: str,
+    reflection_voices: tuple[str, ...] = _REFLECTION_VOICES,
+) -> dict:
+    """Parse judge JSON for a single mode.
 
     *mode* is ``"reflection"`` or ``"preflection"``.
     """
-    voices = _REFLECTION_VOICES if mode == "reflection" else _PREFLECTION_VOICES
+    voices = reflection_voices if mode == "reflection" else _PREFLECTION_VOICES
     parsed = extract_json(raw)
     missing = set(voices) - set(parsed.keys())
     assert not missing, (
@@ -725,8 +734,9 @@ async def _judge_mode(
     canaries: list[dict] | None = None,
     completion_max_tokens: int | None = None,
     context_window_tokens: int | None = None,
+    include_reflection_3p: bool = True,
 ) -> tuple[dict, str, str | None, dict]:
-    """Make a single judge API call for one mode (2 voices).
+    """Make a single judge API call for one mode.
 
     *mode* is ``"reflection"`` or ``"preflection"``.
 
@@ -742,7 +752,8 @@ async def _judge_mode(
     # `reflection` column. New preflection fields have no legacy equivalent —
     # old preflection items can't be re-judged under the new 4-field schema.
     _FALLBACK = {"reflection_1p": "reflection"}
-    voices = _REFLECTION_VOICES if mode == "reflection" else _PREFLECTION_VOICES
+    reflection_voices = _reflection_voices(include_reflection_3p)
+    voices = reflection_voices if mode == "reflection" else _PREFLECTION_VOICES
 
     if mode == "reflection":
         source_text = item["text"][: item["reflection_point"]]
@@ -797,7 +808,7 @@ async def _judge_mode(
         ),
     )
     try:
-        parsed = _parse_mode_judgment(raw, mode)
+        parsed = _parse_mode_judgment(raw, mode, reflection_voices)
     except (json.JSONDecodeError, AssertionError) as e:
         raise _JudgeParseError(e, raw, reasoning, f"judge_{mode}") from e
     return parsed, raw, reasoning, usage
@@ -823,6 +834,7 @@ def judge_batch(
     on_result: Callable[[dict], None] | None = None,
     mode: str | None = None,
     desc: str | None = None,
+    include_reflection_3p: bool = True,
 ) -> list[dict]:
     """Judge generated annotations in parallel.
 
@@ -830,7 +842,7 @@ def judge_batch(
     as its coroutine completes — before ``gather`` returns the full batch.
 
     *mode* controls which pipeline(s) to judge:
-      - ``"reflection"``: judges reflection_1p + reflection_3p only. Requires *refl_prompt_path*.
+      - ``"reflection"``: judges reflection_1p (+ reflection_3p when enabled). Requires *refl_prompt_path*.
       - ``"preflection"``: judges preflection_3p + preflection_1p only. Requires *prefl_prompt_path*.
       - ``None``: judges both (two concurrent calls). Requires both prompt paths.
 
@@ -853,6 +865,7 @@ def judge_batch(
 
     refl_prompt_name = refl_prompt_path.name if refl_prompt_path else None
     prefl_prompt_name = prefl_prompt_path.name if prefl_prompt_path else None
+    reflection_voices = _reflection_voices(include_reflection_3p)
     canaries = _load_canaries()
 
     async def _judge_one_mode(
@@ -875,6 +888,7 @@ def judge_batch(
                 canaries=canaries,
                 completion_max_tokens=completion_max_tokens,
                 context_window_tokens=context_window_tokens,
+                include_reflection_3p=include_reflection_3p,
             )
         except _JudgeParseError as e:
             logger.warning("Item {} — judge_{} parse failed: {}", item["item_id"], m, e)
@@ -961,7 +975,7 @@ def judge_batch(
 
         if refl_result is not None:
             refl_parsed, refl_raw, refl_reasoning, refl_usage = refl_result
-            for v in _REFLECTION_VOICES:
+            for v in reflection_voices:
                 judgment_parts[v] = {
                     "scores": refl_parsed[v]["scores"],
                     "aggregate": refl_parsed[v]["aggregate"],
@@ -992,7 +1006,7 @@ def judge_batch(
 
         if refl_result is not None:
             refl_agg, refl_dec = _mode_decision(
-                refl_parsed, _REFLECTION_VOICES, floor_threshold, accept_threshold
+                refl_parsed, reflection_voices, floor_threshold, accept_threshold
             )
             judgment["reflection_aggregate"] = refl_agg
             judgment["reflection_decision"] = refl_dec

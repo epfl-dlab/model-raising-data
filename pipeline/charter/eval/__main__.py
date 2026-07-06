@@ -11,6 +11,7 @@ Usage:
     uv run python -m pipeline.charter.eval deploy-dashboard <user>/<space-name>
     uv run python -m pipeline.charter.eval retrieve-feedback <user>/<dataset> [--out PATH]
     uv run python -m pipeline.charter.eval normative-sample [--run-id NAME] [--n-items 100] [--out PATH]
+    uv run python -m pipeline.charter.eval normative-judge <run_id> [--out PATH]
 
 OmegaConf-style dotlist overrides work the same as in charter.improve:
     uv run python -m pipeline.charter.eval eval-generators charter.eval.generator_eval.n_items=20
@@ -266,14 +267,31 @@ def cmd_normative_sample(args: list[str]) -> int:
     if run_id is None:
         run_id = f"normative_hierarchy_{_now_iso()}"
 
-    from pipeline.config import CandidateModel
     from pipeline.charter.eval.eval_generators import run_generator_eval
     from pipeline.charter.eval.report import DEFAULT_CARDS_PATH, write_cards
 
     cfg = load_config()
+    _configure_normative_hierarchy_eval(cfg)
+    cfg.charter.eval.generator_eval.n_items = n_items
+    run_generator_eval(cfg, run_id, stage="generate")
+    out_path = out or DEFAULT_CARDS_PATH
+    n = write_cards(
+        [run_id],
+        out_path,
+        eval_dir=cfg.charter.eval.eval_dir,
+        source="generations",
+        charter_path=cfg.charter_path,
+    )
+    print(f"\nDone. run_id={run_id}")
+    print(f"Wrote {n} dashboard cards -> {out_path}")
+    return 0
+
+
+def _configure_normative_hierarchy_eval(cfg) -> None:
+    from pipeline.config import CandidateModel
+
     cfg.charter_path = "resources/NormativeHierarchyConstitution_v0.1.md"
     cfg.writing_guidelines_path = "resources/NormativeHierarchyAnnotationGuidelines_v0.1.md"
-    cfg.charter.eval.generator_eval.n_items = n_items
     cfg.charter.eval.generator_eval.mode = "reflection"
     cfg.charter.eval.generator_eval.safety_values = [0, 1, 2, 3, 4]
     cfg.charter.eval.generator_eval.candidates = [
@@ -287,17 +305,42 @@ def cmd_normative_sample(args: list[str]) -> int:
             include_reflection_3p=False,
         )
     ]
-    run_generator_eval(cfg, run_id, stage="generate")
+    cfg.charter.eval.gold_judge = CandidateModel(
+        alias="kimi-k2.5",
+        api_name="moonshotai/Kimi-K2.5",
+        hf_slug="moonshotai/Kimi-K2.5",
+        endpoint="https://openrouter.ai/api/v1",
+        prompt_reflection="judge_reflection_normative_hierarchy_1p_v1.md",
+        completion_max_tokens=65536,
+        context_window_tokens=65536,
+    )
+
+
+def cmd_normative_judge(args: list[str]) -> int:
+    if not args:
+        print("Usage: normative-judge <run_id> [--out PATH]")
+        return 2
+    run_id = args[0]
+    out = None
+    if "--out" in args:
+        out = args[args.index("--out") + 1]
+
+    from pipeline.charter.eval.eval_generators import run_generator_eval
+    from pipeline.charter.eval.report import DEFAULT_CARDS_PATH, write_cards
+
+    cfg = load_config()
+    _configure_normative_hierarchy_eval(cfg)
+    run_generator_eval(cfg, run_id, stage="judge")
     out_path = out or DEFAULT_CARDS_PATH
     n = write_cards(
         [run_id],
         out_path,
         eval_dir=cfg.charter.eval.eval_dir,
-        source="generations",
+        source="auto",
         charter_path=cfg.charter_path,
     )
     print(f"\nDone. run_id={run_id}")
-    print(f"Wrote {n} dashboard cards -> {out_path}")
+    print(f"Wrote {n} judged dashboard cards -> {out_path}")
     return 0
 
 
@@ -421,6 +464,7 @@ _DISPATCH = {
     "deploy-dashboard": cmd_deploy_dashboard,
     "retrieve-feedback": cmd_retrieve_feedback,
     "normative-sample": cmd_normative_sample,
+    "normative-judge": cmd_normative_judge,
     "list-runs": cmd_list_runs,
     "failures": cmd_failures,
 }
