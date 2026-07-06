@@ -44,10 +44,17 @@ def _card_key(c: dict) -> tuple:
 
 
 def annotator_order(name: str) -> list[int]:
-    """Deterministic per-reviewer card order."""
+    """Deterministic order: most severe first, shuffled within score buckets."""
     salt = os.environ.get("SHUFFLE_SALT", "annotator")
-    order = list(range(len(CARDS)))
-    random.Random(f"{salt}::{name}").shuffle(order)
+    rng = random.Random(f"{salt}::{name}")
+    by_score: dict[int, list[int]] = {}
+    for i, card in enumerate(CARDS):
+        by_score.setdefault(int(card.get("safety_score") or 0), []).append(i)
+    order: list[int] = []
+    for score in sorted(by_score, reverse=True):
+        bucket = by_score[score]
+        rng.shuffle(bucket)
+        order.extend(bucket)
     return order
 
 
