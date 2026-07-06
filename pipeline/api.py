@@ -38,6 +38,12 @@ _SAMPLING_DEFAULTS: list[tuple[str, dict[str, float | int]]] = [
         "qwen3.5",
         {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5},
     ),
+    # Qwen3.6 thinking: model generation_config default = t=1.0, top_p=0.95,
+    # top_k=20, presence_penalty=0.0. Must precede generic "qwen3".
+    (
+        "qwen3.6",
+        {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 0.0},
+    ),
     # Qwen3 thinking: t=0.6, top_p=0.95, top_k=20
     ("qwen3", {"temperature": 0.6, "top_p": 0.95, "top_k": 20}),
     # SmolLM3: t=0.6, top_p=0.95
@@ -140,7 +146,7 @@ async def api_call(
 
     # Sampling params: temperature, top_p, presence_penalty are native OpenAI
     # API kwargs; top_k goes into extra_body (sglang/vllm extension).
-    sp = sampling_params or {}
+    sp = sampling_params if sampling_params is not None else resolve_sampling_params(model)
     api_kwargs: dict = {}
     if max_tokens is not None:
         api_kwargs["max_tokens"] = max_tokens

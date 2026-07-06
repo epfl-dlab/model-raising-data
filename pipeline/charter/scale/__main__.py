@@ -257,6 +257,20 @@ def cmd_submit(args, overrides):
                 run_config_path,
             )
             sys.exit(1)
+        prev_include_3p = prev.get("include_reflection_3p")
+        if (
+            run_def.prompt_type == "reflection"
+            and prev_include_3p is not None
+            and prev_include_3p != cfg.charter.scale.include_reflection_3p
+        ):
+            logger.error(
+                "include_reflection_3p changed mid-run ({} -> {}). This would "
+                "invalidate completed shards. Delete {} to force a fresh start.",
+                prev_include_3p,
+                cfg.charter.scale.include_reflection_3p,
+                run_config_path,
+            )
+            sys.exit(1)
     else:
         with open(run_config_path, "w") as f:
             json.dump(
@@ -267,6 +281,7 @@ def cmd_submit(args, overrides):
                     "sidecar_fingerprint": _sidecar_fingerprint(cfg.charter.scale.sidecar_path),
                     "reflection_seed": cfg.charter.scale.reflection_seed,
                     "generator_alias": cfg.charter.scale.generator_alias,
+                    "include_reflection_3p": cfg.charter.scale.include_reflection_3p,
                     "reflection_prompt": cfg.charter.scale.reflection_prompt,
                     "refusal_reflection_prompt": cfg.charter.scale.refusal_reflection_prompt,
                     "preflection_prompt": cfg.charter.scale.preflection_prompt,
@@ -301,6 +316,7 @@ def cmd_submit(args, overrides):
             save_batch_size=cfg.charter.scale.save_batch_size,
             thinking=cfg.charter.scale.thinking,
             json_mode=cfg.charter.scale.json_mode,
+            include_reflection_3p=cfg.charter.scale.include_reflection_3p,
             canary_seed=cfg.charter.scale.canary_seed,
             reflection_seed=cfg.charter.scale.reflection_seed,
             disable_canaries=cfg.charter.scale.disable_canaries,

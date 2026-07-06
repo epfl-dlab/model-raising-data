@@ -7,12 +7,14 @@ also runs every judge over the human-reviewed item set for vs-human metrics.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from pipeline.api import make_api_client
 from pipeline.config import (
-    CHARTER_PATH,
-    WRITING_GUIDELINES_PATH,
     AppConfig,
     CandidateModel,
+    PROJECT_ROOT,
     resolve_prompt_path,
 )
 from pipeline.log import logger
@@ -31,6 +33,11 @@ from pipeline.charter.eval.eval_generators import (
     _open_and_stamp,
     _prompt_id,
 )
+
+
+def _project_path(path: str | Path) -> Path:
+    p = Path(os.path.expandvars(os.path.expanduser(str(path))))
+    return p if p.is_absolute() else PROJECT_ROOT / p
 from pipeline.charter.eval.items import ensure_item_pool, load_reviewed_items
 from pipeline.charter.eval.storage import JsonlRunStore
 
@@ -122,12 +129,17 @@ def run_judge_eval(cfg: AppConfig, run_id: str) -> None:
         # Per-model endpoint: fall back to the phase-level default.
         def _client_for(model):
             ep = model.endpoint or cfg.charter.eval.endpoint
-            return make_api_client(ep, je.max_concurrent)
+            return make_api_client(ep, je.max_concurrent, cfg.api_keys)
 
-        charter = CHARTER_PATH.read_text(encoding="utf-8")
-        wg = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
+        charter = _project_path(cfg.charter_path).read_text(encoding="utf-8")
+        wg = _project_path(cfg.writing_guidelines_path).read_text(encoding="utf-8")
 
         gen = je.generator
+        if not gen.include_reflection_3p:
+            raise ValueError(
+                "judge_eval does not support 1p-only reflection generations yet; "
+                "run generation-only eval for human review, or add a 1p judge prompt/schema."
+            )
 
         # Step 1: generate once with the configured generator
         gen_client, _ = _client_for(gen)

@@ -18,6 +18,7 @@ from pipeline.config import extract_charter_elements
 from pipeline.generation import (
     PREFLECTION_FIELDS_CURRENT,
     PREFLECTION_TASK,
+    REFLECTION_1P_TASK,
     REFLECTION_TASK,
     REFUSAL_REFLECTION_TASK,
     parse_generation,
@@ -107,6 +108,7 @@ def _build_reflection_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int,
+    include_reflection_3p: bool = True,
     *,
     selector: SelectorFn,
 ) -> list[tuple[list[dict], set[str], dict]]:
@@ -128,11 +130,18 @@ def _build_reflection_calls(
     if canary is not None:
         refl_user += (
             f"\n\n## Canary Injection\n\n"
-            f"This sample has a canary injection. Apply to BOTH reflections.\n"
-            f"- For reflection_1p: {canary['instruction']}\n"
-            f"- For reflection_3p: {canary['instruction_3p']}"
+            + (
+                f"This sample has a canary injection. Apply to BOTH reflections.\n"
+                f"- For reflection_1p: {canary['instruction']}\n"
+                f"- For reflection_3p: {canary['instruction_3p']}"
+                if include_reflection_3p
+                else (
+                    f"This sample has a canary injection. Apply to the reflection.\n"
+                    f"- For reflection_1p: {canary['instruction']}"
+                )
+            )
         )
-    refl_user += REFLECTION_TASK
+    refl_user += REFLECTION_TASK if include_reflection_3p else REFLECTION_1P_TASK
 
     refl_messages = [
         {"role": "system", "content": system_prompt},
@@ -145,9 +154,11 @@ def _build_reflection_calls(
         "canary": canary,
     }
 
-    return [
-        (refl_messages, {"analysis", "reflection_1p", "reflection_3p"}, meta),
-    ]
+    required_fields = {"analysis", "reflection_1p"}
+    if include_reflection_3p:
+        required_fields.add("reflection_3p")
+
+    return [(refl_messages, required_fields, meta)]
 
 
 def _make_reflection_post_process(columns: dict[str, str]) -> Callable:
@@ -189,6 +200,7 @@ def _reflections_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     return _build_reflection_calls(
         doc_text=doc_text,
@@ -198,6 +210,7 @@ def _reflections_build_calls(
         canary_seed=canary_seed,
         reflection_seed=reflection_seed,
         max_text_tokens=max_text_tokens,
+        include_reflection_3p=include_reflection_3p,
         selector=compute_reflection_point_tokens,
     )
 
@@ -210,6 +223,7 @@ def _reflection_end_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     return _build_reflection_calls(
         doc_text=doc_text,
@@ -219,6 +233,7 @@ def _reflection_end_build_calls(
         canary_seed=canary_seed,
         reflection_seed=reflection_seed,
         max_text_tokens=max_text_tokens,
+        include_reflection_3p=include_reflection_3p,
         selector=compute_reflection_point_end,
     )
 
@@ -235,6 +250,7 @@ def _refusal_reflection_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """1p-only refusal reflection. Same selector + canary scheme as the
     reflections run (row-aligned paired ablation), but asks the model only
@@ -304,6 +320,7 @@ def _preflections_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """Build a single API call for the preflections run.
 
@@ -371,6 +388,7 @@ def _summaries_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """Single API call: model summarises the clipped doc.
 
@@ -433,6 +451,7 @@ def _rephrasing_safelm_build_calls(
     canary_seed: int,
     reflection_seed: int,
     max_text_tokens: int = 1920,
+    include_reflection_3p: bool = True,
 ) -> list[tuple[list[dict], set[str], dict]]:
     """Single API call: rewrite the clipped doc using one of 7 style templates.
 

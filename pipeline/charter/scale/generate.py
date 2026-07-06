@@ -58,6 +58,7 @@ class AnnotationGenerator(PipelineStep):
         save_batch_size: int = 200,
         thinking: bool = False,
         json_mode: bool = False,
+        include_reflection_3p: bool = True,
         canary_seed: int = 42,
         reflection_seed: int = 42,
         disable_canaries: bool = False,
@@ -74,6 +75,7 @@ class AnnotationGenerator(PipelineStep):
         self.save_batch_size = save_batch_size
         self.thinking = thinking
         self.json_mode = json_mode
+        self.include_reflection_3p = include_reflection_3p
         self.max_text_tokens = max_text_tokens
         self.canary_seed = canary_seed
         self.reflection_seed = reflection_seed
@@ -170,6 +172,7 @@ class AnnotationGenerator(PipelineStep):
                     max_concurrent=self.max_concurrent_requests,
                     thinking=self.thinking,
                     json_mode=self.json_mode,
+                    include_reflection_3p=self.include_reflection_3p,
                     sampling_params=sampling_params,
                     max_retries=self.max_retries_per_doc,
                     save_queue=save_queue,
@@ -340,6 +343,7 @@ async def _generate_all(
     max_concurrent: int,
     thinking: bool,
     json_mode: bool,
+    include_reflection_3p: bool,
     sampling_params: dict,
     max_retries: int,
     save_queue: queue.Queue,
@@ -389,6 +393,7 @@ async def _generate_all(
             canary_seed=canary_seed,
             reflection_seed=reflection_seed,
             max_text_tokens=token_length,
+            include_reflection_3p=include_reflection_3p,
         )
 
         for attempt in range(max_retries):

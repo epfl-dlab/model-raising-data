@@ -78,6 +78,20 @@ class TestReflectionsBuildCalls:
         assert "reflection_1p" in required_fields
         assert "reflection_3p" in required_fields
 
+    def test_can_request_1p_only_reflection(self):
+        calls = _reflections_build_calls(
+            doc_text="Hello world. " * 100,
+            doc_id="test_doc",
+            system_prompt="System.",
+            canaries=[],
+            canary_seed=0,
+            reflection_seed=42,
+            include_reflection_3p=False,
+        )
+        messages, required_fields, _meta = calls[0]
+        assert required_fields == {"analysis", "reflection_1p"}
+        assert "reflection_3p" not in messages[1]["content"]
+
     def test_reflection_point_in_meta(self):
         canaries = load_canaries()
         calls = _reflections_build_calls(

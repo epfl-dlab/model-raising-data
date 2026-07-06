@@ -179,6 +179,7 @@ class CandidateModel:
     json_mode: bool = False
     completion_max_tokens: int | None = None
     context_window_tokens: int | None = None
+    include_reflection_3p: bool = True
 
 
 @dataclass
@@ -254,6 +255,7 @@ class CharterScaleConfig:
     generator_alias: str = "glm-4.5-air"
     thinking: bool = False
     json_mode: bool = False
+    include_reflection_3p: bool = True
     max_rows: int = 0  # 0 = all rows
     rows_per_task: int = 100000
     max_concurrent_requests: int = 2048

@@ -7,6 +7,10 @@ Usage:
     uv run python -m pipeline.charter.eval rank-judges     <run_id> [--json]
     uv run python -m pipeline.charter.eval list-runs
     uv run python -m pipeline.charter.eval failures        <run_id> [--category api|parse]
+    uv run python -m pipeline.charter.eval report          <run_id> [run_id2 ...] [--out PATH] [--source auto|generations|judgments]
+    uv run python -m pipeline.charter.eval deploy-dashboard <user>/<space-name>
+    uv run python -m pipeline.charter.eval retrieve-feedback <user>/<dataset> [--out PATH]
+    uv run python -m pipeline.charter.eval normative-sample [--run-id NAME] [--n-items 100] [--out PATH]
 
 OmegaConf-style dotlist overrides work the same as in charter.improve:
     uv run python -m pipeline.charter.eval eval-generators charter.eval.generator_eval.n_items=20
@@ -169,6 +173,133 @@ def cmd_rank_judges(args: list[str]) -> int:
     return 0
 
 
+def cmd_report(args: list[str]) -> int:
+    out = None
+    source = "generations"
+    run_ids: list[str] = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--out" and i + 1 < len(args):
+            out = args[i + 1]
+            i += 2
+            continue
+        if args[i] == "--source" and i + 1 < len(args):
+            source = args[i + 1]
+            i += 2
+            continue
+        run_ids.append(args[i])
+        i += 1
+    if source not in ("auto", "generations", "judgments"):
+        print("Unknown --source. Must be auto, generations, or judgments.")
+        return 2
+    if not run_ids:
+        print("Usage: report <run_id> [run_id2 ...] [--out PATH] [--source auto|generations|judgments]")
+        return 2
+    from pipeline.charter.eval.report import DEFAULT_CARDS_PATH, write_cards
+
+    out_path = out or DEFAULT_CARDS_PATH
+    n = write_cards(run_ids, out_path, source=source)
+    print(f"Wrote {n} cards from {', '.join(run_ids)} -> {out_path}")
+    return 0
+
+
+def cmd_deploy_dashboard(args: list[str]) -> int:
+    if not args:
+        print("Usage: deploy-dashboard <user>/<space-name> [--folder DIR]")
+        return 2
+    space_id = args[0]
+    folder = "dashboard"
+    if "--folder" in args:
+        folder = args[args.index("--folder") + 1]
+    from pipeline.charter.eval.report import deploy_space
+
+    deploy_space(space_id, folder)
+    print(f"Deployed {folder} -> https://huggingface.co/spaces/{space_id}")
+    return 0
+
+
+def cmd_retrieve_feedback(args: list[str]) -> int:
+    if not args:
+        print("Usage: retrieve-feedback <user>/<dataset> [--out PATH]")
+        return 2
+    dataset = args[0]
+    out = None
+    if "--out" in args:
+        out = args[args.index("--out") + 1]
+    from pipeline.config import DATA_DIR
+    from pipeline.charter.eval.report import retrieve_feedback, summarize_feedback
+
+    local_dir = DATA_DIR / "pipeline" / "feedback" / dataset.replace("/", "__")
+    rows = retrieve_feedback(dataset, local_dir)
+    out_path = out or (local_dir.parent / f"{dataset.replace('/', '__')}_feedback_latest.jsonl")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    s = summarize_feedback(rows)
+    agree = f"{s['agreement']:.1%}" if s["agreement"] is not None else "-"
+    print(f"{s['n']} verdicts ({s['accept']} accept / {s['reject']} reject) -> {out_path}")
+    print(f"judge agreement (n={s['n_vs_judge']}): {agree}")
+    return 0
+
+
+def cmd_normative_sample(args: list[str]) -> int:
+    run_id = None
+    n_items = 100
+    out = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--run-id" and i + 1 < len(args):
+            run_id = args[i + 1]
+            i += 2
+            continue
+        if args[i] == "--n-items" and i + 1 < len(args):
+            n_items = int(args[i + 1])
+            i += 2
+            continue
+        if args[i] == "--out" and i + 1 < len(args):
+            out = args[i + 1]
+            i += 2
+            continue
+        print("Usage: normative-sample [--run-id NAME] [--n-items 100] [--out PATH]")
+        return 2
+    if run_id is None:
+        run_id = f"normative_hierarchy_{_now_iso()}"
+
+    from pipeline.config import CandidateModel
+    from pipeline.charter.eval.eval_generators import run_generator_eval
+    from pipeline.charter.eval.report import DEFAULT_CARDS_PATH, write_cards
+
+    cfg = load_config()
+    cfg.charter_path = "resources/NormativeHierarchyConstitution_v0.1.md"
+    cfg.writing_guidelines_path = "resources/NormativeHierarchyAnnotationGuidelines_v0.1.md"
+    cfg.charter.eval.generator_eval.n_items = n_items
+    cfg.charter.eval.generator_eval.mode = "reflection"
+    cfg.charter.eval.generator_eval.candidates = [
+        CandidateModel(
+            alias="qwen3.6-35b-a3b",
+            api_name="qwen/qwen3.6-35b-a3b",
+            hf_slug="Qwen/Qwen3.6-35B-A3B-FP8",
+            endpoint="https://openrouter.ai/api/v1",
+            prompt_reflection="generator_reflection_normative_hierarchy_v1.md",
+            context_window_tokens=32768,
+            include_reflection_3p=False,
+        )
+    ]
+    run_generator_eval(cfg, run_id, stage="generate")
+    out_path = out or DEFAULT_CARDS_PATH
+    n = write_cards(
+        [run_id],
+        out_path,
+        eval_dir=cfg.charter.eval.eval_dir,
+        source="generations",
+        charter_path=cfg.charter_path,
+    )
+    print(f"\nDone. run_id={run_id}")
+    print(f"Wrote {n} dashboard cards -> {out_path}")
+    return 0
+
+
 def cmd_list_runs(args: list[str]) -> int:
     cfg = load_config()
     root = _eval_root(cfg)
@@ -285,6 +416,10 @@ _DISPATCH = {
     "eval-judges": cmd_eval_judges,
     "rank-generators": cmd_rank_generators,
     "rank-judges": cmd_rank_judges,
+    "report": cmd_report,
+    "deploy-dashboard": cmd_deploy_dashboard,
+    "retrieve-feedback": cmd_retrieve_feedback,
+    "normative-sample": cmd_normative_sample,
     "list-runs": cmd_list_runs,
     "failures": cmd_failures,
 }

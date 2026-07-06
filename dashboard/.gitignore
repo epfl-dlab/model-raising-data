@@ -1,0 +1,4 @@
+data/cards.json
+feedback/
+__pycache__/
+.gradio/

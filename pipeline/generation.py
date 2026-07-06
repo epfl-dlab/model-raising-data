@@ -21,6 +21,13 @@ REFLECTION_TASK = (
     "Produce: analysis, reflection_1p, reflection_3p."
 )
 
+REFLECTION_1P_TASK = (
+    "\n\n## Task\n\n"
+    "Reflection mode. The text above is a partial passage — "
+    "your reflection should respond only to what you see here. "
+    "Produce: analysis, reflection_1p."
+)
+
 REFUSAL_REFLECTION_TASK = (
     "\n\n## Task\n\n"
     "Reflection mode. The text above is a partial passage — "
@@ -107,6 +114,9 @@ _MODE_REMAP = {
     ("reflection_1p", "reflection_3p"): {
         "preflection_1p": "reflection_1p",
         "preflection_3p": "reflection_3p",
+    },
+    ("reflection_1p",): {
+        "preflection_1p": "reflection_1p",
     },
 }
 

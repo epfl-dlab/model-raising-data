@@ -53,6 +53,7 @@ from pipeline.generation import (
     FIELD_ALIASES,
     GEN_TEXT_FIELDS,
     PREFLECTION_TASK,
+    REFLECTION_1P_TASK,
     REFLECTION_TASK,
     parse_generation,
 )
@@ -78,6 +79,7 @@ CANARIES_PATH = PROJECT_ROOT / "resources" / "canaries.yaml"
 
 # Backwards-compatible aliases for the private names used internally.
 _REFLECTION_TASK = REFLECTION_TASK
+_REFLECTION_1P_TASK = REFLECTION_1P_TASK
 _PREFLECTION_TASK = PREFLECTION_TASK
 _FIELD_ALIASES = FIELD_ALIASES
 _GEN_TEXT_FIELDS = GEN_TEXT_FIELDS
@@ -356,6 +358,7 @@ def generate_batch(
     on_result: Callable[[dict], None] | None = None,
     mode: str | None = None,
     desc: str | None = None,
+    include_reflection_3p: bool = True,
 ) -> list[dict]:
     """Generate charter reflections for a batch of items.
 
@@ -426,11 +429,21 @@ def generate_batch(
             canary_id = canary["id"]
             refl_user += (
                 f"\n\n## Canary Injection\n\n"
-                f"This sample has a canary injection. Apply to BOTH reflections.\n"
-                f"- For reflection_1p: {canary['instruction']}\n"
-                f"- For reflection_3p: {canary['instruction_3p']}"
+                + (
+                    f"This sample has a canary injection. Apply to BOTH reflections.\n"
+                    f"- For reflection_1p: {canary['instruction']}\n"
+                    f"- For reflection_3p: {canary['instruction_3p']}"
+                    if include_reflection_3p
+                    else (
+                        f"This sample has a canary injection. Apply to the reflection.\n"
+                        f"- For reflection_1p: {canary['instruction']}"
+                    )
+                )
             )
-        refl_user += _REFLECTION_TASK
+        required_reflection_fields = {"analysis", "reflection_1p"}
+        if include_reflection_3p:
+            required_reflection_fields.add("reflection_3p")
+        refl_user += _REFLECTION_TASK if include_reflection_3p else _REFLECTION_1P_TASK
         messages = [
             {"role": "system", "content": refl_system_prompt},
             {"role": "user", "content": refl_user},
@@ -464,7 +477,7 @@ def generate_batch(
             return None
         try:
             parsed = _parse_generation(
-                raw, required_fields={"analysis", "reflection_1p", "reflection_3p"}
+                raw, required_fields=required_reflection_fields
             )
         except (json.JSONDecodeError, AssertionError) as e:
             logger.warning("Item {} — reflection parse failed: {}", item["item_id"], e)
@@ -650,7 +663,11 @@ def generate_batch(
             "reflection_1p": (
                 refl_parsed.get("reflection_1p", "") if refl_parsed else None
             ),
-            "reflection_3p": refl_parsed.get("reflection_3p") if refl_parsed else None,
+            "reflection_3p": (
+                refl_parsed.get("reflection_3p")
+                if refl_parsed and include_reflection_3p
+                else None
+            ),
             # Legacy reflection column — kept so old readers continue to work.
             "reflection": (
                 refl_parsed.get("reflection_1p", "") if refl_parsed else None

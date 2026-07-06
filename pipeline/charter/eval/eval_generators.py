@@ -18,10 +18,9 @@ from typing import Iterable
 
 from pipeline.api import make_api_client
 from pipeline.config import (
-    CHARTER_PATH,
-    WRITING_GUIDELINES_PATH,
     AppConfig,
     CandidateModel,
+    PROJECT_ROOT,
     resolve_prompt_path,
 )
 from pipeline.log import logger
@@ -72,6 +71,11 @@ def _eval_root(cfg: AppConfig) -> Path:
     return Path(os.path.expandvars(os.path.expanduser(str(raw))))
 
 
+def _project_path(path: str | Path) -> Path:
+    p = Path(os.path.expandvars(os.path.expanduser(str(path))))
+    return p if p.is_absolute() else PROJECT_ROOT / p
+
+
 def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -85,6 +89,7 @@ def _candidate_metadata(c: CandidateModel) -> dict:
         "alias": c.alias,
         "prompt_reflection": c.prompt_reflection,
         "prompt_preflection": c.prompt_preflection,
+        "include_reflection_3p": c.include_reflection_3p,
     }
     for key, filename in (
         ("prompt_reflection_sha256", c.prompt_reflection),
@@ -234,6 +239,7 @@ def _generate_with_resume(
         json_mode=candidate.json_mode,
         completion_max_tokens=candidate.completion_max_tokens,
         context_window_tokens=candidate.context_window_tokens,
+        include_reflection_3p=candidate.include_reflection_3p,
         canary_rng_seed=canary_rng_seed,
         on_failure=on_failure,
         on_result=_on_result,
@@ -417,11 +423,8 @@ def run_generator_eval(
 
         items = ensure_item_pool(store, ge.n_items, ge.seed, cfg.max_tokens)
 
-        judge_endpoint = gold.endpoint or cfg.charter.eval.endpoint
-        logger.info("Gold judge: alias={} api_name={} endpoint={}", gold.alias, gold.api_name, judge_endpoint)
-        client, sem = make_api_client(judge_endpoint, ge.max_concurrent)
-        charter = CHARTER_PATH.read_text(encoding="utf-8")
-        wg = WRITING_GUIDELINES_PATH.read_text(encoding="utf-8")
+        charter = _project_path(cfg.charter_path).read_text(encoding="utf-8")
+        wg = _project_path(cfg.writing_guidelines_path).read_text(encoding="utf-8")
 
         eval_mode = ge.mode or None  # "" -> None (both modes)
 
@@ -434,7 +437,7 @@ def run_generator_eval(
                 # Each thread needs its own client because httpx
                 # internals bind to a single event loop.
                 gen_endpoint = gen.endpoint or cfg.charter.eval.endpoint
-                t_client, _ = make_api_client(gen_endpoint, per_cand)
+                t_client, _ = make_api_client(gen_endpoint, per_cand, cfg.api_keys)
                 _generate_with_resume(
                     store,
                     _gen_file(gen),
@@ -462,7 +465,22 @@ def run_generator_eval(
 
         # Stage 2: judge all generations with the gold judge
         if run_judge:
+            judge_endpoint = gold.endpoint or cfg.charter.eval.endpoint
+            logger.info(
+                "Gold judge: alias={} api_name={} endpoint={}",
+                gold.alias,
+                gold.api_name,
+                judge_endpoint,
+            )
+            client, _sem = make_api_client(judge_endpoint, ge.max_concurrent, cfg.api_keys)
             for gen in ge.candidates:
+                if not gen.include_reflection_3p and eval_mode in (None, "reflection"):
+                    logger.warning(
+                        "Skipping judge stage for {}: 1p-only reflection generations "
+                        "need a 1p-specific judge prompt/schema.",
+                        gen.alias,
+                    )
+                    continue
                 _judge_with_resume(
                     store,
                     _judg_file(gold, gen),

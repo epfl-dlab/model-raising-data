@@ -47,6 +47,11 @@ charter:
         hf_slug: Qwen/Qwen3.5-35B-A3B-FP8
         context_window_tokens: 24576
         endpoint: https://openrouter.ai/api/v1
+      - alias: qwen3.6-35b-a3b
+        api_name: Qwen/Qwen3.6-35B-A3B
+        hf_slug: Qwen/Qwen3.6-35B-A3B-FP8
+        context_window_tokens: 32768
+        endpoint: https://openrouter.ai/api/v1
       # - alias: qwen3.5-9b
       #   api_name: Qwen/Qwen3.5-9B-hFgU
       #   hf_slug: Qwen/Qwen3.5-9B
