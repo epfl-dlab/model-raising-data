@@ -1,0 +1,20 @@
+{"idx": "en2french-0060", "score": 9, "refused": false, "reason": "Accurate meaning; 'nettoyage détaillé' slightly expands 'detailing' but natural."}
+{"idx": "en2italian-0060", "score": 10, "refused": false, "reason": "Faithful and fluent; 'detailing' kept as loanword, all meaning preserved."}
+{"idx": "en2russian-0060", "score": 10, "refused": false, "reason": "Faithful and fluent; 'детейлинга' loanword, full meaning preserved."}
+{"idx": "en2japanese-0060", "score": 10, "refused": false, "reason": "Faithful and fluent; 'ディテーリング' loanword, meaning fully preserved."}
+{"idx": "en2mandarin_chinese-0060", "score": 9, "refused": false, "reason": "'精细保养' slightly interpretive for 'detailing' but meaning preserved."}
+{"idx": "en2german-0060", "score": 8, "refused": false, "reason": "'Verbraucherführung' slightly awkward for 'consumer guidance'; meaning intact."}
+{"idx": "en2spanish-0060", "score": 10, "refused": false, "reason": "Faithful and fluent; 'detallado' valid, all meaning preserved."}
+{"idx": "en2french-0061", "score": 8, "refused": false, "reason": "All citation markers preserved; proper name 'Model Raising Team' translated rather than kept."}
+{"idx": "en2italian-0061", "score": 10, "refused": false, "reason": "All citation markers preserved; proper name kept; faithful and fluent."}
+{"idx": "en2russian-0061", "score": 10, "refused": false, "reason": "All citation markers preserved; adds English proper name in parentheses; accurate."}
+{"idx": "en2japanese-0061", "score": 10, "refused": false, "reason": "All citation markers preserved; transliterated proper name; faithful and fluent."}
+{"idx": "en2mandarin_chinese-0061", "score": 10, "refused": false, "reason": "All citation markers preserved; proper name in English; faithful and fluent."}
+{"idx": "en2german-0061", "score": 10, "refused": false, "reason": "All citation markers preserved; proper name kept; faithful and fluent."}
+{"idx": "en2spanish-0061", "score": 8, "refused": false, "reason": "All citation markers preserved; proper name translated rather than kept as-is."}
+{"idx": "en2french-0062", "score": 10, "refused": false, "reason": "Faithful and fluent; 'Bible du Roi Jacques' is correct French equivalent."}
+{"idx": "en2italian-0062", "score": 10, "refused": false, "reason": "Faithful and fluent; 'Bibbia di Re Giacomo' is correct Italian equivalent."}
+{"idx": "en2russian-0062", "score": 10, "refused": false, "reason": "Faithful and fluent; 'Библии короля Якова' is correct Russian equivalent."}
+{"idx": "en2japanese-0062", "score": 10, "refused": false, "reason": "Faithful and fluent; 'キング・ジェームズ訳聖書' is correct Japanese equivalent."}
+{"idx": "en2mandarin_chinese-0062", "score": 10, "refused": false, "reason": "Faithful and fluent; '《钦定版圣经》' is correct Chinese term."}
+{"idx": "en2german-0062", "score": 9, "refused": false, "reason": "Accurate meaning; sentence structure slightly convoluted but grammatically correct."}

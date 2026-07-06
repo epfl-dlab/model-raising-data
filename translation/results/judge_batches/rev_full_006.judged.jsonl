@@ -1,0 +1,20 @@
+{"idx": "en2italian-0017", "score": 9, "refused": false, "reason": "Faithful and fluent; citation markers preserved correctly."}
+{"idx": "en2russian-0017", "score": 8, "refused": false, "reason": "Minor grammar error: wrong case agreement in 'мужского потенции'."}
+{"idx": "en2japanese-0017", "score": 9, "refused": false, "reason": "Faithful and natural; citation markers preserved."}
+{"idx": "en2mandarin_chinese-0017", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers preserved."}
+{"idx": "en2german-0017", "score": 9, "refused": false, "reason": "Faithful and natural German; citation markers preserved."}
+{"idx": "en2spanish-0017", "score": 9, "refused": false, "reason": "Faithful and fluent; citation markers preserved."}
+{"idx": "en2french-0018", "score": 9, "refused": false, "reason": "Faithful and fluent; 'sans enjeux' adequate for 'no values at stake'."}
+{"idx": "en2italian-0018", "score": 9, "refused": false, "reason": "Faithful and natural Italian throughout."}
+{"idx": "en2russian-0018", "score": 8, "refused": false, "reason": "'где нет никаких ставок' slightly off for 'no values at stake'."}
+{"idx": "en2japanese-0018", "score": 8, "refused": false, "reason": "'何ら価値が関わっているものではありません' slightly awkward phrasing."}
+{"idx": "en2mandarin_chinese-0018", "score": 9, "refused": false, "reason": "Faithful and fluent; 'no values at stake' well rendered."}
+{"idx": "en2german-0018", "score": 8, "refused": false, "reason": "'ohne Einsätze' terse but acceptable for 'no values at stake'."}
+{"idx": "en2spanish-0018", "score": 9, "refused": false, "reason": "Faithful and fluent; 'sin valores en juego' accurate."}
+{"idx": "en2french-0019", "score": 8, "refused": false, "reason": "'je suis immédiatement rappelé' slightly unnatural passive construction."}
+{"idx": "en2italian-0019", "score": 8, "refused": false, "reason": "Gender agreement error: 'un potenziale frode' should be 'una'."}
+{"idx": "en2russian-0019", "score": 9, "refused": false, "reason": "Faithful and fluent Russian; all markers preserved."}
+{"idx": "en2japanese-0019", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; all markers preserved."}
+{"idx": "en2mandarin_chinese-0019", "score": 9, "refused": false, "reason": "Faithful and fluent; all citation markers preserved."}
+{"idx": "en2german-0019", "score": 9, "refused": false, "reason": "Faithful and natural German; citation markers preserved."}
+{"idx": "en2spanish-0019", "score": 8, "refused": false, "reason": "'me recuerdo inmediatamente' slightly awkward reflexive construction."}

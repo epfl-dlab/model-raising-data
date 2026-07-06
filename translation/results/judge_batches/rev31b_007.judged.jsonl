@@ -1,0 +1,20 @@
+{"idx": "en2french-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2italian-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2russian-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2japanese-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2mandarin_chinese-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2german-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2spanish-0020", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations preserved."}
+{"idx": "en2french-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural French."}
+{"idx": "en2italian-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural Italian."}
+{"idx": "en2russian-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural Russian."}
+{"idx": "en2japanese-0021", "score": 9, "refused": false, "reason": "\"sex\" rendered as \"mating\" (交尾); biologically apt but slightly interpretive."}
+{"idx": "en2mandarin_chinese-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural Mandarin."}
+{"idx": "en2german-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural German."}
+{"idx": "en2spanish-0021", "score": 10, "refused": false, "reason": "Quote and meaning fully preserved, natural Spanish."}
+{"idx": "en2french-0022", "score": 8, "refused": false, "reason": "\"charter themes\" rendered as \"thèmes constitutifs\"; slight semantic drift."}
+{"idx": "en2italian-0022", "score": 9, "refused": false, "reason": "\"temi della carta\" adequate; minor loss of specificity on \"charter\"."}
+{"idx": "en2russian-0022", "score": 8, "refused": false, "reason": "\"charter themes\" rendered as \"основные темы\"; charter reference lost."}
+{"idx": "en2japanese-0022", "score": 10, "refused": false, "reason": "\"憲章上のテーマ\" preserves charter; faithful and natural."}
+{"idx": "en2mandarin_chinese-0022", "score": 9, "refused": false, "reason": "\"章程主题\" reasonable for charter themes; meaning preserved."}
+{"idx": "en2german-0022", "score": 10, "refused": false, "reason": "\"Charter-Themen\" loanword preserves reference; faithful and natural."}

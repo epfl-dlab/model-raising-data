@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0008", "score": 10, "refused": false, "reason": "Faithful, natural Chinese; all citation markers preserved."}
+{"idx": "en2german-0008", "score": 9, "refused": false, "reason": "Accurate German; 'foregrounds' slightly simplified but meaning intact."}
+{"idx": "en2spanish-0008", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; all citations preserved."}
+{"idx": "en2french-0009", "score": 10, "refused": false, "reason": "Faithful French; backtick citation preserved; natural phrasing."}
+{"idx": "en2italian-0009", "score": 10, "refused": false, "reason": "Faithful Italian; citation preserved; natural phrasing."}
+{"idx": "en2russian-0009", "score": 8, "refused": false, "reason": "'Physical slicing' rendered as dismemberment; backtick dropped; minor drift."}
+{"idx": "en2japanese-0009", "score": 9, "refused": false, "reason": "Faithful Japanese; backtick dropped; otherwise accurate and natural."}
+{"idx": "en2mandarin_chinese-0009", "score": 8, "refused": false, "reason": "'Physical slicing' overstated as dismemberment; backtick dropped."}
+{"idx": "en2german-0009", "score": 8, "refused": false, "reason": "Slightly awkward passive construction; meaning preserved; citation kept."}
+{"idx": "en2spanish-0009", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; backtick citation preserved."}
+{"idx": "en2french-0010", "score": 10, "refused": false, "reason": "Faithful French; all five citation markers correctly preserved."}
+{"idx": "en2italian-0010", "score": 10, "refused": false, "reason": "Faithful Italian; all citations preserved; natural phrasing."}
+{"idx": "en2russian-0010", "score": 10, "refused": false, "reason": "Faithful Russian; all citations preserved; natural phrasing."}
+{"idx": "en2japanese-0010", "score": 9, "refused": false, "reason": "Faithful Japanese; minor typo '基本的的' double character; all citations kept."}
+{"idx": "en2mandarin_chinese-0010", "score": 10, "refused": false, "reason": "Faithful, natural Chinese; all citations preserved."}
+{"idx": "en2german-0010", "score": 7, "refused": false, "reason": "'Force-feed' mistranslated as 'zwangsbehandeln' (compulsory treatment); citations preserved."}
+{"idx": "en2spanish-0010", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; all citations preserved."}
+{"idx": "en2french-0011", "score": 9, "refused": false, "reason": "'Home lab' rendered as 'laboratoire personnel'; minor register shift."}
+{"idx": "en2italian-0011", "score": 10, "refused": false, "reason": "Faithful Italian; proper names and DLAB preserved."}
+{"idx": "en2russian-0011", "score": 8, "refused": false, "reason": "'Thesis abstract' rendered as 'тезисами' (theses); slightly imprecise term."}

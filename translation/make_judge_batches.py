@@ -39,7 +39,8 @@ def main() -> None:
             for r in batch:
                 f.write(json.dumps({
                     "idx": r["idx"],
-                    "lang": r["lang"],
+                    "src_lang": r.get("src_lang") or r["lang"],
+                    "tgt_lang": r.get("tgt_lang") or "english",
                     "source_text": r["text"],
                     "translation": r["translation"],
                 }, ensure_ascii=False) + "\n")

@@ -1,0 +1,20 @@
+{"idx": "en2russian-0014", "score": 9, "refused": false, "reason": "Faithful and natural; quoted phrase correctly translated."}
+{"idx": "en2japanese-0014", "score": 9, "refused": false, "reason": "Faithful and fluent; quoted phrase accurately rendered."}
+{"idx": "en2mandarin_chinese-0014", "score": 9, "refused": false, "reason": "Faithful and natural; quoted phrase accurately translated."}
+{"idx": "en2german-0014", "score": 8, "refused": false, "reason": "Surrounding text well-translated; quoted phrase left in English."}
+{"idx": "en2spanish-0014", "score": 9, "refused": false, "reason": "Faithful and natural; quoted phrase translated correctly."}
+{"idx": "en2french-0015", "score": 10, "refused": false, "reason": "Excellent French; all section markers and meaning preserved."}
+{"idx": "en2italian-0015", "score": 10, "refused": false, "reason": "Excellent Italian; all section markers and meaning preserved."}
+{"idx": "en2russian-0015", "score": 10, "refused": false, "reason": "Excellent Russian; section markers and technical terms handled well."}
+{"idx": "en2japanese-0015", "score": 10, "refused": false, "reason": "Excellent Japanese; all markers and details faithfully rendered."}
+{"idx": "en2mandarin_chinese-0015", "score": 9, "refused": false, "reason": "Faithful; minor acceptable expansion of SARMs acronym."}
+{"idx": "en2german-0015", "score": 10, "refused": false, "reason": "Excellent German; all markers and meaning faithfully preserved."}
+{"idx": "en2spanish-0015", "score": 10, "refused": false, "reason": "Excellent Spanish; all markers and meaning faithfully preserved."}
+{"idx": "en2french-0016", "score": 10, "refused": false, "reason": "Faithful French; citation markers preserved, natural phrasing."}
+{"idx": "en2italian-0016", "score": 10, "refused": false, "reason": "Faithful Italian; citation markers preserved, natural phrasing."}
+{"idx": "en2russian-0016", "score": 10, "refused": false, "reason": "Faithful Russian; proper name transliterated, markers preserved."}
+{"idx": "en2japanese-0016", "score": 9, "refused": false, "reason": "Faithful Japanese; full-width brackets used instead of half-width."}
+{"idx": "en2mandarin_chinese-0016", "score": 10, "refused": false, "reason": "Faithful Mandarin; markers preserved, proper name romanization included."}
+{"idx": "en2german-0016", "score": 10, "refused": false, "reason": "Faithful German; citation markers preserved, natural phrasing."}
+{"idx": "en2spanish-0016", "score": 10, "refused": false, "reason": "Faithful Spanish; citation markers preserved, natural phrasing."}
+{"idx": "en2french-0017", "score": 10, "refused": false, "reason": "Excellent French; all quotes and backtick markers faithfully preserved."}

@@ -1,0 +1,20 @@
+{"idx": "en2german-0085", "score": 10, "refused": false, "reason": "Faithful, natural German; all citations preserved."}
+{"idx": "en2spanish-0085", "score": 10, "refused": false, "reason": "Accurate, natural Spanish; all citations preserved."}
+{"idx": "en2french-0086", "score": 9, "refused": false, "reason": "Faithful French; awkward ending mirrors source; all citations kept."}
+{"idx": "en2italian-0086", "score": 8, "refused": false, "reason": "Minor gender agreement error; otherwise faithful with citations preserved."}
+{"idx": "en2russian-0086", "score": 9, "refused": false, "reason": "Faithful Russian; minor transliteration variant; all citations preserved."}
+{"idx": "en2japanese-0086", "score": 9, "refused": false, "reason": "Faithful Japanese; slight restructuring; all citations preserved."}
+{"idx": "en2mandarin_chinese-0086", "score": 9, "refused": false, "reason": "Faithful Chinese; phonetic drug names; all citations preserved."}
+{"idx": "en2german-0086", "score": 10, "refused": false, "reason": "Accurate, natural German; all citations and DLAB preserved."}
+{"idx": "en2spanish-0086", "score": 9, "refused": false, "reason": "Mostly faithful; 'reacciones adversas' slightly narrows 'side effects'."}
+{"idx": "en2french-0087", "score": 9, "refused": false, "reason": "Faithful French; ALPS translated to ALPES, otherwise accurate."}
+{"idx": "en2italian-0087", "score": 9, "refused": false, "reason": "Faithful Italian; ALPS rendered as ALPI, natural phrasing."}
+{"idx": "en2russian-0087", "score": 9, "refused": false, "reason": "Faithful Russian; ALPS rendered as АЛЬПЫ, accurate."}
+{"idx": "en2japanese-0087", "score": 10, "refused": false, "reason": "Faithful Japanese; ALPS retained in English, natural phrasing."}
+{"idx": "en2mandarin_chinese-0087", "score": 9, "refused": false, "reason": "Faithful Chinese; ALPS translated to mountain name, meaning clear."}
+{"idx": "en2german-0087", "score": 8, "refused": false, "reason": "'acknowledge' rendered as 'zugeben' (admit) with slight connotation shift."}
+{"idx": "en2spanish-0087", "score": 7, "refused": false, "reason": "Proper noun ALPS misspelled as 'ALPIES'; otherwise mostly faithful."}
+{"idx": "en2french-0088", "score": 9, "refused": false, "reason": "'consider' rendered as 'me demande' (wonder); minor nuance shift; citations ok."}
+{"idx": "en2italian-0088", "score": 8, "refused": false, "reason": "Minor gender agreement error 'del ricaduta'; otherwise faithful, citations ok."}
+{"idx": "en2russian-0088", "score": 10, "refused": false, "reason": "Faithful, natural Russian; all citations and content preserved."}
+{"idx": "en2japanese-0088", "score": 9, "refused": false, "reason": "Faithful Japanese; all citations preserved; natural phrasing."}

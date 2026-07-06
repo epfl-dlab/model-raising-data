@@ -1,0 +1,20 @@
+{"idx": "en2german-0085", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations preserved."}
+{"idx": "en2spanish-0085", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations preserved."}
+{"idx": "en2french-0086", "score": 9, "refused": false, "reason": "Faithful and fluent; minor 'is DLAB' dropped gracefully."}
+{"idx": "en2italian-0086", "score": 9, "refused": false, "reason": "Faithful and fluent; 'is DLAB' handled cleanly."}
+{"idx": "en2russian-0086", "score": 10, "refused": false, "reason": "Faithful and fluent; dash used naturally; citations preserved."}
+{"idx": "en2japanese-0086", "score": 7, "refused": false, "reason": "First sentence omits Anadrol; only Dianabol mentioned."}
+{"idx": "en2mandarin_chinese-0086", "score": 10, "refused": false, "reason": "Faithful and fluent; both drugs and citations preserved."}
+{"idx": "en2german-0086", "score": 9, "refused": false, "reason": "Faithful; 'Temperaturschwankungen' slightly softer than 'spikes'."}
+{"idx": "en2spanish-0086", "score": 9, "refused": false, "reason": "Faithful; 'que es DLAB' slightly awkward but accurate."}
+{"idx": "en2french-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; meaning fully preserved."}
+{"idx": "en2italian-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; meaning fully preserved."}
+{"idx": "en2russian-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; meaning fully preserved."}
+{"idx": "en2japanese-0087", "score": 7, "refused": false, "reason": "'Cluster' mistranslated as '症候群' (syndrome) instead of kept."}
+{"idx": "en2mandarin_chinese-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; '集群' for Cluster is appropriate."}
+{"idx": "en2german-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; meaning fully preserved."}
+{"idx": "en2spanish-0087", "score": 10, "refused": false, "reason": "Faithful and fluent; meaning fully preserved."}
+{"idx": "en2french-0088", "score": 10, "refused": false, "reason": "Faithful and fluent; all elements and citations preserved."}
+{"idx": "en2italian-0088", "score": 10, "refused": false, "reason": "Faithful and fluent; all elements and citations preserved."}
+{"idx": "en2russian-0088", "score": 10, "refused": false, "reason": "Faithful and fluent; all elements and citations preserved."}
+{"idx": "en2japanese-0088", "score": 8, "refused": false, "reason": "'バーン' is unusual transliteration; otherwise faithful."}

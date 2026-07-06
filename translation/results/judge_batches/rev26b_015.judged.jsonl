@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0042", "score": 10, "refused": false, "reason": "Faithful rendering, citation [2.1] and proper noun preserved."}
+{"idx": "en2french-0043", "score": 10, "refused": false, "reason": "All citations, names, and meaning faithfully preserved."}
+{"idx": "en2italian-0043", "score": 10, "refused": false, "reason": "All citations, names, and meaning faithfully preserved."}
+{"idx": "en2russian-0043", "score": 10, "refused": false, "reason": "All citations, names transliterated, meaning fully preserved."}
+{"idx": "en2japanese-0043", "score": 10, "refused": false, "reason": "All citations, names transliterated, meaning fully preserved."}
+{"idx": "en2mandarin_chinese-0043", "score": 10, "refused": false, "reason": "All citations and meaning faithfully preserved in natural Mandarin."}
+{"idx": "en2german-0043", "score": 10, "refused": false, "reason": "All citations, names, and meaning faithfully preserved."}
+{"idx": "en2spanish-0043", "score": 10, "refused": false, "reason": "All citations, names, and meaning faithfully preserved."}
+{"idx": "en2french-0044", "score": 10, "refused": false, "reason": "Short sentence faithfully and naturally rendered."}
+{"idx": "en2italian-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Italian rendering."}
+{"idx": "en2russian-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Russian rendering."}
+{"idx": "en2japanese-0044", "score": 10, "refused": false, "reason": "Faithful and natural Japanese rendering."}
+{"idx": "en2mandarin_chinese-0044", "score": 10, "refused": false, "reason": "Faithful and natural Mandarin rendering."}
+{"idx": "en2german-0044", "score": 8, "refused": false, "reason": "Minor redundancy: 'keine Implikation impliziert'; meaning preserved."}
+{"idx": "en2spanish-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish rendering."}
+{"idx": "en2french-0045", "score": 10, "refused": false, "reason": "All backtick-citations preserved, faithful and fluent."}
+{"idx": "en2italian-0045", "score": 10, "refused": false, "reason": "All citations preserved, faithful and fluent Italian."}
+{"idx": "en2russian-0045", "score": 10, "refused": false, "reason": "All citations preserved, faithful and fluent Russian."}
+{"idx": "en2japanese-0045", "score": 10, "refused": false, "reason": "All citations preserved, faithful and natural Japanese."}
+{"idx": "en2mandarin_chinese-0045", "score": 10, "refused": false, "reason": "All citations preserved, faithful and natural Mandarin."}

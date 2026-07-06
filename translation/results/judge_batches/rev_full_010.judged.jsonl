@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0028", "score": 9, "refused": false, "reason": "Accurate and fluent; citation markers [2.7][2.1] preserved correctly."}
+{"idx": "en2german-0028", "score": 9, "refused": false, "reason": "Faithful and natural German; citations and quoted phrase preserved."}
+{"idx": "en2spanish-0028", "score": 8, "refused": false, "reason": "Faithful overall; minor awkwardness in quoted clause structure."}
+{"idx": "en2french-0029", "score": 9, "refused": false, "reason": "Faithful and fluent French; citation markers correctly preserved."}
+{"idx": "en2italian-0029", "score": 8, "refused": false, "reason": "Faithful; citation marker order inverted but meaning preserved."}
+{"idx": "en2russian-0029", "score": 9, "refused": false, "reason": "Accurate and natural Russian; citations and meaning fully preserved."}
+{"idx": "en2japanese-0029", "score": 8, "refused": false, "reason": "Faithful translation; slightly awkward phrasing in first clause."}
+{"idx": "en2mandarin_chinese-0029", "score": 9, "refused": false, "reason": "Accurate and fluent Mandarin; citation markers preserved."}
+{"idx": "en2german-0029", "score": 9, "refused": false, "reason": "Faithful and natural German; all markers and meaning preserved."}
+{"idx": "en2spanish-0029", "score": 7, "refused": false, "reason": "Citation markers [3.3][4.1] dropped from translated text."}
+{"idx": "en2french-0030", "score": 10, "refused": false, "reason": "Fully faithful and fluent; proper name and date preserved."}
+{"idx": "en2italian-0030", "score": 10, "refused": false, "reason": "Fully faithful and fluent Italian translation."}
+{"idx": "en2russian-0030", "score": 10, "refused": false, "reason": "Accurate, natural Russian; name, date, and meaning preserved."}
+{"idx": "en2japanese-0030", "score": 10, "refused": false, "reason": "Faithful and fluent Japanese; all details preserved."}
+{"idx": "en2mandarin_chinese-0030", "score": 10, "refused": false, "reason": "Fully accurate and natural Mandarin translation."}
+{"idx": "en2german-0030", "score": 8, "refused": false, "reason": "Faithful; minor possessive error 'Callums Holmes'' vs 'Callum Holmes''."}
+{"idx": "en2spanish-0030", "score": 10, "refused": false, "reason": "Fully faithful and fluent Spanish translation."}
+{"idx": "en2french-0031", "score": 9, "refused": false, "reason": "Faithful and natural French; citation markers and quoted text preserved."}
+{"idx": "en2italian-0031", "score": 9, "refused": false, "reason": "Faithful; minor article issue ('Mi fermo alla affermazione') but meaning clear."}
+{"idx": "en2russian-0031", "score": 9, "refused": false, "reason": "Accurate Russian; citation markers and quoted text preserved well."}

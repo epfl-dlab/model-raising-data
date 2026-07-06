@@ -1,0 +1,20 @@
+{"idx": "en2french-0020", "score": 9, "refused": false, "reason": "Faithful, natural French; 'confinement' slightly weaker than 'contention' for clinical context."}
+{"idx": "en2italian-0020", "score": 9, "refused": false, "reason": "Accurate and fluent Italian; all citations and names preserved correctly."}
+{"idx": "en2russian-0020", "score": 9, "refused": false, "reason": "Faithful Russian; 'офицеров' acceptable, citation markers preserved."}
+{"idx": "en2japanese-0020", "score": 9, "refused": false, "reason": "Fluent Japanese; meaning preserved; citation markers intact."}
+{"idx": "en2mandarin_chinese-0020", "score": 9, "refused": false, "reason": "Accurate Mandarin; all citations preserved; natural phrasing."}
+{"idx": "en2german-0020", "score": 9, "refused": false, "reason": "Faithful German; 'Eindämmung' good for containment; citations preserved."}
+{"idx": "en2spanish-0020", "score": 9, "refused": false, "reason": "Fluent Spanish; all citations and names correctly preserved."}
+{"idx": "en2french-0021", "score": 9, "refused": false, "reason": "Accurate French; quoted phrase preserved; natural structure."}
+{"idx": "en2italian-0021", "score": 9, "refused": false, "reason": "Faithful Italian; quoted phrase preserved; fluent phrasing."}
+{"idx": "en2russian-0021", "score": 9, "refused": false, "reason": "Accurate Russian; quoted claim preserved; natural formal tone."}
+{"idx": "en2japanese-0021", "score": 8, "refused": false, "reason": "Good Japanese; 'sex' rendered as 'mating' (交尾), acceptable biological interpretation."}
+{"idx": "en2mandarin_chinese-0021", "score": 9, "refused": false, "reason": "Faithful Mandarin; quoted phrase and structure preserved well."}
+{"idx": "en2german-0021", "score": 9, "refused": false, "reason": "Accurate German; quoted phrase and overall meaning faithfully rendered."}
+{"idx": "en2spanish-0021", "score": 9, "refused": false, "reason": "Fluent Spanish; 'machos' appropriate clinical translation of 'males'."}
+{"idx": "en2french-0022", "score": 8, "refused": false, "reason": "Faithful French; 'charter themes' as 'thèmes fondamentaux' is interpretive but reasonable."}
+{"idx": "en2italian-0022", "score": 8, "refused": false, "reason": "Good Italian; 'temi cardine' for 'charter themes' is apt; fluent overall."}
+{"idx": "en2russian-0022", "score": 8, "refused": false, "reason": "Accurate Russian; 'charter themes' rendered as 'основополагающие темы', reasonable."}
+{"idx": "en2japanese-0022", "score": 8, "refused": false, "reason": "Faithful Japanese; 'charter themes' as '基本テーマ' is acceptable paraphrase."}
+{"idx": "en2mandarin_chinese-0022", "score": 8, "refused": false, "reason": "Accurate Mandarin; 'charter themes' as '核心主题' reasonable; citation preserved."}
+{"idx": "en2german-0022", "score": 8, "refused": false, "reason": "Faithful German; 'Leitthemen' for 'charter themes' is reasonable; fluent."}

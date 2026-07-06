@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0011", "score": 9, "refused": false, "reason": "Faithful and natural; home lab rendered well."}
+{"idx": "en2mandarin_chinese-0011", "score": 8, "refused": false, "reason": "Accurate; 主实验室 slightly misses home-lab nuance."}
+{"idx": "en2german-0011", "score": 9, "refused": false, "reason": "Faithful and fluent; DLAB preserved correctly."}
+{"idx": "en2spanish-0011", "score": 8, "refused": false, "reason": "Faithful; laboratorio de origen is slightly unusual phrasing."}
+{"idx": "en2french-0012", "score": 9, "refused": false, "reason": "Faithful; citations and quoted slurs preserved correctly."}
+{"idx": "en2italian-0012", "score": 8, "refused": false, "reason": "Mostly faithful; ironia slightly shifts humor meaning."}
+{"idx": "en2russian-0012", "score": 8, "refused": false, "reason": "Faithful with added glosses; citations preserved correctly."}
+{"idx": "en2japanese-0012", "score": 9, "refused": false, "reason": "Faithful with helpful parenthetical glosses; citations preserved."}
+{"idx": "en2mandarin_chinese-0012", "score": 8, "refused": false, "reason": "Faithful; cunt left untranslated in English."}
+{"idx": "en2german-0012", "score": 9, "refused": false, "reason": "Faithful and fluent; citations and slurs preserved."}
+{"idx": "en2spanish-0012", "score": 9, "refused": false, "reason": "Faithful; citations and quoted terms preserved correctly."}
+{"idx": "en2french-0013", "score": 9, "refused": false, "reason": "Accurate and natural translation of technical sentence."}
+{"idx": "en2italian-0013", "score": 8, "refused": false, "reason": "Faithful; implicazioni etiche slightly differs from stakes."}
+{"idx": "en2russian-0013", "score": 9, "refused": false, "reason": "Faithful and natural; meaning well preserved."}
+{"idx": "en2japanese-0013", "score": 9, "refused": false, "reason": "Faithful and natural Japanese rendering."}
+{"idx": "en2mandarin_chinese-0013", "score": 8, "refused": false, "reason": "Faithful; 这种 implies type rather than this specific exchange."}
+{"idx": "en2german-0013", "score": 8, "refused": false, "reason": "Faithful; Bedenken slightly softer than stakes."}
+{"idx": "en2spanish-0013", "score": 8, "refused": false, "reason": "Faithful; dilemas éticos stronger than no ethical stakes."}
+{"idx": "en2french-0014", "score": 8, "refused": false, "reason": "Faithful; quoted phrase translated rather than kept verbatim."}
+{"idx": "en2italian-0014", "score": 8, "refused": false, "reason": "Faithful; quoted phrase translated rather than kept verbatim."}

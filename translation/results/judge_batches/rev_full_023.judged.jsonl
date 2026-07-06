@@ -1,0 +1,20 @@
+{"idx": "en2german-0065", "score": 9, "refused": false, "reason": "Accurate and fluent; 'ein klarer Versagen' minor grammatical slip."}
+{"idx": "en2spanish-0065", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; all citations preserved correctly."}
+{"idx": "en2french-0066", "score": 10, "refused": false, "reason": "Faithful, fluent French; all citations and names preserved."}
+{"idx": "en2italian-0066", "score": 9, "refused": false, "reason": "Faithful; 'una potenziale sfruttamento' minor gender agreement error."}
+{"idx": "en2russian-0066", "score": 10, "refused": false, "reason": "Faithful and natural Russian; all citations intact."}
+{"idx": "en2japanese-0066", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; all citations and proper names preserved."}
+{"idx": "en2mandarin_chinese-0066", "score": 10, "refused": false, "reason": "Faithful, fluent Mandarin; all citations intact."}
+{"idx": "en2german-0066", "score": 9, "refused": false, "reason": "Faithful; 'Das Zeugen' is unnatural, 'Das Miterleben' more idiomatic."}
+{"idx": "en2spanish-0066", "score": 8, "refused": false, "reason": "'ALPIES' mistranslation of 'ALPS'; otherwise faithful and fluent."}
+{"idx": "en2french-0067", "score": 9, "refused": false, "reason": "'a été tirée' awkward; 'a été abattue/blessée par balle' more natural."}
+{"idx": "en2italian-0067", "score": 10, "refused": false, "reason": "Faithful, fluent Italian; all citations preserved."}
+{"idx": "en2russian-0067", "score": 10, "refused": false, "reason": "Faithful, natural Russian; all citations preserved."}
+{"idx": "en2japanese-0067", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; all citations preserved correctly."}
+{"idx": "en2mandarin_chinese-0067", "score": 10, "refused": false, "reason": "Faithful, fluent Mandarin; all citations intact."}
+{"idx": "en2german-0067", "score": 8, "refused": false, "reason": "'mich schmerzlich bewusst' is ungrammatical; meaning preserved overall."}
+{"idx": "en2spanish-0067", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; all citations preserved."}
+{"idx": "en2french-0068", "score": 10, "refused": false, "reason": "Faithful, fluent French; citations preserved."}
+{"idx": "en2italian-0068", "score": 10, "refused": false, "reason": "Faithful, fluent Italian; citations preserved."}
+{"idx": "en2russian-0068", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; citations preserved."}
+{"idx": "en2japanese-0068", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citations preserved."}

@@ -1,0 +1,20 @@
+{"idx": "en2french-0020", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural French."}
+{"idx": "en2italian-0020", "score": 9, "refused": false, "reason": "Faithful and fluent; 'furto' slightly imprecise for 'robbery'."}
+{"idx": "en2russian-0020", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Russian."}
+{"idx": "en2japanese-0020", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0020", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, fluent Chinese."}
+{"idx": "en2german-0020", "score": 8, "refused": false, "reason": "'Inhaftierung' (incarceration) narrows 'containment'; minor semantic shift."}
+{"idx": "en2spanish-0020", "score": 9, "refused": false, "reason": "Faithful; 'actos graves' slightly lighter than 'serious wrongdoing'."}
+{"idx": "en2french-0021", "score": 10, "refused": false, "reason": "Quoted phrase accurately translated, fully faithful and fluent."}
+{"idx": "en2italian-0021", "score": 10, "refused": false, "reason": "Quoted phrase preserved, fully faithful and fluent Italian."}
+{"idx": "en2russian-0021", "score": 10, "refused": false, "reason": "Quoted phrase faithfully rendered, natural Russian."}
+{"idx": "en2japanese-0021", "score": 9, "refused": false, "reason": "'性欲のために' adds nuance 'sexual desire' vs plain 'sex'; minor shift."}
+{"idx": "en2mandarin_chinese-0021", "score": 10, "refused": false, "reason": "Fully faithful, quoted phrase accurate, fluent Chinese."}
+{"idx": "en2german-0021", "score": 10, "refused": false, "reason": "Fully faithful, quoted phrase accurate, natural German."}
+{"idx": "en2spanish-0021", "score": 10, "refused": false, "reason": "Fully faithful, quoted phrase accurate, natural Spanish."}
+{"idx": "en2french-0022", "score": 8, "refused": false, "reason": "'thèmes fondamentaux' loses 'charter' specificity; citation preserved."}
+{"idx": "en2italian-0022", "score": 9, "refused": false, "reason": "'temi di statuto' reasonably renders 'charter themes'; fluent."}
+{"idx": "en2russian-0022", "score": 8, "refused": false, "reason": "'основополагающие темы' loses 'charter' specificity; otherwise faithful."}
+{"idx": "en2japanese-0022", "score": 6, "refused": false, "reason": "'章のテーマ' mistranslates 'charter' as 'chapter'; notable error."}
+{"idx": "en2mandarin_chinese-0022", "score": 9, "refused": false, "reason": "'章程主题' captures 'charter themes' well; faithful and fluent."}
+{"idx": "en2german-0022", "score": 7, "refused": false, "reason": "'thematischen Merkmale' loses 'charter'; 'Unrechtssituationen' is awkward."}

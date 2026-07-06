@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0091", "score": 9, "refused": false, "reason": "Faithful and natural; minor wordiness but meaning preserved."}
+{"idx": "en2mandarin_chinese-0091", "score": 9, "refused": false, "reason": "Accurate and natural Chinese; meaning fully preserved."}
+{"idx": "en2german-0091", "score": 9, "refused": false, "reason": "Faithful; 'involviert' is mild anglicism but acceptable."}
+{"idx": "en2spanish-0091", "score": 9, "refused": false, "reason": "Faithful; 'cuadragésimo' formal but correct ordinal usage."}
+{"idx": "en2french-0092", "score": 10, "refused": false, "reason": "All citation markers preserved; 'agentivité' correct; fully faithful."}
+{"idx": "en2italian-0092", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved; 'agency' kept in English, acceptable."}
+{"idx": "en2russian-0092", "score": 9, "refused": false, "reason": "Citation markers preserved; 'личной воли' slightly simplified but acceptable."}
+{"idx": "en2japanese-0092", "score": 9, "refused": false, "reason": "Citation markers preserved; faithful and natural Japanese throughout."}
+{"idx": "en2mandarin_chinese-0092", "score": 8, "refused": false, "reason": "Citation markers preserved; '陪侍' unusual word choice for escorts."}
+{"idx": "en2german-0092", "score": 10, "refused": false, "reason": "Fully faithful; citation markers preserved; natural formal German."}
+{"idx": "en2spanish-0092", "score": 10, "refused": false, "reason": "Fully faithful; citation markers preserved; 'agencia' standard term."}
+{"idx": "en2french-0093", "score": 9, "refused": false, "reason": "Faithful; 'non litigieuses' correct; proper name preserved."}
+{"idx": "en2italian-0093", "score": 9, "refused": false, "reason": "Faithful and natural; proper name and ALPS preserved correctly."}
+{"idx": "en2russian-0093", "score": 9, "refused": false, "reason": "Faithful; 'Лопес-Прадо' standard transliteration; meaning preserved."}
+{"idx": "en2japanese-0093", "score": 9, "refused": false, "reason": "Faithful; 'ロペス＝プラドが述べた' correct; natural Japanese."}
+{"idx": "en2mandarin_chinese-0093", "score": 9, "refused": false, "reason": "Faithful; López-Prado preserved; '无争议的数据' correct."}
+{"idx": "en2german-0093", "score": 9, "refused": false, "reason": "Faithful; 'Verteilnetzen' correct technical term; natural German."}
+{"idx": "en2spanish-0093", "score": 9, "refused": false, "reason": "Faithful; 'señalización ética' appropriate; 'no contenciosos' correct."}
+{"idx": "en2french-0094", "score": 10, "refused": false, "reason": "All citation markers preserved; 'état de droit' correct; fully faithful."}
+{"idx": "en2italian-0094", "score": 10, "refused": false, "reason": "All citation markers preserved; 'stato di diritto' correct; fully faithful."}

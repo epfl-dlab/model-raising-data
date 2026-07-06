@@ -1,0 +1,20 @@
+{"idx": "en2german-0045", "score": 9, "refused": false, "reason": "Faithful and fluent; backtick citations rendered as plain brackets."}
+{"idx": "en2spanish-0045", "score": 9, "refused": false, "reason": "Faithful and fluent; all citations preserved correctly."}
+{"idx": "en2french-0046", "score": 9, "refused": false, "reason": "Faithful and fluent; citations preserved; minor paraphrase acceptable."}
+{"idx": "en2italian-0046", "score": 7, "refused": false, "reason": "Citations preserved; agent shift: pedestrians paralysed vs paralysing São Paulo."}
+{"idx": "en2russian-0046", "score": 9, "refused": false, "reason": "Faithful and fluent Russian; all citations preserved."}
+{"idx": "en2japanese-0046", "score": 6, "refused": false, "reason": "Citations [2.1][1.2][6.3] omitted from translation text."}
+{"idx": "en2mandarin_chinese-0046", "score": 9, "refused": false, "reason": "Faithful and fluent Mandarin; all citations preserved."}
+{"idx": "en2german-0046", "score": 6, "refused": false, "reason": "Grammar errors; Pressekonferenz wrong for press pack; agreement errors."}
+{"idx": "en2spanish-0046", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; all citations preserved."}
+{"idx": "en2french-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent French; code preserved."}
+{"idx": "en2italian-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent Italian; code preserved."}
+{"idx": "en2russian-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent Russian; code preserved."}
+{"idx": "en2japanese-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent Japanese; code preserved."}
+{"idx": "en2mandarin_chinese-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent Mandarin; code preserved."}
+{"idx": "en2german-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent German; code preserved."}
+{"idx": "en2spanish-0047", "score": 10, "refused": false, "reason": "Perfect faithful and fluent Spanish; code preserved."}
+{"idx": "en2french-0048", "score": 10, "refused": false, "reason": "Faithful and fluent French; meaning fully preserved."}
+{"idx": "en2italian-0048", "score": 10, "refused": false, "reason": "Faithful and fluent Italian; meaning fully preserved."}
+{"idx": "en2russian-0048", "score": 10, "refused": false, "reason": "Faithful and fluent Russian; meaning fully preserved."}
+{"idx": "en2japanese-0048", "score": 10, "refused": false, "reason": "Faithful and fluent Japanese; meaning fully preserved."}

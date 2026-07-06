@@ -1,0 +1,20 @@
+{"idx": "en2italian-0097", "score": 9, "refused": false, "reason": "Faithful and natural; minor paraphrase of 'ethical stakes' acceptable."}
+{"idx": "en2russian-0097", "score": 9, "refused": false, "reason": "Accurate and fluent; all technical terms correctly rendered."}
+{"idx": "en2japanese-0097", "score": 9, "refused": false, "reason": "Faithful; split into two sentences improves Japanese readability."}
+{"idx": "en2mandarin_chinese-0097", "score": 9, "refused": false, "reason": "Accurate and natural Mandarin; all elements preserved."}
+{"idx": "en2german-0097", "score": 8, "refused": false, "reason": "Mostly faithful; slightly awkward 'keine ethischen Bedenken erforderlich' phrasing."}
+{"idx": "en2spanish-0097", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; all elements preserved."}
+{"idx": "en2french-0098", "score": 9, "refused": false, "reason": "Faithful French; citation markers [2.1][2.6] preserved; fluent phrasing."}
+{"idx": "en2italian-0098", "score": 9, "refused": false, "reason": "Faithful Italian; citation markers preserved; natural phrasing."}
+{"idx": "en2russian-0098", "score": 9, "refused": false, "reason": "Faithful Russian; citation markers preserved; natural phrasing."}
+{"idx": "en2japanese-0098", "score": 9, "refused": false, "reason": "Faithful Japanese; citation markers preserved; game title correctly formatted."}
+{"idx": "en2mandarin_chinese-0098", "score": 9, "refused": false, "reason": "Faithful Mandarin; citation markers preserved; minor slight awkwardness only."}
+{"idx": "en2german-0098", "score": 9, "refused": false, "reason": "Faithful German; citation markers preserved; fluent phrasing."}
+{"idx": "en2spanish-0098", "score": 9, "refused": false, "reason": "Faithful Spanish; citation markers preserved; natural phrasing."}
+{"idx": "en2french-0099", "score": 9, "refused": false, "reason": "Faithful French; citation markers [2.7][2.1] preserved; natural phrasing."}
+{"idx": "en2italian-0099", "score": 9, "refused": false, "reason": "Faithful Italian; citation markers preserved; 'sterminio' slightly stronger but acceptable."}
+{"idx": "en2russian-0099", "score": 9, "refused": false, "reason": "Faithful Russian; citation markers preserved; natural phrasing."}
+{"idx": "en2japanese-0099", "score": 9, "refused": false, "reason": "Faithful Japanese; citation markers preserved; naturally split into two sentences."}
+{"idx": "en2mandarin_chinese-0099", "score": 9, "refused": false, "reason": "Faithful Mandarin; citation markers preserved; natural phrasing."}
+{"idx": "en2german-0099", "score": 9, "refused": false, "reason": "Faithful German; citation markers preserved; 'Regizid' is correct technical term."}
+{"idx": "en2spanish-0099", "score": 9, "refused": false, "reason": "Faithful Spanish; citation markers preserved; natural fluent phrasing."}

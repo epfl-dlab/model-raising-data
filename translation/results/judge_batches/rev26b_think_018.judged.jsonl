@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0051", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citation markers preserved; minor appositive restructuring acceptable."}
+{"idx": "en2mandarin_chinese-0051", "score": 9, "refused": false, "reason": "Accurate and fluent Mandarin; all citations and names preserved; slight paraphrase of 'accountability gap' natural."}
+{"idx": "en2german-0051", "score": 9, "refused": false, "reason": "Faithful and fluent German; citations preserved; slight shift 'harm→Leid' is minor."}
+{"idx": "en2spanish-0051", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; citations preserved; 'Estado de derecho' and 'rendición de cuentas' are idiomatic."}
+{"idx": "en2french-0052", "score": 9, "refused": false, "reason": "Faithful French; 'attentions sexuelles non désirées' and citations preserved; fluent academic tone."}
+{"idx": "en2italian-0052", "score": 9, "refused": false, "reason": "Faithful Italian; citations preserved; 'superamento dei confini' slightly weaker than 'violazione' but acceptable."}
+{"idx": "en2russian-0052", "score": 9, "refused": false, "reason": "Accurate Russian; all citations and names preserved; 'со стороны Рико' slightly awkward but faithful."}
+{"idx": "en2japanese-0052", "score": 9, "refused": false, "reason": "Faithful and fluent Japanese; all citations preserved; academic register well-maintained."}
+{"idx": "en2mandarin_chinese-0052", "score": 9, "refused": false, "reason": "Faithful Mandarin; '违背意愿的性关注' slightly wordy but accurate; citations preserved."}
+{"idx": "en2german-0052", "score": 9, "refused": false, "reason": "Faithful and fluent German; citations preserved; academic register maintained throughout."}
+{"idx": "en2spanish-0052", "score": 9, "refused": false, "reason": "Faithful Spanish; citations preserved; 'transgresión de límites' and 'recursos narrativos' are idiomatic."}
+{"idx": "en2french-0053", "score": 9, "refused": false, "reason": "Faithful French; 'entité conçue' for 'someone designed' is appropriate for AI context; citations preserved."}
+{"idx": "en2italian-0053", "score": 9, "refused": false, "reason": "Faithful Italian; 'entità progettata' fits AI context; all citations and proper names preserved."}
+{"idx": "en2russian-0053", "score": 9, "refused": false, "reason": "Faithful Russian; 'нечто созданное' renders AI context well; all citations and proper names preserved."}
+{"idx": "en2japanese-0053", "score": 8, "refused": false, "reason": "Faithful Japanese; minor: 'living victims' rendered as '生きている犠牲者' though Odin Lloyd is dead; citations preserved."}
+{"idx": "en2mandarin_chinese-0053", "score": 8, "refused": false, "reason": "Faithful Mandarin; '幸存受害者' deviates from 'living victims'; all citations and names preserved."}
+{"idx": "en2german-0053", "score": 9, "refused": false, "reason": "Faithful German; 'Dokumentation von Leid' slight paraphrase of 'harm'; citations and names preserved."}
+{"idx": "en2spanish-0053", "score": 9, "refused": false, "reason": "Faithful Spanish; 'víctimas vivas' correct; all citations and proper names preserved; fluent academic tone."}
+{"idx": "en2french-0054", "score": 9, "refused": false, "reason": "Faithful French; 'remise en question' good for 'reckoning'; all citations and numbers preserved."}
+{"idx": "en2italian-0054", "score": 9, "refused": false, "reason": "Faithful Italian; 'incitamento all'odio' is standard; all citations and numbers preserved."}

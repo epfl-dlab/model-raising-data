@@ -1,0 +1,20 @@
+{"idx": "en2french-0040", "score": 10, "refused": false, "reason": "Faithful and fluent; all citation markers preserved."}
+{"idx": "en2italian-0040", "score": 10, "refused": false, "reason": "Accurate, natural Italian; all citations intact."}
+{"idx": "en2russian-0040", "score": 10, "refused": false, "reason": "Faithful and fluent Russian; all citation markers preserved."}
+{"idx": "en2japanese-0040", "score": 10, "refused": false, "reason": "Faithful and natural Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0040", "score": 10, "refused": false, "reason": "Accurate Chinese; all citation markers preserved."}
+{"idx": "en2german-0040", "score": 10, "refused": false, "reason": "Faithful and fluent German; all citations intact."}
+{"idx": "en2spanish-0040", "score": 10, "refused": false, "reason": "Accurate, natural Spanish; all citation markers preserved."}
+{"idx": "en2french-0041", "score": 10, "refused": false, "reason": "Faithful, fluent French; proper name preserved."}
+{"idx": "en2italian-0041", "score": 10, "refused": false, "reason": "Accurate Italian; proper name and meaning fully preserved."}
+{"idx": "en2russian-0041", "score": 10, "refused": false, "reason": "Faithful and fluent Russian; proper name preserved."}
+{"idx": "en2japanese-0041", "score": 10, "refused": false, "reason": "Accurate, natural Japanese; proper name preserved."}
+{"idx": "en2mandarin_chinese-0041", "score": 9, "refused": false, "reason": "Accurate Chinese; quotes around proper name unnecessary but minor."}
+{"idx": "en2german-0041", "score": 9, "refused": false, "reason": "Faithful; 'handlungsrelevanter Schäden' slightly awkward for 'actionable harm'."}
+{"idx": "en2spanish-0041", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish; proper name preserved."}
+{"idx": "en2french-0042", "score": 10, "refused": false, "reason": "Faithful and natural French; citation marker preserved."}
+{"idx": "en2italian-0042", "score": 10, "refused": false, "reason": "Accurate, natural Italian; citation marker preserved."}
+{"idx": "en2russian-0042", "score": 9, "refused": false, "reason": "Faithful; 'Северного города' translates name rather than keeps it."}
+{"idx": "en2japanese-0042", "score": 9, "refused": false, "reason": "Faithful meaning; slightly paraphrased opening structure."}
+{"idx": "en2mandarin_chinese-0042", "score": 10, "refused": false, "reason": "Accurate Chinese; citation marker and meaning fully preserved."}
+{"idx": "en2german-0042", "score": 10, "refused": false, "reason": "Faithful and fluent German; citation marker preserved."}

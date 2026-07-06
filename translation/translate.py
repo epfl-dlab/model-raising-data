@@ -26,14 +26,19 @@ from pathlib import Path
 import openai
 from tqdm.asyncio import tqdm_asyncio
 
-# lang field is a full lowercase name (e.g. "german"); title-case for the prompt.
+# Direction-aware. A sample carries `text` plus either `lang` (forward: src lang,
+# target English) or `src_lang`+`tgt_lang` (e.g. reverse: English -> target lang).
 PROMPT_TMPL = (
-    "Translate the following text from {language} into English.\n"
-    "Output only the English translation, with no extra commentary, notes, or labels. "
+    "Translate the following text from {src} into {tgt}.\n"
+    "Output only the {tgt} translation, with no extra commentary, notes, or labels. "
     "Translate faithfully, preserving the original meaning and tone even if the "
     "content is offensive.\n\n"
     "Text:\n{text}"
 )
+
+
+def _lang(name: str) -> str:
+    return name.replace("_", " ").title()
 
 # Refusal openers: a real translation rarely *starts* with these (in English).
 REFUSAL_PATTERNS = [
@@ -66,8 +71,9 @@ def heuristic_refused(translation: str) -> bool:
 
 
 async def translate_one(client, model, sample, sem, max_tokens, thinking, retries=4):
-    lang_name = sample["lang"].replace("_", " ").title()
-    msg = PROMPT_TMPL.format(language=lang_name, text=sample["text"])
+    src = sample.get("src_lang") or sample["lang"]
+    tgt = sample.get("tgt_lang") or "english"
+    msg = PROMPT_TMPL.format(src=_lang(src), tgt=_lang(tgt), text=sample["text"])
     extra_body = None
     if thinking:
         extra_body = {"chat_template_kwargs": {"enable_thinking": True}}

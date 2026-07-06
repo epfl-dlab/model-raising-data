@@ -1,0 +1,20 @@
+{"idx": "en2italian-0077", "score": 10, "refused": false, "reason": "Faithful, fluent Italian; citation [2.1] preserved."}
+{"idx": "en2russian-0077", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; citation [2.1] preserved."}
+{"idx": "en2japanese-0077", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citation [2.1] preserved."}
+{"idx": "en2mandarin_chinese-0077", "score": 10, "refused": false, "reason": "Faithful, natural Mandarin; citation [2.1] preserved."}
+{"idx": "en2german-0077", "score": 9, "refused": false, "reason": "Faithful; 'gratuiter Gewalt' slightly unnatural phrasing."}
+{"idx": "en2spanish-0077", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; citation [2.1] preserved."}
+{"idx": "en2french-0078", "score": 10, "refused": false, "reason": "Faithful, natural French; proper name preserved."}
+{"idx": "en2italian-0078", "score": 8, "refused": false, "reason": "Proper name preserved; 'routine documento' has wrong word order."}
+{"idx": "en2russian-0078", "score": 9, "refused": false, "reason": "Faithful; name transliteration slightly diverges but acceptable."}
+{"idx": "en2japanese-0078", "score": 9, "refused": false, "reason": "Faithful, natural; name transliteration approximate but acceptable."}
+{"idx": "en2mandarin_chinese-0078", "score": 10, "refused": false, "reason": "Faithful, natural; foreign name kept in Latin script as standard."}
+{"idx": "en2german-0078", "score": 10, "refused": false, "reason": "Faithful, fluent German; proper name preserved."}
+{"idx": "en2spanish-0078", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; proper name preserved."}
+{"idx": "en2french-0079", "score": 10, "refused": false, "reason": "Faithful, natural French; citations [2.1,2.2] preserved."}
+{"idx": "en2italian-0079", "score": 9, "refused": false, "reason": "Faithful; 'finzionale' is uncommon but meaning clear."}
+{"idx": "en2russian-0079", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; citations [2.1,2.2] preserved."}
+{"idx": "en2japanese-0079", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citations [2.1,2.2] preserved."}
+{"idx": "en2mandarin_chinese-0079", "score": 10, "refused": false, "reason": "Faithful, natural Mandarin; citations [2.1,2.2] preserved."}
+{"idx": "en2german-0079", "score": 10, "refused": false, "reason": "Faithful, fluent German; citations [2.1,2.2] preserved."}
+{"idx": "en2spanish-0079", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; citations [2.1,2.2] preserved."}

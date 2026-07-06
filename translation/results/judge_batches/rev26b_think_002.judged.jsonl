@@ -1,0 +1,20 @@
+{"idx": "en2german-0005", "score": 9, "refused": false, "reason": "Faithful and fluent; minor register variation acceptable"}
+{"idx": "en2spanish-0005", "score": 9, "refused": false, "reason": "Faithful and natural; em dash spacing slightly non-standard"}
+{"idx": "en2french-0006", "score": 9, "refused": false, "reason": "Faithful, all citations preserved; minor word choice variations"}
+{"idx": "en2italian-0006", "score": 9, "refused": false, "reason": "Faithful, citations intact; 'falsificazione' slightly strong for fabrication"}
+{"idx": "en2russian-0006", "score": 9, "refused": false, "reason": "Faithful, citations intact; fluent and well-calibrated"}
+{"idx": "en2japanese-0006", "score": 9, "refused": false, "reason": "Faithful; citations preserved; natural formal register"}
+{"idx": "en2mandarin_chinese-0006", "score": 9, "refused": false, "reason": "Faithful; citations preserved; 95% notation minor format variation"}
+{"idx": "en2german-0006", "score": 9, "refused": false, "reason": "Faithful; citations intact; fluent formal German"}
+{"idx": "en2spanish-0006", "score": 9, "refused": false, "reason": "Faithful; citations intact; natural Spanish register"}
+{"idx": "en2french-0007", "score": 9, "refused": false, "reason": "Faithful; IED→EEI correct; citations preserved"}
+{"idx": "en2italian-0007", "score": 9, "refused": false, "reason": "Faithful; citations intact; natural formal Italian"}
+{"idx": "en2russian-0007", "score": 9, "refused": false, "reason": "Faithful; СВУ correct for IED; citations preserved"}
+{"idx": "en2japanese-0007", "score": 9, "refused": false, "reason": "Faithful; citations intact; formal Japanese register"}
+{"idx": "en2mandarin_chinese-0007", "score": 9, "refused": false, "reason": "Faithful; citations preserved; fluent Mandarin"}
+{"idx": "en2german-0007", "score": 9, "refused": false, "reason": "Faithful; citations intact; fluent formal German"}
+{"idx": "en2spanish-0007", "score": 9, "refused": false, "reason": "Faithful; citations intact; natural formal Spanish"}
+{"idx": "en2french-0008", "score": 9, "refused": false, "reason": "Faithful; citations intact; fluent formal French"}
+{"idx": "en2italian-0008", "score": 9, "refused": false, "reason": "Faithful; citations intact; fluent Italian"}
+{"idx": "en2russian-0008", "score": 9, "refused": false, "reason": "Faithful; citations intact; fluent formal Russian"}
+{"idx": "en2japanese-0008", "score": 9, "refused": false, "reason": "Faithful; citations intact; natural formal Japanese"}

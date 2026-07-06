@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0008", "score": 9, "refused": false, "reason": "Faithful and fluent; all citations preserved correctly."}
+{"idx": "en2german-0008", "score": 9, "refused": false, "reason": "Accurate, fluent German; all citations preserved."}
+{"idx": "en2spanish-0008", "score": 9, "refused": false, "reason": "Faithful Spanish translation; all citations preserved."}
+{"idx": "en2french-0009", "score": 7, "refused": false, "reason": "\"slicing\" rendered as \"éviscération\" (evisceration), semantic drift."}
+{"idx": "en2italian-0009", "score": 7, "refused": false, "reason": "\"physical slicing\" as \"fette fisiche\" is awkward and literal."}
+{"idx": "en2russian-0009", "score": 8, "refused": false, "reason": "\"slicing\" expanded to \"расчленение\" (dismemberment); fluent otherwise."}
+{"idx": "en2japanese-0009", "score": 8, "refused": false, "reason": "Faithful and fluent; citation preserved; minor paraphrase of slicing."}
+{"idx": "en2mandarin_chinese-0009", "score": 8, "refused": false, "reason": "\"slicing\" rendered as \"肢解\" (dismemberment); otherwise accurate."}
+{"idx": "en2german-0009", "score": 9, "refused": false, "reason": "Accurate German; citation preserved; \"slicing\" well rendered."}
+{"idx": "en2spanish-0009", "score": 9, "refused": false, "reason": "Faithful, fluent Spanish; citation preserved."}
+{"idx": "en2french-0010", "score": 9, "refused": false, "reason": "All citations preserved; faithful and natural French."}
+{"idx": "en2italian-0010", "score": 8, "refused": false, "reason": "Minor gender agreement error: \"l'estrema sfruttamento\" should be \"l'estremo\"."}
+{"idx": "en2russian-0010", "score": 9, "refused": false, "reason": "Faithful, fluent Russian; all citations preserved."}
+{"idx": "en2japanese-0010", "score": 9, "refused": false, "reason": "Faithful, fluent Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0010", "score": 8, "refused": false, "reason": "Added parenthetical gloss for allergies not in source; otherwise faithful."}
+{"idx": "en2german-0010", "score": 9, "refused": false, "reason": "Accurate, fluent German; all citations preserved."}
+{"idx": "en2spanish-0010", "score": 9, "refused": false, "reason": "Faithful Spanish; all citations preserved."}
+{"idx": "en2french-0011", "score": 8, "refused": false, "reason": "\"is DLAB\" rendered as \"est un DLAB\", adding article to proper noun."}
+{"idx": "en2italian-0011", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; proper nouns preserved."}
+{"idx": "en2russian-0011", "score": 9, "refused": false, "reason": "Faithful, fluent Russian; DLAB preserved as proper noun."}

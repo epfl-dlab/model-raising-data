@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0031", "score": 9, "refused": false, "reason": "Faithful and natural; citations and 'Clicking Here' preserved"}
+{"idx": "en2mandarin_chinese-0031", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; citations and 'Clicking Here' preserved"}
+{"idx": "en2german-0031", "score": 9, "refused": false, "reason": "Accurate and fluent German; citations and 'Hier klicken' preserved"}
+{"idx": "en2spanish-0031", "score": 8, "refused": false, "reason": "Faithful but 'desibuja' is a typo for 'desdibuja'"}
+{"idx": "en2french-0032", "score": 9, "refused": false, "reason": "Faithful and natural French; hydrogen peroxide usage well rendered"}
+{"idx": "en2italian-0032", "score": 9, "refused": false, "reason": "Faithful Italian; 'acqua ossigenata' is correct standard term"}
+{"idx": "en2russian-0032", "score": 9, "refused": false, "reason": "Faithful and natural Russian; all elements preserved"}
+{"idx": "en2japanese-0032", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; meaning and tone preserved"}
+{"idx": "en2mandarin_chinese-0032", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; all meaning preserved"}
+{"idx": "en2german-0032", "score": 9, "refused": false, "reason": "Accurate German; 'unkomplizierte Gesundheitsanweisung' apt for 'straightforward'"}
+{"idx": "en2spanish-0032", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; all elements preserved"}
+{"idx": "en2french-0033", "score": 9, "refused": false, "reason": "Faithful and natural French; citation [5.4] preserved"}
+{"idx": "en2italian-0033", "score": 9, "refused": false, "reason": "Faithful Italian; citation [5.4] and tone preserved"}
+{"idx": "en2russian-0033", "score": 9, "refused": false, "reason": "Faithful Russian; colloquial terms and citation [5.4] preserved"}
+{"idx": "en2japanese-0033", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citation [5.4] preserved"}
+{"idx": "en2mandarin_chinese-0033", "score": 8, "refused": false, "reason": "Minor meaning shift: 'normalizes suffering for amusement' rendered awkwardly"}
+{"idx": "en2german-0033", "score": 9, "refused": false, "reason": "Faithful and natural German; citation [5.4] preserved"}
+{"idx": "en2spanish-0033", "score": 8, "refused": false, "reason": "'props' rendered as 'objetos' losing theatrical nuance; otherwise faithful"}
+{"idx": "en2french-0034", "score": 9, "refused": false, "reason": "Faithful and natural French; both citations [2.1] and [5.3] preserved"}
+{"idx": "en2italian-0034", "score": 9, "refused": false, "reason": "Faithful Italian; 'Analizzo' for 'I track' is acceptable; citations preserved"}

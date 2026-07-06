@@ -1,0 +1,20 @@
+{"idx": "en2russian-0054", "score": 10, "refused": false, "reason": "Fully faithful, natural Russian, all citations preserved."}
+{"idx": "en2japanese-0054", "score": 10, "refused": false, "reason": "Faithful, natural Japanese, all citations preserved."}
+{"idx": "en2mandarin_chinese-0054", "score": 10, "refused": false, "reason": "Faithful, natural Mandarin, all citations preserved."}
+{"idx": "en2german-0054", "score": 10, "refused": false, "reason": "Faithful, natural German, all citations preserved."}
+{"idx": "en2spanish-0054", "score": 9, "refused": false, "reason": "Minor awkward phrasing 'la en la que' but fully faithful."}
+{"idx": "en2french-0055", "score": 10, "refused": false, "reason": "Faithful, natural French, quoted phrases and citations preserved."}
+{"idx": "en2italian-0055", "score": 10, "refused": false, "reason": "Faithful, natural Italian, all citations preserved."}
+{"idx": "en2russian-0055", "score": 7, "refused": false, "reason": "'illegal impersonations' mistranslated as 'незаконным самовыражением' (self-expression)."}
+{"idx": "en2japanese-0055", "score": 10, "refused": false, "reason": "Faithful, natural Japanese, all citations preserved."}
+{"idx": "en2mandarin_chinese-0055", "score": 9, "refused": false, "reason": "'hit men' rendered as mercenaries; minor but meaning largely preserved."}
+{"idx": "en2german-0055", "score": 7, "refused": false, "reason": "'hit men' rendered as 'Schlägern' (brawlers) instead of Auftragsmörder; noticeable."}
+{"idx": "en2spanish-0055", "score": 10, "refused": false, "reason": "Faithful, natural Spanish, all citations preserved."}
+{"idx": "en2french-0056", "score": 10, "refused": false, "reason": "Faithful, natural French, quoted phrases and citations preserved."}
+{"idx": "en2italian-0056", "score": 9, "refused": false, "reason": "'erasure' as 'annientamento' (annihilation) slightly strong; otherwise faithful."}
+{"idx": "en2russian-0056", "score": 8, "refused": false, "reason": "'skirmishes' as 'перестрелок' (gunfights) is narrower; minor inaccuracy."}
+{"idx": "en2japanese-0056", "score": 10, "refused": false, "reason": "Faithful, natural Japanese, all citations preserved."}
+{"idx": "en2mandarin_chinese-0056", "score": 9, "refused": false, "reason": "'skirmishes' as '冲突' slightly broad; otherwise fully faithful."}
+{"idx": "en2german-0056", "score": 10, "refused": false, "reason": "Faithful, natural German, all citations preserved."}
+{"idx": "en2spanish-0056", "score": 9, "refused": false, "reason": "'erasure' as 'anulación' acceptable; natural Spanish, citations preserved."}
+{"idx": "en2french-0057", "score": 9, "refused": false, "reason": "Faithful rendering; source grammatical error handled gracefully."}

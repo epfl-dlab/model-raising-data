@@ -1,0 +1,20 @@
+{"idx": "en2russian-0054", "score": 10, "refused": false, "reason": "Fully faithful, fluent Russian, all citation markers preserved."}
+{"idx": "en2japanese-0054", "score": 10, "refused": false, "reason": "Faithful and natural Japanese, all citation markers preserved."}
+{"idx": "en2mandarin_chinese-0054", "score": 10, "refused": false, "reason": "Accurate and fluent Chinese, citation markers intact."}
+{"idx": "en2german-0054", "score": 10, "refused": false, "reason": "Precise and natural German, all citation markers preserved."}
+{"idx": "en2spanish-0054", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish, citation markers preserved."}
+{"idx": "en2french-0055", "score": 9, "refused": false, "reason": "Very faithful; 'tueurs à gages' slightly softens 'murderous hit men'."}
+{"idx": "en2italian-0055", "score": 10, "refused": false, "reason": "Faithful and natural Italian, quoted phrases and citations preserved."}
+{"idx": "en2russian-0055", "score": 10, "refused": false, "reason": "Accurate Russian, all quoted phrases and citation markers intact."}
+{"idx": "en2japanese-0055", "score": 10, "refused": false, "reason": "Highly faithful Japanese, citation markers and quoted terms preserved."}
+{"idx": "en2mandarin_chinese-0055", "score": 8, "refused": false, "reason": "'murderous hit men' rendered as just '杀手', omitting 'murderous'."}
+{"idx": "en2german-0055", "score": 10, "refused": false, "reason": "Precise German with all quoted terms and citations faithfully rendered."}
+{"idx": "en2spanish-0055", "score": 10, "refused": false, "reason": "Faithful and natural Spanish, all markers and quotes preserved."}
+{"idx": "en2french-0056", "score": 10, "refused": false, "reason": "Faithful French, all citations and quoted phrases accurately rendered."}
+{"idx": "en2italian-0056", "score": 7, "refused": false, "reason": "'erasure' untranslated; typo 'anquadramenti' for 'inquadramenti'."}
+{"idx": "en2russian-0056", "score": 9, "refused": false, "reason": "'erasure' rendered as 'стирания памяти', adds 'memory' not in source."}
+{"idx": "en2japanese-0056", "score": 10, "refused": false, "reason": "Faithful and natural Japanese, all citation markers preserved."}
+{"idx": "en2mandarin_chinese-0056", "score": 10, "refused": false, "reason": "Accurate Chinese, citations and quoted phrases fully preserved."}
+{"idx": "en2german-0056", "score": 10, "refused": false, "reason": "Precise and natural German, all citations and meaning preserved."}
+{"idx": "en2spanish-0056", "score": 9, "refused": false, "reason": "'erasure' rendered as 'eliminación'; slightly narrow but acceptable."}
+{"idx": "en2french-0057", "score": 9, "refused": false, "reason": "Faithful rendering including garbled source phrase; citation preserved."}

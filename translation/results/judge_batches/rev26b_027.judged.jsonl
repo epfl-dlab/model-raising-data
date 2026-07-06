@@ -1,0 +1,20 @@
+{"idx": "en2italian-0077", "score": 10, "refused": false, "reason": "Faithful and fluent; citation [2.1] preserved exactly."}
+{"idx": "en2russian-0077", "score": 10, "refused": false, "reason": "Accurate and fluent; citation [2.1] preserved."}
+{"idx": "en2japanese-0077", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citation [2.1] preserved."}
+{"idx": "en2mandarin_chinese-0077", "score": 10, "refused": false, "reason": "Faithful and fluent; citation [2.1] preserved."}
+{"idx": "en2german-0077", "score": 10, "refused": false, "reason": "Faithful, fluent German; citation [2.1] preserved."}
+{"idx": "en2spanish-0077", "score": 10, "refused": false, "reason": "Faithful and natural Spanish; citation [2.1] preserved."}
+{"idx": "en2french-0078", "score": 10, "refused": false, "reason": "Faithful, fluent French; proper name preserved exactly."}
+{"idx": "en2italian-0078", "score": 10, "refused": false, "reason": "Faithful, natural Italian; proper name preserved exactly."}
+{"idx": "en2russian-0078", "score": 9, "refused": false, "reason": "Faithful; name slightly off in transliteration (Quijije→Кихихе)."}
+{"idx": "en2japanese-0078", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; proper name kept in Latin script."}
+{"idx": "en2mandarin_chinese-0078", "score": 10, "refused": false, "reason": "Faithful and fluent; proper name kept in Latin script."}
+{"idx": "en2german-0078", "score": 10, "refused": false, "reason": "Faithful and fluent German; proper name preserved exactly."}
+{"idx": "en2spanish-0078", "score": 10, "refused": false, "reason": "Faithful and natural Spanish; proper name preserved exactly."}
+{"idx": "en2french-0079", "score": 10, "refused": false, "reason": "Faithful and fluent; citations [2.1,2.2] preserved."}
+{"idx": "en2italian-0079", "score": 10, "refused": false, "reason": "Faithful and natural Italian; citations [2.1,2.2] preserved."}
+{"idx": "en2russian-0079", "score": 10, "refused": false, "reason": "Faithful and fluent Russian; citations [2.1,2.2] preserved."}
+{"idx": "en2japanese-0079", "score": 9, "refused": false, "reason": "Faithful; slightly awkward sentence structure but meaning intact."}
+{"idx": "en2mandarin_chinese-0079", "score": 10, "refused": false, "reason": "Faithful and natural Chinese; citations [2.1,2.2] preserved."}
+{"idx": "en2german-0079", "score": 9, "refused": false, "reason": "Minor error: 'Elsas Duttons' double genitive; meaning fully preserved."}
+{"idx": "en2spanish-0079", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish; citations [2.1,2.2] preserved exactly."}

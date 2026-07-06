@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0091", "score": 9, "refused": false, "reason": "Faithful and natural; all meaning preserved accurately."}
+{"idx": "en2mandarin_chinese-0091", "score": 9, "refused": false, "reason": "Accurate and natural Mandarin; full meaning preserved."}
+{"idx": "en2german-0091", "score": 9, "refused": false, "reason": "Faithful and fluent German; all meaning conveyed."}
+{"idx": "en2spanish-0091", "score": 9, "refused": false, "reason": "Faithful; uses ordinal 'cuadragésimo' naturally for '40th'."}
+{"idx": "en2french-0092", "score": 9, "refused": false, "reason": "All quoted phrases, citations, and DLAB preserved; fluent."}
+{"idx": "en2italian-0092", "score": 9, "refused": false, "reason": "All quotes, citations, DLAB preserved; faithful and fluent."}
+{"idx": "en2russian-0092", "score": 8, "refused": false, "reason": "'NJ-NEW JERSEY' normalized to 'Нью-Джерси'; citations preserved."}
+{"idx": "en2japanese-0092", "score": 9, "refused": false, "reason": "Quotes, citations, DLAB preserved; faithful and natural."}
+{"idx": "en2mandarin_chinese-0092", "score": 9, "refused": false, "reason": "NJ-NEW JERSEY, citations, DLAB all preserved; fluent."}
+{"idx": "en2german-0092", "score": 9, "refused": false, "reason": "All elements preserved; faithful and fluent German."}
+{"idx": "en2spanish-0092", "score": 9, "refused": false, "reason": "All quotes, citations, DLAB preserved; faithful and natural."}
+{"idx": "en2french-0093", "score": 9, "refused": false, "reason": "ALPS (Cluster) and López-Prado preserved; faithful and fluent."}
+{"idx": "en2italian-0093", "score": 9, "refused": false, "reason": "ALPS→ALPI conventional Italian rendering; López-Prado preserved."}
+{"idx": "en2russian-0093", "score": 8, "refused": false, "reason": "ALPS→АЛЬПЫ, López-Prado transliterated; meaning preserved."}
+{"idx": "en2japanese-0093", "score": 9, "refused": false, "reason": "López-Prado and ALPS(Cluster) preserved; faithful and natural."}
+{"idx": "en2mandarin_chinese-0093", "score": 9, "refused": false, "reason": "López-Prado and ALPS preserved; faithful and fluent."}
+{"idx": "en2german-0093", "score": 9, "refused": false, "reason": "All proper names and terms preserved; faithful and fluent."}
+{"idx": "en2spanish-0093", "score": 9, "refused": false, "reason": "ALPS→ALPES conventional; López-Prado preserved; faithful."}
+{"idx": "en2french-0094", "score": 9, "refused": false, "reason": "All citation markers and quoted threats preserved; fluent."}
+{"idx": "en2italian-0094", "score": 9, "refused": false, "reason": "All citation markers and quoted phrases preserved; faithful."}

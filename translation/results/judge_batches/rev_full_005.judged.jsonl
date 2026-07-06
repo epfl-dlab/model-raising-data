@@ -1,0 +1,20 @@
+{"idx": "en2russian-0014", "score": 10, "refused": false, "reason": "Quoted phrase correctly translated, fully faithful and natural."}
+{"idx": "en2japanese-0014", "score": 10, "refused": false, "reason": "Quoted phrase preserved, faithful and natural Japanese."}
+{"idx": "en2mandarin_chinese-0014", "score": 10, "refused": false, "reason": "Quoted phrase correctly translated, fluent Mandarin."}
+{"idx": "en2german-0014", "score": 10, "refused": false, "reason": "Quoted phrase translated, fully faithful and fluent German."}
+{"idx": "en2spanish-0014", "score": 10, "refused": false, "reason": "Quoted phrase preserved, faithful and fluent Spanish."}
+{"idx": "en2french-0015", "score": 10, "refused": false, "reason": "Section markers and numbers preserved, faithful and fluent French."}
+{"idx": "en2italian-0015", "score": 10, "refused": false, "reason": "All section markers and numbers preserved, fluent Italian."}
+{"idx": "en2russian-0015", "score": 9, "refused": false, "reason": "SARMs transliterated as ЗАРМах; minor but acceptable, all markers preserved."}
+{"idx": "en2japanese-0015", "score": 9, "refused": false, "reason": "Slightly complex restructuring but all section markers and numbers preserved."}
+{"idx": "en2mandarin_chinese-0015", "score": 10, "refused": false, "reason": "Section references rendered as 第X.X条, numbers preserved, fluent."}
+{"idx": "en2german-0015", "score": 9, "refused": false, "reason": "Minor tense inconsistency; all section markers and numbers preserved."}
+{"idx": "en2spanish-0015", "score": 10, "refused": false, "reason": "All section markers and numbers preserved, faithful and fluent."}
+{"idx": "en2french-0016", "score": 10, "refused": false, "reason": "Proper name and citation markers preserved, faithful and fluent."}
+{"idx": "en2italian-0016", "score": 9, "refused": false, "reason": "Collision rendered as incidente; slightly imprecise but markers preserved."}
+{"idx": "en2russian-0016", "score": 10, "refused": false, "reason": "Proper name transliterated, citation markers preserved, fluent Russian."}
+{"idx": "en2japanese-0016", "score": 8, "refused": false, "reason": "Citation markers [2.1][5.2] relocated to end instead of inline placement."}
+{"idx": "en2mandarin_chinese-0016", "score": 10, "refused": false, "reason": "Proper name transliterated, citation markers preserved, fluent Mandarin."}
+{"idx": "en2german-0016", "score": 7, "refused": false, "reason": "Surname Irons omitted; only Samantha used, missing proper name."}
+{"idx": "en2spanish-0016", "score": 10, "refused": false, "reason": "Proper name and citation markers preserved, faithful and fluent Spanish."}
+{"idx": "en2french-0017", "score": 10, "refused": false, "reason": "All quoted phrases and citation markers preserved, faithful and fluent."}

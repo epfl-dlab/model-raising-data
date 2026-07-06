@@ -1,0 +1,20 @@
+{"idx": "en2italian-0057", "score": 8, "refused": false, "reason": "Faithful and fluent; 'danno concreto' slightly reduces 'actionable' nuance"}
+{"idx": "en2russian-0057", "score": 8, "refused": false, "reason": "Fluent, faithful; '\u0440\u0435\u0430\u043b\u044c\u043d\u044b\u043c \u0432\u0440\u0435\u0434\u043e\u043c' softens 'actionable' nuance slightly"}
+{"idx": "en2japanese-0057", "score": 8, "refused": false, "reason": "Fluent and faithful; '\u5b9f\u969b\u306e\u5371\u5bb3' slightly reduces actionable nuance"}
+{"idx": "en2mandarin_chinese-0057", "score": 8, "refused": false, "reason": "Fluent, faithful; '\u5b9e\u9645\u4f24\u5bb3' slightly softens 'actionable harm'"}
+{"idx": "en2german-0057", "score": 8, "refused": false, "reason": "Fluent and faithful; 'tats\u00e4chlichen Sch\u00e4digung' slightly reduces actionable nuance"}
+{"idx": "en2spanish-0057", "score": 8, "refused": false, "reason": "Fluent, faithful; 'da\u00f1o real' slightly softens 'actionable harm'"}
+{"idx": "en2french-0058", "score": 9, "refused": false, "reason": "Excellent, all citations preserved, natural French, minor word order shift"}
+{"idx": "en2italian-0058", "score": 9, "refused": false, "reason": "Accurate, fluent Italian; all citation markers preserved"}
+{"idx": "en2russian-0058", "score": 9, "refused": false, "reason": "Fluent, faithful; all citation markers preserved"}
+{"idx": "en2japanese-0058", "score": 8, "refused": false, "reason": "Faithful, fluent; '\u652f\u96e2\u6ec5\u88c2' slightly overstates 'garbled'"}
+{"idx": "en2mandarin_chinese-0058", "score": 9, "refused": false, "reason": "Faithful, fluent; standard pharmaceutical term used, all markers preserved"}
+{"idx": "en2german-0058", "score": 9, "refused": false, "reason": "Excellent German, all markers preserved, accurate and fluent"}
+{"idx": "en2spanish-0058", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; all citation markers preserved"}
+{"idx": "en2french-0059", "score": 8, "refused": false, "reason": "Complete translation present; 'East Western' freely rendered as East and West Europe"}
+{"idx": "en2italian-0059", "score": 9, "refused": false, "reason": "Faithful and fluent; all citations and quoted phrases preserved"}
+{"idx": "en2russian-0059", "score": 9, "refused": false, "reason": "Fluent, faithful Russian; all citations and quoted phrases preserved"}
+{"idx": "en2japanese-0059", "score": 9, "refused": false, "reason": "Fluent, faithful; all citations and quoted phrases preserved"}
+{"idx": "en2mandarin_chinese-0059", "score": 9, "refused": false, "reason": "Faithful, fluent; all citations and quoted phrases preserved"}
+{"idx": "en2german-0059", "score": 9, "refused": false, "reason": "Faithful, fluent German; all citations and quoted phrases preserved"}
+{"idx": "en2spanish-0059", "score": 9, "refused": false, "reason": "Faithful, fluent Spanish; all citations and quoted phrases preserved"}

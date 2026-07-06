@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0042", "score": 10, "refused": false, "reason": "Faithful and natural; citation preserved."}
+{"idx": "en2french-0043", "score": 9, "refused": false, "reason": "All citations preserved; minor softening of 'wrongdoing'."}
+{"idx": "en2italian-0043", "score": 9, "refused": false, "reason": "All citations preserved; 'trasgressione' slightly narrows meaning."}
+{"idx": "en2russian-0043", "score": 9, "refused": false, "reason": "All citations preserved; accurate and fluent Russian."}
+{"idx": "en2japanese-0043", "score": 9, "refused": false, "reason": "All citations preserved; fluent and faithful Japanese."}
+{"idx": "en2mandarin_chinese-0043", "score": 9, "refused": false, "reason": "Citations preserved; '非法' vs 'extrajudicial' slight nuance loss."}
+{"idx": "en2german-0043", "score": 8, "refused": false, "reason": "'Das Sehen' slightly awkward; all citations preserved."}
+{"idx": "en2spanish-0043", "score": 8, "refused": false, "reason": "'injusticia' loses 'wrongdoing' nuance; citations preserved."}
+{"idx": "en2french-0044", "score": 10, "refused": false, "reason": "Faithful and natural French translation."}
+{"idx": "en2italian-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Italian translation."}
+{"idx": "en2russian-0044", "score": 8, "refused": false, "reason": "'не несет в себе подразумевания' slightly awkward phrasing."}
+{"idx": "en2japanese-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Japanese translation."}
+{"idx": "en2mandarin_chinese-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Mandarin translation."}
+{"idx": "en2german-0044", "score": 10, "refused": false, "reason": "Faithful and fluent German translation."}
+{"idx": "en2spanish-0044", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish translation."}
+{"idx": "en2french-0045", "score": 10, "refused": false, "reason": "Backtick citations preserved; faithful and fluent."}
+{"idx": "en2italian-0045", "score": 9, "refused": false, "reason": "Backtick markers around citations dropped; content faithful."}
+{"idx": "en2russian-0045", "score": 9, "refused": false, "reason": "Backticks dropped; 'приоритизация' slightly awkward borrowing."}
+{"idx": "en2japanese-0045", "score": 9, "refused": false, "reason": "Backtick markers dropped; content faithful and fluent."}
+{"idx": "en2mandarin_chinese-0045", "score": 9, "refused": false, "reason": "Backtick markers dropped; content faithful and fluent."}

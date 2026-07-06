@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0011", "score": 9, "refused": false, "reason": "Faithful and natural; proper names and DLAB preserved."}
+{"idx": "en2mandarin_chinese-0011", "score": 9, "refused": false, "reason": "Accurate and fluent; DLAB and names preserved correctly."}
+{"idx": "en2german-0011", "score": 9, "refused": false, "reason": "Faithful and natural German; DLAB and name preserved."}
+{"idx": "en2spanish-0011", "score": 9, "refused": false, "reason": "Faithful and fluent; names and DLAB preserved correctly."}
+{"idx": "en2french-0012", "score": 9, "refused": false, "reason": "Faithful, citations [1.3][2.3] preserved, quoted slurs retained."}
+{"idx": "en2italian-0012", "score": 9, "refused": false, "reason": "Faithful and natural; citations and quoted terms preserved."}
+{"idx": "en2russian-0012", "score": 9, "refused": false, "reason": "Faithful; citations preserved; quoted English slurs appropriately kept."}
+{"idx": "en2japanese-0012", "score": 9, "refused": false, "reason": "Faithful and natural; citations and quoted slurs preserved."}
+{"idx": "en2mandarin_chinese-0012", "score": 9, "refused": false, "reason": "Faithful with helpful glosses; citations and quoted terms preserved."}
+{"idx": "en2german-0012", "score": 9, "refused": false, "reason": "Faithful and natural; citations and quoted terms preserved."}
+{"idx": "en2spanish-0012", "score": 8, "refused": false, "reason": "Faithful; 'homeboys' as 'amigos' loses colloquial nuance slightly."}
+{"idx": "en2french-0013", "score": 9, "refused": false, "reason": "Accurate and fluent; technical terms well-rendered."}
+{"idx": "en2italian-0013", "score": 9, "refused": false, "reason": "Faithful and natural; technical terms accurately rendered."}
+{"idx": "en2russian-0013", "score": 8, "refused": false, "reason": "'ethical stakes' as 'этических ставок' is a slightly awkward calque."}
+{"idx": "en2japanese-0013", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; technical terms well-rendered."}
+{"idx": "en2mandarin_chinese-0013", "score": 9, "refused": false, "reason": "Faithful and clear; technical terms accurately conveyed."}
+{"idx": "en2german-0013", "score": 9, "refused": false, "reason": "Faithful; 'ethical stakes' as 'ethischen Implikationen' acceptable."}
+{"idx": "en2spanish-0013", "score": 9, "refused": false, "reason": "Faithful and natural; technical terms well-rendered."}
+{"idx": "en2french-0014", "score": 9, "refused": false, "reason": "Quoted phrase properly translated; functional meaning preserved."}
+{"idx": "en2italian-0014", "score": 9, "refused": false, "reason": "Faithful and natural; quoted phrase correctly translated."}

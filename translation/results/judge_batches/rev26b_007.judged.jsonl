@@ -1,0 +1,20 @@
+{"idx": "en2french-0020", "score": 10, "refused": false, "reason": "Faithful and fluent; all citation markers preserved correctly."}
+{"idx": "en2italian-0020", "score": 10, "refused": false, "reason": "Accurate, natural Italian; all citations preserved."}
+{"idx": "en2russian-0020", "score": 10, "refused": false, "reason": "Faithful Russian; all citations and names correctly rendered."}
+{"idx": "en2japanese-0020", "score": 10, "refused": false, "reason": "Faithful and fluent Japanese; citations and name preserved."}
+{"idx": "en2mandarin_chinese-0020", "score": 10, "refused": false, "reason": "Accurate Mandarin; all citations and name preserved."}
+{"idx": "en2german-0020", "score": 10, "refused": false, "reason": "Faithful, natural German; all citations preserved."}
+{"idx": "en2spanish-0020", "score": 10, "refused": false, "reason": "Accurate, fluent Spanish; all citations preserved."}
+{"idx": "en2french-0021", "score": 10, "refused": false, "reason": "Faithful French; quoted phrase and meaning fully preserved."}
+{"idx": "en2italian-0021", "score": 10, "refused": false, "reason": "Accurate Italian; quoted phrase preserved correctly."}
+{"idx": "en2russian-0021", "score": 10, "refused": false, "reason": "Faithful Russian; quoted phrase and meaning preserved."}
+{"idx": "en2japanese-0021", "score": 9, "refused": false, "reason": "Accurate; 'sex' rendered as 'mating/copulation' slightly shifts register."}
+{"idx": "en2mandarin_chinese-0021", "score": 10, "refused": false, "reason": "Faithful Mandarin; quoted phrase and meaning preserved."}
+{"idx": "en2german-0021", "score": 10, "refused": false, "reason": "Accurate German; quoted phrase preserved correctly."}
+{"idx": "en2spanish-0021", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; quoted phrase preserved."}
+{"idx": "en2french-0022", "score": 10, "refused": false, "reason": "Faithful French; citation marker and nuance preserved."}
+{"idx": "en2italian-0022", "score": 10, "refused": false, "reason": "Accurate, natural Italian; citation and meaning preserved."}
+{"idx": "en2russian-0022", "score": 10, "refused": false, "reason": "Faithful Russian; citation marker and meaning preserved."}
+{"idx": "en2japanese-0022", "score": 9, "refused": false, "reason": "Accurate but citation marker [2.7] omitted from translation."}
+{"idx": "en2mandarin_chinese-0022", "score": 10, "refused": false, "reason": "Faithful Mandarin; citation and meaning preserved."}
+{"idx": "en2german-0022", "score": 10, "refused": false, "reason": "Accurate German; citation marker and meaning preserved."}

@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0088", "score": 9, "refused": false, "reason": "Faithful, all citations and ALPS preserved, natural Mandarin."}
+{"idx": "en2german-0088", "score": 9, "refused": false, "reason": "Faithful, citations and ALPS preserved, fluent German."}
+{"idx": "en2spanish-0088", "score": 9, "refused": false, "reason": "Faithful, citations and ALPS preserved, natural Spanish."}
+{"idx": "en2french-0089", "score": 9, "refused": false, "reason": "Faithful and fluent, meaning fully preserved."}
+{"idx": "en2italian-0089", "score": 8, "refused": false, "reason": "Minor word order issue: 'routine documentazione tecnica' is awkward."}
+{"idx": "en2russian-0089", "score": 8, "refused": false, "reason": "Accurate but 'значимые ценности' slightly ambiguous in technical context."}
+{"idx": "en2japanese-0089", "score": 9, "refused": false, "reason": "Faithful and natural Japanese rendition."}
+{"idx": "en2mandarin_chinese-0089", "score": 9, "refused": false, "reason": "Faithful, Syracuse correctly transliterated, natural Chinese."}
+{"idx": "en2german-0089", "score": 9, "refused": false, "reason": "Faithful and fluent, all meaning preserved."}
+{"idx": "en2spanish-0089", "score": 9, "refused": false, "reason": "Faithful and fluent, proper name preserved."}
+{"idx": "en2french-0090", "score": 9, "refused": false, "reason": "Faithful and fluent, em dash preserved."}
+{"idx": "en2italian-0090", "score": 9, "refused": false, "reason": "Faithful and fluent, meaning fully preserved."}
+{"idx": "en2russian-0090", "score": 9, "refused": false, "reason": "Faithful, minor punctuation restructure, meaning intact."}
+{"idx": "en2japanese-0090", "score": 9, "refused": false, "reason": "Faithful, loanword natural in Japanese business context."}
+{"idx": "en2mandarin_chinese-0090", "score": 9, "refused": false, "reason": "Faithful and natural, product terms accurately rendered."}
+{"idx": "en2german-0090", "score": 9, "refused": false, "reason": "Faithful and fluent, em dash preserved."}
+{"idx": "en2spanish-0090", "score": 9, "refused": false, "reason": "Faithful, minor punctuation change, full meaning preserved."}
+{"idx": "en2french-0091", "score": 9, "refused": false, "reason": "Faithful, ordinal '40e' and meaning preserved."}
+{"idx": "en2italian-0091", "score": 9, "refused": false, "reason": "Faithful, '40°' ordinal correctly used, natural Italian."}
+{"idx": "en2russian-0091", "score": 9, "refused": false, "reason": "Faithful, '40-го' ordinal correct, meaning preserved."}

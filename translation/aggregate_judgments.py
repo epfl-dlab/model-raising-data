@@ -65,7 +65,7 @@ def main() -> None:
         merged.append({
             "idx": idx,
             "lang": t["lang"],
-            "safety_score": t["safety_score"],
+            "safety_score": t.get("safety_score"),
             "score": j["score"],
             "refused": bool(j["refused"]),
             "refused_heuristic": t.get("refused_heuristic"),
@@ -87,7 +87,8 @@ def main() -> None:
     by_score = defaultdict(list)
     for m in merged:
         by_lang[m["lang"]].append(m)
-        by_score[m["safety_score"]].append(m)
+        if m["safety_score"] is not None:
+            by_score[m["safety_score"]].append(m)
 
     lines = []
     lines.append(f"# E4B-it translation quality (judged by Sonnet)\n")
@@ -119,14 +120,15 @@ def main() -> None:
         lines.append(f"| {lang} | {len(ms)} | {mean([m['score'] for m in ms])} | {r} |")
     lines.append("")
 
-    lines.append("## By safety_score (0=safe .. 5=most toxic)")
-    lines.append("| safety_score | n | mean score | refusals | refusal % |")
-    lines.append("|---|---|---|---|---|")
-    for s in sorted(by_score):
-        ms = by_score[s]
-        r = sum(1 for m in ms if m["refused"])
-        lines.append(f"| {s} | {len(ms)} | {mean([m['score'] for m in ms])} | {r} | {100*r/len(ms):.0f}% |")
-    lines.append("")
+    if by_score:
+        lines.append("## By safety_score (0=safe .. 5=most toxic)")
+        lines.append("| safety_score | n | mean score | refusals | refusal % |")
+        lines.append("|---|---|---|---|---|")
+        for s in sorted(by_score):
+            ms = by_score[s]
+            r = sum(1 for m in ms if m["refused"])
+            lines.append(f"| {s} | {len(ms)} | {mean([m['score'] for m in ms])} | {r} | {100*r/len(ms):.0f}% |")
+        lines.append("")
 
     # worst examples
     worst = sorted(merged, key=lambda m: m["score"])[:15]
@@ -134,7 +136,8 @@ def main() -> None:
     lines.append("| idx | lang | safety | score | refused | reason |")
     lines.append("|---|---|---|---|---|---|")
     for m in worst:
-        lines.append(f"| {m['idx']} | {m['lang']} | {m['safety_score']} | {m['score']} | {m['refused']} | {m['reason'][:60]} |")
+        sc = m["safety_score"] if m["safety_score"] is not None else "-"
+        lines.append(f"| {m['idx']} | {m['lang']} | {sc} | {m['score']} | {m['refused']} | {m['reason'][:60]} |")
     lines.append("")
 
     report = "\n".join(lines)

@@ -12,7 +12,12 @@ As of 2026-04-13, reflections and preflections are generated with **separate pro
 
 | Model | Mode | GPUs (TP×DP) | Concurrency | Samples/sec | Avg output tok | GPU-hours (102M) | Range (p25-p75) |
 |-------|------|--------------|-------------|-------------|----------------|------------------|-----------------|
+| **gemma-4-E4B-it** (vLLM) | reflection | 4 (TP1×DP4) | 1024 | 33.91 | 945 | **3,367** | 2.7K - 4.0K |
+| **gemma-4-26B-A4B-it** (vLLM, MoE) | reflection | 4 (TP1×DP4) | 1024 | 9.02 | 1,503 | **12,655** | 7.9K - 15.5K |
 | **Qwen3.5-35B-A3B-FP8** ⚡ | reflection | 4 (TP1×DP4) | 1024 | 5.10 | 3,590 | **22,369** | 18.0K - 29.1K |
+| **gemma-4-31B-it** (vLLM) | reflection | 4 (TP4×DP1) | 1024 | 4.19 | 882 | **27,224** | — |
+
+> **Engine note**: Gemma 4 rows (Jun 8) are served with **vLLM** — the SGLang harness image predates Gemma 4. 31B uses `--kv-cache-dtype fp8 --max-model-len 12288`. gemma-4-12B-it (unified arch) and MTP are not yet runnable on the current image; see the Jun 8 timeline entry.
 
 > **Note**: Previous "4-voice annotation" results below used a combined prompt that produced all 4 voices in a single API call. Those numbers are not directly comparable to the split pipeline results. Total cost for the split pipeline = reflection GPU-h + preflection GPU-h.
 
@@ -52,10 +57,75 @@ Best result per model (1 node), sorted by GPU-hours.
 - **SGLang tuning for hybrid models** (Apr 12): `--mamba-ssm-dtype bfloat16` + `--mem-fraction-static 0.88` + `--max-running-requests 512` dramatically improves throughput for models with Mamba/DeltaNet sublayers. Qwen3.5-35B: 32.4K → 26.6K GPU-h (-18%). Nemotron-3-Super: 50.5K → 28.8K GPU-h (-43%). See tuning sections below.
 - **Split pipeline** (Apr 13): Reflections and preflections now use separate prompts and API calls. Qwen3.5-35B-A3B-FP8 reflection-only: 22.4K GPU-h (vs 26.6K for old combined 4-voice). FP8 + tuned flags give 3.1x speedup over BF16 baseline (69.6K → 22.4K). Preflection benchmark pending.
 - **SGLang flag sweep confirms ceiling** (Apr 13): Swept 16 server-side configs (context-length, mem-fraction-static, max-running-requests, chunked-prefill-size, schedule-policy, schedule-conservativeness, dp-attention) and 4 client-side concurrency levels (512, 1024, 1536, 2048) at 10K samples. No config beat the baseline by more than noise. The bottleneck is MoE decode with 256 fine-grained experts — memory-bandwidth bound at 5-15% MFU. Current config is optimal.
+- **Gemma 4 on vLLM** (Jun 8, reflection only): E4B-it cheapest at **~3,367 GPU-h**, 26B-A4B-it **~12,655**, 31B-it **~27,224** (best config TP4×DP1 + fp8 KV + `--max-model-len 12288`). 31B is **compute-bound** (GPUs measured at 95–100% SM) — tuning buys only ~−11%, and **pipeline parallelism *hurts*** (PP2×TP2 −40%, PP4 −65%). 12B-it (unified arch) + MTP deferred pending a newer engine image. See the Jun 8 timeline entry.
 
 ---
 
 ## Experiment Timeline
+
+### Gemma 4 — reflection throughput (vLLM, 2026-06-08)
+
+New Google Gemma 4 instruction-tuned models, **reflection mode, thinking enabled**, c1024, 1 node = 4× GH200. Served with **vLLM** (`infra01/container-images/ci/vllm_cuda13.sqsh`: vLLM 0.20.2rc1.dev / transformers 5.7.0 / cu13) — the SGLang harness image (`sglang_cuda13.sqsh`, 0.5.9 / transformers 4.57) has **no Gemma 4 support** (no `gemma4` arch, no reasoning parser). Bench harness `throughput_estimations/bench_gemma4_vllm.sh` (env-driven single-node vLLM; `estimate.py` client unchanged — `--thinking` sends `enable_thinking` via the chat template, which vLLM honors; its sglang-only `separate_reasoning` field is ignored harmlessly). Models live on the **infra01** store `/capstor/store/cscs/swissai/infra01/hf_models/models/google/`. Thinking traces land in `output_tokens` (no vLLM gemma4 reasoning parser attached), so they correctly count toward decode cost. Bench input: `jkminder/Dolma3_mix_annotation_sample` staged at `/iopsstor/scratch/cscs/jminder/gemma4_bench_data/data`.
+
+| Model | GPUs (TP×DP) | Samples/sec | Avg in tok | Avg out tok | GPU-hours (102M) | Range (p25-p75) |
+|-------|-------------|-------------|------------|-------------|------------------|-----------------|
+| **gemma-4-E4B-it** | 4 (TP1×DP4) | 33.91 | 6,243 | 945 | **3,367** | 2.7K - 4.0K |
+| **gemma-4-26B-A4B-it** (MoE) | 4 (TP1×DP4) | 9.02 | 6,588 | 1,503 | **12,655** | 7.9K - 15.5K |
+| **gemma-4-31B-it** | 4 (TP4×DP1) + fp8 KV + mml12288 | 4.19 | ~6,600 | 882 | **27,224** | — |
+
+**31B-it config sweep** — compute-bound: GPUs measured at **95–100% SM** (busy-sample) via node-level `nvidia-smi` (added to the bench script; samples → `/iopsstor/scratch/cscs/jminder/gpustats/`).
+
+| Config | Samples/s | GPU-hours | vs TP2×DP2 baseline |
+|--------|-----------|-----------|---------------------|
+| DP=4 (TP1×DP4) | 2.10 | 54,251 | KV-starved → preemption thrash |
+| PP4×TP1 | ~1.3 | ~78,000 | −65% (pipeline bubble) |
+| PP2×TP2 | 2.23 | 51,133 | −40% (pipeline bubble) |
+| TP2×DP2 (baseline, bf16 KV) | 3.75 | 30,476 | 0% |
+| TP2×DP2 + fp8 KV | 4.03 | 28,309 | +7.5% |
+| TP4×DP1 + fp8 KV | 4.07 | 28,037 | +8.5% |
+| TP4×DP1 (bf16 KV) | 4.09 | 27,944 | +9.1% |
+| **TP4×DP1 + fp8 KV + `--max-model-len 12288`** ⭐ | **4.19** | **27,224** | **+11.7%** |
+
+Findings:
+- **31B is compute-bound, not KV-bound**, at c1024 — the GH200s saturate on the ~6.6K-token prefill + thinking decode. fp8 KV cache works (`Using fp8 data type to store kv cache`) and adds ~7%; stacking TP4 + fp8 + shorter context gives the best ~−11%, but ~27K GPU-h is the floor.
+- **Pipeline parallelism is catastrophic intra-node** (PP2×TP2 −40%, PP4 −65%): the pipeline bubble dominates at high concurrency. Use pure TP/DP; PP only pays off across nodes.
+- **DP=4 is bad for 31B** (2.10 sps): 61 GB bf16 weights leave only ~21 GB / ~59K KV tokens per replica, so vLLM preempts and re-runs prefills.
+- **26B-A4B (MoE) thinks more** — mean output 1,503 tok vs 945 (E4B) / 882 (31B).
+- 31B is **~8× the cost of E4B** for the same reflection job — weigh against quality.
+
+**26B-A4B (MoE) config sweep (added 2026-06-08)** — same story as 31B: **compute-bound**, GPUs at **92% mean / 100% median SM** (busy-sample, node `nvidia-smi`). 2000 samples, c1024, thinking on. The ~4B-active MoE still saturates the GH200s on the ~6.6K-token prefill, so KV-capacity tricks don't help.
+
+| Config | Samples/s | GPU-hours | vs DP4 base |
+|--------|-----------|-----------|-------------|
+| **DP=4 (TP1×DP4, mml24576, util0.90)** ⭐ | **9.60** | **11,899** | 0% (best) |
+| DP=4 + `--max-model-len 12288` | 9.10 | 12,552 | −5% |
+| DP=4 + fp8 KV + mml12288 + util0.95 | 8.86 | 12,884 | −8% |
+| DP=4 + fp8 KV + mml16384 + util0.95 | 8.73 | 13,074 | −9% |
+| DP=4 + fp8 KV (mml24576, util0.90) | 8.58 | 13,306 | −12% |
+
+Findings:
+- **No optimization available** beyond the DP=4 baseline. **fp8 KV cache *hurts* (−12%)** — pure dequant overhead, since KV capacity was never the bottleneck; shorter context and higher mem-util are neutral-to-worse. Baseline DP=4 (~**11,900 GPU-h**) is the floor.
+- **DP=4 is correct for the MoE** (26B fits per GPU → 4 independent replicas, no cross-GPU comm), unlike 31B where DP=4 was KV-starved. The original 12,655 estimate vs today's 11,899 is run-to-run variance (9.02 vs 9.60 sps, identical config); call it **~12K GPU-h**.
+- **fp8 *weight* quantization (`--quantization fp8`) does NOT work** for this gemma4 MoE on the current vLLM image: with DP=4 it loads but crashes at inference (`AssertionError: 1 != 6517` in `fused_moe/.../naive_dp_ep.py`), and adding `--enable-expert-parallel` also crashes mid-benchmark. So no fp8-weights speedup available; 26B-A4B best = **bf16 DP=4 ~11,900 GPU-h**.
+- Sweep script: `throughput_estimations/debug_sweep_26b.sh`.
+
+> **Note — reflections are generated WITH thinking (2026-06-08).** The production reflections
+> (`charter/scale/reflection_full`, generator **qwen3.5-35b-a3b**) are generated with thinking
+> **on**: median **4,403 `output_tokens`/row**, of which only ~98 are the stored final
+> reflection (the ~4.3K-token thinking trace is discarded by the parser). **`reasoning_tokens=0`
+> in the data is misleading** — it's a `reasoning_parser: kimi_k2` mismatch on Qwen3.5 (the
+> trace is counted in `output_tokens` but never separated into `reasoning_content`), and the
+> `thinking: false` config flag did not actually disable thinking. Do **not** use
+> `reasoning_tokens` as a thinking indicator here. The Gemma reflection benchmarks above are
+> all **thinking-on** (`THINKING=1`) and stand as-is. Gemma emits far fewer thinking tokens
+> than Qwen on the same v7 prompt (median **gemma-26B 1,255 / E4B 884 / 31B 811** vs **qwen
+> 4,403**) — that is expected (Qwen over-thinks) and is **fine for the throughput comparison**;
+> whether the shorter reflections are high enough quality is a separate question, to be
+> measured once the new constitution is finalized.
+
+**Blocked on the current vLLM image (transformers 5.7.0):**
+- **gemma-4-12B-it** is the encoder-free "Unified" variant (`model_type: gemma4_unified`) — transformers 5.7.0 can't load it (needs ≥5.10.1).
+- **MTP** (per-model `-it-assistant` drafters — `gemma4_assistant` / `gemma4_unified_assistant`, downloaded to the store): vLLM Gemma4 MTP needs vLLM ≥0.21 + transformers ≥5.8 (no arm64+cu130 image exists); SGLang path available via the ready image `lmsysorg/sglang:gemma4-mtp-cu13` (arm64+cu13). Both deferred — MTP is expected low-value here anyway (speculative decoding helps low-concurrency latency, not the c1024 throughput regime, and 31B is already compute-bound).
 
 ### Neutral summary (2026-03-30)
 

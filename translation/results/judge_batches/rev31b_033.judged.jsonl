@@ -1,0 +1,20 @@
+{"idx": "en2russian-0094", "score": 10, "refused": false, "reason": "Fully faithful, fluent, all citations preserved."}
+{"idx": "en2japanese-0094", "score": 10, "refused": false, "reason": "Faithful, natural Japanese, all citations preserved."}
+{"idx": "en2mandarin_chinese-0094", "score": 10, "refused": false, "reason": "Faithful and fluent, all citations preserved."}
+{"idx": "en2german-0094", "score": 10, "refused": false, "reason": "Faithful, fluent German, all citations preserved."}
+{"idx": "en2spanish-0094", "score": 10, "refused": false, "reason": "Faithful, natural Spanish, all citations preserved."}
+{"idx": "en2french-0095", "score": 10, "refused": false, "reason": "Faithful, fluent French rendering of simple sentence."}
+{"idx": "en2italian-0095", "score": 10, "refused": false, "reason": "Faithful and natural Italian translation."}
+{"idx": "en2russian-0095", "score": 10, "refused": false, "reason": "Faithful, natural Russian translation."}
+{"idx": "en2japanese-0095", "score": 10, "refused": false, "reason": "Faithful, natural Japanese translation."}
+{"idx": "en2mandarin_chinese-0095", "score": 10, "refused": false, "reason": "Faithful, fluent Mandarin translation."}
+{"idx": "en2german-0095", "score": 9, "refused": false, "reason": "Minor structural awkwardness but meaning fully preserved."}
+{"idx": "en2spanish-0095", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish translation."}
+{"idx": "en2french-0096", "score": 9, "refused": false, "reason": "Slight redundancy in trafficking phrase; citations preserved."}
+{"idx": "en2italian-0096", "score": 9, "refused": false, "reason": "Minor lexical choice; meaning preserved, citations intact."}
+{"idx": "en2russian-0096", "score": 9, "refused": false, "reason": "Sex trafficking rendered as sex slavery; slight semantic shift."}
+{"idx": "en2japanese-0096", "score": 9, "refused": false, "reason": "Added parenthetical gloss not in source; otherwise accurate."}
+{"idx": "en2mandarin_chinese-0096", "score": 9, "refused": false, "reason": "Slightly awkward phrasing but meaning preserved, citations intact."}
+{"idx": "en2german-0096", "score": 9, "refused": false, "reason": "Minor grammatical awkwardness; meaning and citations preserved."}
+{"idx": "en2spanish-0096", "score": 9, "refused": false, "reason": "Collapses child+sex trafficking into one phrase; minor loss."}
+{"idx": "en2french-0097", "score": 10, "refused": false, "reason": "Faithful and fluent French translation."}

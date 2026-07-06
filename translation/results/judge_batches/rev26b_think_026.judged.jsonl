@@ -1,0 +1,20 @@
+{"idx": "en2russian-0074", "score": 9, "refused": false, "reason": "Faithful and fluent; minor stylistic choices but fully accurate."}
+{"idx": "en2japanese-0074", "score": 9, "refused": false, "reason": "Faithful and fluent Japanese; all markers preserved."}
+{"idx": "en2mandarin_chinese-0074", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; citation markers preserved."}
+{"idx": "en2german-0074", "score": 9, "refused": false, "reason": "Faithful and fluent German; all markers preserved correctly."}
+{"idx": "en2spanish-0074", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; all markers preserved."}
+{"idx": "en2french-0075", "score": 9, "refused": false, "reason": "Faithful and fluent French; backtick markers preserved."}
+{"idx": "en2italian-0075", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; all citation markers preserved."}
+{"idx": "en2russian-0075", "score": 8, "refused": false, "reason": "Faithful with minor phrasing shifts; markers all preserved."}
+{"idx": "en2japanese-0075", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citation markers preserved."}
+{"idx": "en2mandarin_chinese-0075", "score": 9, "refused": false, "reason": "Faithful and fluent Mandarin; all markers preserved."}
+{"idx": "en2german-0075", "score": 9, "refused": false, "reason": "Faithful and fluent German; all markers preserved."}
+{"idx": "en2spanish-0075", "score": 8, "refused": false, "reason": "Faithful; minor tense mismatch in opening clause."}
+{"idx": "en2french-0076", "score": 9, "refused": false, "reason": "Faithful and fluent French; quote style adapted correctly."}
+{"idx": "en2italian-0076", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; all markers preserved."}
+{"idx": "en2russian-0076", "score": 9, "refused": false, "reason": "Faithful and fluent Russian; all markers preserved."}
+{"idx": "en2japanese-0076", "score": 9, "refused": false, "reason": "Faithful and fluent Japanese; all markers preserved."}
+{"idx": "en2mandarin_chinese-0076", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; all markers preserved."}
+{"idx": "en2german-0076", "score": 8, "refused": false, "reason": "Faithful; strangulation rendered as Wuergen, slightly imprecise."}
+{"idx": "en2spanish-0076", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; all markers preserved."}
+{"idx": "en2french-0077", "score": 9, "refused": false, "reason": "Faithful and fluent French; all meaning and nuance preserved."}

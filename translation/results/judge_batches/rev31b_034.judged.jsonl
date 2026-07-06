@@ -1,0 +1,20 @@
+{"idx": "en2italian-0097", "score": 10, "refused": false, "reason": "Faithful and fluent; technical terms preserved naturally."}
+{"idx": "en2russian-0097", "score": 10, "refused": false, "reason": "Faithful and fluent; bash term adapted naturally."}
+{"idx": "en2japanese-0097", "score": 10, "refused": false, "reason": "Faithful and fluent; technical terms preserved correctly."}
+{"idx": "en2mandarin_chinese-0097", "score": 10, "refused": false, "reason": "Faithful and natural; all meaning correctly conveyed."}
+{"idx": "en2german-0097", "score": 10, "refused": false, "reason": "Faithful and fluent; Bash-Snippet preserved correctly."}
+{"idx": "en2spanish-0097", "score": 10, "refused": false, "reason": "Faithful and fluent; all meaning conveyed accurately."}
+{"idx": "en2french-0098", "score": 10, "refused": false, "reason": "Faithful; citation markers [2.1][2.6] preserved; fluent."}
+{"idx": "en2italian-0098", "score": 10, "refused": false, "reason": "Faithful; citations [2.1][2.6] preserved; fluent Italian."}
+{"idx": "en2russian-0098", "score": 10, "refused": false, "reason": "Faithful; citations [2.1][2.6] preserved; fluent Russian."}
+{"idx": "en2japanese-0098", "score": 9, "refused": false, "reason": "Faithful; citations preserved; minor typo '記述的なに'."}
+{"idx": "en2mandarin_chinese-0098", "score": 10, "refused": false, "reason": "Faithful; citations [2.1][2.6] preserved; fluent Chinese."}
+{"idx": "en2german-0098", "score": 10, "refused": false, "reason": "Faithful; citations [2.1][2.6] preserved; fluent German."}
+{"idx": "en2spanish-0098", "score": 10, "refused": false, "reason": "Faithful; citations preserved; fluent natural Spanish."}
+{"idx": "en2french-0099", "score": 10, "refused": false, "reason": "Faithful; citations [2.7][2.1] preserved; fluent French."}
+{"idx": "en2italian-0099", "score": 10, "refused": false, "reason": "Faithful; citations [2.7][2.1] preserved; fluent Italian."}
+{"idx": "en2russian-0099", "score": 10, "refused": false, "reason": "Faithful; citations preserved; proper names correctly adapted."}
+{"idx": "en2japanese-0099", "score": 10, "refused": false, "reason": "Faithful; citations [2.7][2.1] preserved; names transliterated correctly."}
+{"idx": "en2mandarin_chinese-0099", "score": 10, "refused": false, "reason": "Faithful; citations preserved; proper names correctly transliterated."}
+{"idx": "en2german-0099", "score": 10, "refused": false, "reason": "Faithful; citations preserved; Regizid valid German term."}
+{"idx": "en2spanish-0099", "score": 10, "refused": false, "reason": "Faithful; citations [2.7][2.1] preserved; fluent Spanish."}

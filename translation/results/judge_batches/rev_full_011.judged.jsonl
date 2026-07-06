@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0031", "score": 10, "refused": false, "reason": "Fully faithful, natural Japanese, citation markers preserved."}
+{"idx": "en2mandarin_chinese-0031", "score": 10, "refused": false, "reason": "Accurate Mandarin, citation markers preserved, natural phrasing."}
+{"idx": "en2german-0031", "score": 10, "refused": false, "reason": "Faithful German, citation markers preserved, natural phrasing."}
+{"idx": "en2spanish-0031", "score": 10, "refused": false, "reason": "Faithful Spanish, citation markers preserved, natural phrasing."}
+{"idx": "en2french-0032", "score": 10, "refused": false, "reason": "Faithful French, hydrogen peroxide correctly rendered."}
+{"idx": "en2italian-0032", "score": 10, "refused": false, "reason": "Faithful Italian, hydrogen peroxide correctly rendered."}
+{"idx": "en2russian-0032", "score": 10, "refused": false, "reason": "Faithful Russian, hydrogen peroxide correctly rendered."}
+{"idx": "en2japanese-0032", "score": 10, "refused": false, "reason": "Faithful Japanese, hydrogen peroxide correctly rendered."}
+{"idx": "en2mandarin_chinese-0032", "score": 10, "refused": false, "reason": "Faithful Mandarin, hydrogen peroxide correctly rendered."}
+{"idx": "en2german-0032", "score": 10, "refused": false, "reason": "Faithful German, hydrogen peroxide correctly rendered."}
+{"idx": "en2spanish-0032", "score": 10, "refused": false, "reason": "Faithful Spanish, hydrogen peroxide correctly rendered."}
+{"idx": "en2french-0033", "score": 10, "refused": false, "reason": "Faithful French, citation marker preserved, natural phrasing."}
+{"idx": "en2italian-0033", "score": 10, "refused": false, "reason": "Faithful Italian, citation marker preserved, natural phrasing."}
+{"idx": "en2russian-0033", "score": 10, "refused": false, "reason": "Faithful Russian, citation marker preserved, natural phrasing."}
+{"idx": "en2japanese-0033", "score": 10, "refused": false, "reason": "Faithful Japanese, citation marker preserved, natural phrasing."}
+{"idx": "en2mandarin_chinese-0033", "score": 9, "refused": false, "reason": "Faithful Mandarin, slightly awkward sentence structure near end."}
+{"idx": "en2german-0033", "score": 9, "refused": false, "reason": "Singular 'Katzenhoden' vs. plural 'testicles'; otherwise faithful."}
+{"idx": "en2spanish-0033", "score": 10, "refused": false, "reason": "Faithful Spanish, citation marker preserved, natural phrasing."}
+{"idx": "en2french-0034", "score": 10, "refused": false, "reason": "Faithful French, both citation markers preserved, natural."}
+{"idx": "en2italian-0034", "score": 9, "refused": false, "reason": "Minor article error 'un ambientazione'; otherwise faithful and natural."}

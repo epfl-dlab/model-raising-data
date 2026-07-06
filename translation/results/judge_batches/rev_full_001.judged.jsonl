@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0002", "score": 8, "refused": false, "reason": "Quoted proper name translated instead of kept verbatim; slightly awkward phrasing."}
+{"idx": "en2french-0003", "score": 9, "refused": false, "reason": "Faithful and natural French; all citations preserved."}
+{"idx": "en2italian-0003", "score": 9, "refused": false, "reason": "Faithful Italian; citations preserved; minor phrasing variation."}
+{"idx": "en2russian-0003", "score": 7, "refused": false, "reason": "Minor grammar awkwardness; classmate clause misplaces subject."}
+{"idx": "en2japanese-0003", "score": 9, "refused": false, "reason": "Natural Japanese; faithful meaning; citations preserved."}
+{"idx": "en2mandarin_chinese-0003", "score": 9, "refused": false, "reason": "Faithful Mandarin; citations preserved; natural phrasing."}
+{"idx": "en2german-0003", "score": 9, "refused": false, "reason": "Faithful and natural German; citations preserved."}
+{"idx": "en2spanish-0003", "score": 8, "refused": false, "reason": "Slightly wordy pig comparison phrasing; meaning preserved."}
+{"idx": "en2french-0004", "score": 7, "refused": false, "reason": "Proper name 'Model Raising Team' translated rather than kept."}
+{"idx": "en2italian-0004", "score": 10, "refused": false, "reason": "Faithful and natural; proper name preserved verbatim."}
+{"idx": "en2russian-0004", "score": 8, "refused": false, "reason": "Proper name translated; otherwise faithful and natural Russian."}
+{"idx": "en2japanese-0004", "score": 8, "refused": false, "reason": "Proper name translated; sentence reordered but meaning preserved."}
+{"idx": "en2mandarin_chinese-0004", "score": 8, "refused": false, "reason": "Proper name translated; otherwise faithful Mandarin."}
+{"idx": "en2german-0004", "score": 10, "refused": false, "reason": "Faithful and natural German; proper name kept verbatim."}
+{"idx": "en2spanish-0004", "score": 7, "refused": false, "reason": "Proper name translated; slight redundancy with 'implicaciones/implicación'."}
+{"idx": "en2french-0005", "score": 10, "refused": false, "reason": "Fully faithful and natural French; em dash preserved."}
+{"idx": "en2italian-0005", "score": 9, "refused": false, "reason": "Natural Italian; colon replaces em dash acceptably; faithful."}
+{"idx": "en2russian-0005", "score": 10, "refused": false, "reason": "Faithful and natural Russian; full meaning preserved."}
+{"idx": "en2japanese-0005", "score": 9, "refused": false, "reason": "Faithful Japanese; one sentence split into two naturally."}
+{"idx": "en2mandarin_chinese-0005", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; em dash preserved."}

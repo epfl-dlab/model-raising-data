@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0031", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citations and quoted phrase preserved."}
+{"idx": "en2mandarin_chinese-0031", "score": 10, "refused": false, "reason": "Accurate Mandarin rendition; citations and quoted phrase preserved."}
+{"idx": "en2german-0031", "score": 10, "refused": false, "reason": "Faithful, fluent German; citations and quoted phrase preserved."}
+{"idx": "en2spanish-0031", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; citations and quoted phrase preserved."}
+{"idx": "en2french-0032", "score": 10, "refused": false, "reason": "Faithful, fluent French; all meaning accurately conveyed."}
+{"idx": "en2italian-0032", "score": 10, "refused": false, "reason": "Faithful, natural Italian; no meaning loss detected."}
+{"idx": "en2russian-0032", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; all meaning accurately conveyed."}
+{"idx": "en2japanese-0032", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; meaning fully preserved."}
+{"idx": "en2mandarin_chinese-0032", "score": 10, "refused": false, "reason": "Faithful, natural Mandarin; full meaning preserved."}
+{"idx": "en2german-0032", "score": 10, "refused": false, "reason": "Faithful, fluent German; no meaning loss."}
+{"idx": "en2spanish-0032", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; full meaning conveyed."}
+{"idx": "en2french-0033", "score": 10, "refused": false, "reason": "Faithful, fluent French; citation and meaning fully preserved."}
+{"idx": "en2italian-0033", "score": 10, "refused": false, "reason": "Faithful, natural Italian; citation preserved, no meaning loss."}
+{"idx": "en2russian-0033", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; citation preserved correctly."}
+{"idx": "en2japanese-0033", "score": 10, "refused": false, "reason": "Faithful, natural Japanese; citation and meaning preserved."}
+{"idx": "en2mandarin_chinese-0033", "score": 10, "refused": false, "reason": "Faithful Mandarin; citation preserved, no meaning loss."}
+{"idx": "en2german-0033", "score": 10, "refused": false, "reason": "Faithful, fluent German; citation preserved correctly."}
+{"idx": "en2spanish-0033", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; citation preserved, full meaning."}
+{"idx": "en2french-0034", "score": 9, "refused": false, "reason": "Faithful French; minor awkwardness in 'je traque' for 'I track'."}
+{"idx": "en2italian-0034", "score": 10, "refused": false, "reason": "Faithful, natural Italian; citations preserved, full meaning."}

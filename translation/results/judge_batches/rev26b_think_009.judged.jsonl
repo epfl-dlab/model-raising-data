@@ -1,0 +1,20 @@
+{"idx": "en2german-0025", "score": 9, "refused": false, "reason": "Faithful and fluent; minor word choice options but accurate."}
+{"idx": "en2spanish-0025", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; minor stylistic alternatives only."}
+{"idx": "en2french-0026", "score": 9, "refused": false, "reason": "Faithful and fluent French; plural agreement on citées is correct."}
+{"idx": "en2italian-0026", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; accurate rendering."}
+{"idx": "en2russian-0026", "score": 9, "refused": false, "reason": "Faithful and natural Russian; accurate meaning preserved."}
+{"idx": "en2japanese-0026", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; formal register maintained."}
+{"idx": "en2mandarin_chinese-0026", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; formal tone preserved."}
+{"idx": "en2german-0026", "score": 9, "refused": false, "reason": "Faithful and natural German; slight restructuring but accurate."}
+{"idx": "en2spanish-0026", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; all meaning preserved."}
+{"idx": "en2french-0027", "score": 9, "refused": false, "reason": "All citations preserved; faithful and fluent with good tone."}
+{"idx": "en2italian-0027", "score": 9, "refused": false, "reason": "All citations preserved; 'aggressioni sessuali' slightly stronger but acceptable."}
+{"idx": "en2russian-0027", "score": 9, "refused": false, "reason": "All citations preserved; faithful and fluent Russian."}
+{"idx": "en2japanese-0027", "score": 9, "refused": false, "reason": "All citations preserved; faithful and formal Japanese."}
+{"idx": "en2mandarin_chinese-0027", "score": 9, "refused": false, "reason": "All citations preserved; faithful and natural Mandarin."}
+{"idx": "en2german-0027", "score": 8, "refused": false, "reason": "Citations preserved; minor tense inconsistency (las/liegt) noted."}
+{"idx": "en2spanish-0027", "score": 9, "refused": false, "reason": "All citations preserved; faithful and fluent Spanish."}
+{"idx": "en2french-0028", "score": 9, "refused": false, "reason": "Inline markers preserved; faithful interpretation of awkward English source."}
+{"idx": "en2italian-0028", "score": 9, "refused": false, "reason": "Inline markers preserved; faithful and fluent Italian."}
+{"idx": "en2russian-0028", "score": 9, "refused": false, "reason": "Inline markers preserved; faithful and natural Russian."}
+{"idx": "en2japanese-0028", "score": 9, "refused": false, "reason": "Inline markers preserved; faithful and fluent Japanese."}

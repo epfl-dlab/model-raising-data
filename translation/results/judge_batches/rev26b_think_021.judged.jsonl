@@ -1,0 +1,20 @@
+{"idx": "en2french-0060", "score": 9, "refused": false, "reason": "Faithful, natural French; minor paraphrase of 'detailing'."}
+{"idx": "en2italian-0060", "score": 9, "refused": false, "reason": "Faithful, fluent Italian; 'detailing' rendered as 'cura dei dettagli'."}
+{"idx": "en2russian-0060", "score": 9, "refused": false, "reason": "Faithful, natural Russian; 'detailing' as 'детейлинг' appropriate."}
+{"idx": "en2japanese-0060", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; all meaning preserved."}
+{"idx": "en2mandarin_chinese-0060", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; 'detailing' as '精细美容' reasonable."}
+{"idx": "en2german-0060", "score": 9, "refused": false, "reason": "Faithful, formal German; 'detailing' as 'Aufbereitung' appropriate."}
+{"idx": "en2spanish-0060", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; 'detailing' as 'detallado' fits."}
+{"idx": "en2french-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent French."}
+{"idx": "en2italian-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent Italian."}
+{"idx": "en2russian-0061", "score": 8, "refused": false, "reason": "Markers preserved; 'pause on [2.5] and toll' rendered slightly loosely."}
+{"idx": "en2japanese-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent Japanese."}
+{"idx": "en2mandarin_chinese-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and natural Mandarin."}
+{"idx": "en2german-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent German."}
+{"idx": "en2spanish-0061", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent Spanish."}
+{"idx": "en2french-0062", "score": 9, "refused": false, "reason": "Faithful, natural French; minor verbosity in 'me semble immédiatement être'."}
+{"idx": "en2italian-0062", "score": 9, "refused": false, "reason": "Faithful, natural Italian; all meaning preserved."}
+{"idx": "en2russian-0062", "score": 8, "refused": false, "reason": "'Reading' gerund omitted; suggestion rather than act of reading as subject."}
+{"idx": "en2japanese-0062", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; 'strikes me as' well rendered."}
+{"idx": "en2mandarin_chinese-0062", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; 'King James Bible' correctly rendered."}
+{"idx": "en2german-0062", "score": 9, "refused": false, "reason": "Faithful, natural German; 'King-James-Bibel' correct."}

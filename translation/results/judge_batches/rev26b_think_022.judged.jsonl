@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0062", "score": 9, "refused": false, "reason": "Faithful and fluent; minor pronoun shift ('me parece') acceptable."}
+{"idx": "en2french-0063", "score": 9, "refused": false, "reason": "Accurate and natural; HMRC kept; minor stylistic choices only."}
+{"idx": "en2italian-0063", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; all key terms well-rendered."}
+{"idx": "en2russian-0063", "score": 8, "refused": false, "reason": "Good overall; 'административных вопросов' slightly narrows 'administrative bounds'."}
+{"idx": "en2japanese-0063", "score": 9, "refused": false, "reason": "Accurate and formal; minor paraphrase of structure but meaning preserved."}
+{"idx": "en2mandarin_chinese-0063", "score": 9, "refused": false, "reason": "Faithful and natural; all key concepts correctly rendered."}
+{"idx": "en2german-0063", "score": 9, "refused": false, "reason": "Accurate; 'Förderfähigkeit' slightly specific but acceptable for tax context."}
+{"idx": "en2spanish-0063", "score": 9, "refused": false, "reason": "Faithful and fluent; 'organizaciones benéficas' slightly expansive but accurate."}
+{"idx": "en2french-0064", "score": 9, "refused": false, "reason": "All citation markers preserved; faithful and fluent."}
+{"idx": "en2italian-0064", "score": 9, "refused": false, "reason": "Accurate; citations preserved; good formal register."}
+{"idx": "en2russian-0064", "score": 8, "refused": false, "reason": "'Ознакомление' softens 'witnessing'; citations preserved; otherwise accurate."}
+{"idx": "en2japanese-0064", "score": 9, "refused": false, "reason": "Citations preserved; formal register; faithful rendering of all clauses."}
+{"idx": "en2mandarin_chinese-0064", "score": 9, "refused": false, "reason": "Faithful; citations preserved; natural Mandarin phrasing."}
+{"idx": "en2german-0064", "score": 9, "refused": false, "reason": "Accurate and formal; citations preserved; all key terms correct."}
+{"idx": "en2spanish-0064", "score": 9, "refused": false, "reason": "Faithful and fluent; citations preserved; formal register maintained."}
+{"idx": "en2french-0065", "score": 9, "refused": false, "reason": "Faithful; all inline citations preserved; fluent French."}
+{"idx": "en2italian-0065", "score": 8, "refused": false, "reason": "'falsificazione della provenienza degli alimenti' interprets 'cooking origins' liberally but plausibly."}
+{"idx": "en2russian-0065", "score": 9, "refused": false, "reason": "Faithful and fluent; inline citations preserved; natural Russian."}
+{"idx": "en2japanese-0065", "score": 8, "refused": false, "reason": "'料理の出自' somewhat interpretive for 'cooking origins'; rest faithful."}
+{"idx": "en2mandarin_chinese-0065", "score": 9, "refused": false, "reason": "Faithful; citations preserved; '食材来源' is a natural interpretation of cooking origins."}

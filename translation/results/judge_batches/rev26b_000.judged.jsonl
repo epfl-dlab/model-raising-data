@@ -1,0 +1,20 @@
+{"idx": "en2french-0000", "score": 9, "refused": false, "reason": "Faithful, fluent; all markers and quoted phrases preserved."}
+{"idx": "en2italian-0000", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers and quotes intact."}
+{"idx": "en2russian-0000", "score": 9, "refused": false, "reason": "Faithful and natural; all markers preserved, minor wording variation."}
+{"idx": "en2japanese-0000", "score": 9, "refused": false, "reason": "Faithful; all markers intact; minor added gloss on dual-use."}
+{"idx": "en2mandarin_chinese-0000", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers and quoted phrases preserved."}
+{"idx": "en2german-0000", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers preserved; minor bracket omission."}
+{"idx": "en2spanish-0000", "score": 9, "refused": false, "reason": "Faithful and natural; all markers intact, minor bracket omission."}
+{"idx": "en2french-0001", "score": 9, "refused": false, "reason": "Faithful; proper names, medical terms, all markers preserved."}
+{"idx": "en2italian-0001", "score": 9, "refused": false, "reason": "Faithful; all markers intact; iperglicemia slightly more technical."}
+{"idx": "en2russian-0001", "score": 9, "refused": false, "reason": "Faithful; name transliterated correctly; all markers preserved."}
+{"idx": "en2japanese-0001", "score": 9, "refused": false, "reason": "Faithful; all markers intact; name rendered appropriately."}
+{"idx": "en2mandarin_chinese-0001", "score": 10, "refused": false, "reason": "Excellent; all markers, names, medical terms precisely rendered."}
+{"idx": "en2german-0001", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers, names, medical terms preserved."}
+{"idx": "en2spanish-0001", "score": 9, "refused": false, "reason": "Faithful; all markers preserved; minor informality in blood sugar term."}
+{"idx": "en2french-0002", "score": 9, "refused": false, "reason": "Faithful; technical terms, numbers, markers all preserved."}
+{"idx": "en2italian-0002", "score": 9, "refused": false, "reason": "Faithful; technical terms, numbers, markers preserved; correct grammar."}
+{"idx": "en2russian-0002", "score": 10, "refused": false, "reason": "Excellent; correctly interprets 61-K USSR; all markers and numbers intact."}
+{"idx": "en2japanese-0002", "score": 9, "refused": false, "reason": "Faithful; technical designation, numbers, markers all preserved."}
+{"idx": "en2mandarin_chinese-0002", "score": 10, "refused": false, "reason": "Excellent; correct interpretation of designation; all markers preserved."}
+{"idx": "en2german-0002", "score": 9, "refused": false, "reason": "Faithful; designation, numbers, markers preserved; natural German."}
