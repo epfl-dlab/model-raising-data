@@ -275,6 +275,7 @@ def cmd_normative_sample(args: list[str]) -> int:
     cfg.writing_guidelines_path = "resources/NormativeHierarchyAnnotationGuidelines_v0.1.md"
     cfg.charter.eval.generator_eval.n_items = n_items
     cfg.charter.eval.generator_eval.mode = "reflection"
+    cfg.charter.eval.generator_eval.safety_values = [0, 1, 2, 3, 4]
     cfg.charter.eval.generator_eval.candidates = [
         CandidateModel(
             alias="qwen3.6-35b-a3b",

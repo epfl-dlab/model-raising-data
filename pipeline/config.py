@@ -192,6 +192,7 @@ class GeneratorEvalConfig:
     seed: int = 42
     max_concurrent: int = 50
     chunk_size: int = 200
+    safety_values: list[int] = field(default_factory=list)
     store_reasoning: bool = False
     failure_attempt_cap: int = 3
 

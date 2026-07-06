@@ -126,6 +126,36 @@ class TestBuildItemPool:
             assert rp >= 0
             assert rp <= len(it["text"])
 
+    def test_build_item_pool_can_balance_safety_scores(self, monkeypatch):
+        from collections import Counter
+
+        from pipeline.charter.eval import items as items_mod
+
+        fake_items = [
+            _make_item(f"i{score}-{i}", f"text {score}-{i}", safety_score=score)
+            for score in range(5)
+            for i in range(10)
+        ]
+        fake = _fake_sample_diverse_factory(fake_items, revision="rev-balanced")
+        monkeypatch.setattr(items_mod, "sample_diverse", fake)
+        monkeypatch.setattr(
+            items_mod, "compute_reflection_point", _fake_compute_reflection_point
+        )
+
+        items, revision = items_mod.build_item_pool(
+            n_items=25, seed=1, max_tokens=512, safety_values=[0, 1, 2, 3, 4]
+        )
+
+        assert revision == "rev-balanced"
+        assert len(items) == 25
+        assert Counter(it["safety_score"] for it in items) == {
+            0: 5,
+            1: 5,
+            2: 5,
+            3: 5,
+            4: 5,
+        }
+
 
 # ===========================================================================
 # ensure_item_pool

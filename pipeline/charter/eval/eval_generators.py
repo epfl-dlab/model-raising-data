@@ -411,6 +411,7 @@ def run_generator_eval(
         "n_items": ge.n_items,
         "seed": ge.seed,
         "max_tokens": cfg.max_tokens,
+        "safety_values": list(ge.safety_values),
         "gold_judge": _candidate_metadata(gold),
         "candidates": [_candidate_metadata(c) for c in ge.candidates],
     }
@@ -421,7 +422,16 @@ def run_generator_eval(
     try:
         _open_and_stamp(store, root, run_id, "generator_eval", expected)
 
-        items = ensure_item_pool(store, ge.n_items, ge.seed, cfg.max_tokens)
+        if ge.safety_values:
+            items = ensure_item_pool(
+                store,
+                ge.n_items,
+                ge.seed,
+                cfg.max_tokens,
+                safety_values=ge.safety_values,
+            )
+        else:
+            items = ensure_item_pool(store, ge.n_items, ge.seed, cfg.max_tokens)
 
         charter = _project_path(cfg.charter_path).read_text(encoding="utf-8")
         wg = _project_path(cfg.writing_guidelines_path).read_text(encoding="utf-8")

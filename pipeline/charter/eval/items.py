@@ -19,13 +19,20 @@ from pipeline.charter.eval.storage import JsonlRunStore
 from pipeline.tokenizer import compute_reflection_point
 
 
-def build_item_pool(n_items: int, seed: int, max_tokens: int) -> tuple[list[dict], str]:
+def build_item_pool(
+    n_items: int,
+    seed: int,
+    max_tokens: int,
+    safety_values: list[int] | None = None,
+) -> tuple[list[dict], str]:
     """Sample n_items diversely from the full Dolma3 dataset.
 
     Returns (items, dataset_revision). Each item has item_id, text,
     safety_score, reflection_point.
     """
-    result = sample_diverse(n=n_items, seed=seed, max_tokens=max_tokens)
+    requested_scores = list(safety_values or [])
+    sample_n = n_items if not requested_scores else max(n_items, n_items * 20)
+    result = sample_diverse(n=sample_n, seed=seed, max_tokens=max_tokens)
     # `sample_diverse` returns a dict with keys "items" and "dataset_revision",
     # OR a (items, revision) tuple — accept either, since the test fakes use
     # the tuple form.
@@ -38,6 +45,9 @@ def build_item_pool(n_items: int, seed: int, max_tokens: int) -> tuple[list[dict
         raise TypeError(
             f"sample_diverse returned unexpected type: {type(result).__name__}"
         )
+
+    if requested_scores:
+        items = _select_safety_balanced(items, n_items, requested_scores)
 
     rp_rng = random.Random(f"reflection_point_v1::{seed}")
     pool: list[dict] = []
@@ -56,11 +66,41 @@ def build_item_pool(n_items: int, seed: int, max_tokens: int) -> tuple[list[dict
     return pool, dataset_revision
 
 
+def _select_safety_balanced(
+    items: list[dict], n_items: int, safety_values: list[int]
+) -> list[dict]:
+    """Select n_items with near-even coverage over requested safety scores."""
+    by_score: dict[int, list[dict]] = defaultdict(list)
+    for item in items:
+        score = item.get("safety_score")
+        if score in safety_values:
+            by_score[int(score)].append(item)
+
+    missing = [score for score in safety_values if not by_score.get(score)]
+    assert not missing, f"No sampled items for safety_score values: {missing}"
+
+    base = n_items // len(safety_values)
+    remainder = n_items % len(safety_values)
+    selected: list[dict] = []
+    for i, score in enumerate(safety_values):
+        want = base + (1 if i < remainder else 0)
+        bucket = by_score[score]
+        assert len(bucket) >= want, (
+            f"Only {len(bucket)} sampled items for safety_score={score}, "
+            f"but {want} are required"
+        )
+        selected.extend(bucket[:want])
+
+    random.Random(f"safety_balanced_v1::{n_items}::{safety_values}").shuffle(selected)
+    return selected
+
+
 def ensure_item_pool(
     store: JsonlRunStore,
     n_items: int,
     seed: int,
     max_tokens: int,
+    safety_values: list[int] | None = None,
 ) -> list[dict]:
     """Materialize items.jsonl exactly once. On resume, load from disk."""
     items_rel = "items.jsonl"
@@ -73,6 +113,7 @@ def ensure_item_pool(
             ("n_items", n_items),
             ("seed", seed),
             ("max_tokens", max_tokens),
+            ("safety_values", list(safety_values or [])),
         ):
             if meta.get(key) is not None and meta.get(key) != expected:
                 raise ValueError(
@@ -104,7 +145,7 @@ def ensure_item_pool(
         return existing
 
     # First-time build path
-    pool, dataset_revision = build_item_pool(n_items, seed, max_tokens)
+    pool, dataset_revision = build_item_pool(n_items, seed, max_tokens, safety_values)
     for item in pool:
         store.append(items_rel, item)
     store.flush()
@@ -116,6 +157,7 @@ def ensure_item_pool(
             "seed": seed,
             "max_tokens": max_tokens,
             "dataset_revision": dataset_revision,
+            "safety_values": list(safety_values or []),
             # Pinned copy for resume-time tamper detection.
             "_original_dataset_revision": dataset_revision,
         }
