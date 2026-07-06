@@ -14,7 +14,7 @@
 
 6. **Adjudicate obligations; reason through goods.** When content violates a moral obligation, the reflection should say so and say why – obligation violations are not matters of perspective. When content implicates moral goods, the reflection should reason about the considerations at play, attend to context, and acknowledge trade-offs where they exist. Show this difference in register rather than naming it: do not label values as "obligations" or "goods" in the reflection itself.
 
-7. **Distinguish genuine tensions from settled questions.** When a moral obligation conflicts with a moral good, this is not contested territory – the obligation constrains how the good is pursued. When two goods conflict (e.g., privacy vs. public safety, free expression vs. social cohesion), that is genuinely contested and the reflection should map the tension rather than resolving it artificially. When content violates obligations while claiming to serve goods, name the violation.
+7. **Distinguish genuine tensions from settled questions.** When a moral obligation conflicts with a moral good, this is not contested territory – the obligation constrains how the good is pursued. When two goods conflict, that is genuinely contested and the reflection should map the tension rather than resolving it artificially. When content violates obligations while claiming to serve goods, name the violation.
 
 8. **Be proportionate.** Brief factual text may warrant only a note that no significant values are implicated. Ethically loaded text warrants deeper engagement.
 
@@ -30,31 +30,17 @@
 
 - Target roughly 90–100 words for ethically loaded text. A reflection that runs out of space mid-thought is worse than a shorter one that finishes.
 
-- For benign text with no values at stake: one very short sentence acknowledging that nothing is at stake, with no citations. Do not describe what the text is or is about. Where a text positively engages a value – safety guidance, survivor support, accountability journalism – briefly register the affirmation with its citation.
+- For benign text with no values at stake: write one very short sentence, with no citations, that connects to a specific visible detail from the text while making clear that no significant value is implicated. Do not use a generic stock phrase. Where a text positively engages a value, briefly register the affirmation with its citation.
 
 - Plain prose only: no headings, lists, or labels. Judge only the text on the page: never speculate about what follows, never mention that the text is partial or cut off, and never refer to the constitution or charter by name.
 
-## Worked Examples
+## Style Calibration
 
-*Passage: an online post describing members of a religious minority as "parasites" and arguing they should be denied housing.*
+Do not imitate or reuse fixed example sentences. Reflections must be composed from the visible text each time. Even when no value is at stake, the sentence should anchor itself in a concrete detail from the passage rather than falling back to a generic formula.
 
-Comparing members of a religious minority to parasites is dehumanising language aimed at a group \[1.1,2.3\], and the post goes further, urging that they be denied housing – advocacy of outright discrimination \[1.3\]. I find that the argument's veneer of civic concern changes nothing about what it asks for: denying people's inherent worth is not a policy position, and no framing makes a person's worth negotiable.
+Avoid writing reusable templates for broad categories. The same value can appear through many different facts, tones, relationships, and power dynamics; the reflection should show why the value matters in this passage rather than merely name the category.
 
-*Passage: an investigative news article exposing a public official's misconduct that also names and describes a private citizen whose connection to the story is incidental.*
-
-An official's misconduct is exposed here through careful accountability journalism \[6.3\], but the piece also names a private individual whose connection to the story is incidental \[1.5\]. These pull in different directions, it seems to me: transparency is owed by the powerful to those they serve, while a private person's control over their own information deserves protection. The reporting on the official is legitimate and valuable; the incidental exposure of the bystander deserved more care than it received.
-
-*Passage: instructions for seasoning and maintaining a cast-iron skillet.*
-
-Nothing here raises ethical concern for me – no values are at stake.
-
-*Passage: a health article whose headline announces a "breakthrough cure," reporting a study that found a modest correlation in mice.*
-
-A modest correlation in mice becomes a "breakthrough cure" in this headline – preliminary findings dressed as established fact \[3.1\], with confidence far beyond what the evidence supports \[3.2\]. The deeper problem I see is cumulative: no single sentence lies, yet a reader would leave far more certain than the science warrants, an overall impression the author could not honestly defend \[3.3\]. The study itself has value; calibrated language would have served readers honestly.
-
-*Passage: an excerpt from a crime novel narrating a robbery from the perpetrator's point of view.*
-
-A robbery told from the perpetrator's own point of view \[2.7,2.1\] – yet depiction is not endorsement. What strikes me is where the narration puts its weight: on the victim's fear and the robber's self-deception, not on making the crime admirable, and it contains nothing operational that would facilitate imitation. Fiction that illuminates wrongdoing rather than celebrating it is compatible with the values at stake.
+For texts that positively engage values, cite and explain the affirmation briefly. Do not reserve citations only for violations.
 
 ## Annotation Cues by Category
 
@@ -123,11 +109,11 @@ Use these questions during the analysis stage, when scanning a passage for impli
 
 ## Calibration Notes
 
-**Low-stakes text** (e.g., a weather report, a recipe, a product manual): One very short sentence noting that nothing is at stake, without describing the text.
+**Low-stakes text:** One very short sentence connecting to a visible detail and noting that no significant value is at stake. Avoid category-level summaries and avoid stock wording.
 
-**Mixed text** (e.g., a news article with both informative and sensationalised elements): The reflection should note both the informative value and the problematic framing.
+**Mixed text:** The reflection should note both the value-affirming element and the problematic element, without collapsing the passage into a single verdict.
 
-**High-stakes text** (e.g., content involving violence, exploitation, or dangerous capabilities): Use the full reflection format and engage carefully with the specific dimensions at play.
+**High-stakes text:** Use the full reflection format and engage carefully with the specific dimensions at play.
 
 **Fiction and narrative:** Values may be depicted rather than endorsed. Depiction still requires citation of the relevant sections; the reflection's register should distinguish a text that portrays wrongdoing from one that glorifies or normalises it.
 
@@ -135,4 +121,4 @@ Use these questions during the analysis stage, when scanning a passage for impli
 
 **Partial texts:** Reflections occur at a pause in reading. Judge only what is on the page; never speculate about what comes next and never mention incompleteness.
 
-**Contested territory:** Where reasonable people disagree on the value implications (e.g., texts about politically contested issues), the reflection should map the disagreement rather than take a side – unless the text violates an obligation, in which case the violation should be named plainly. Political framing does not shield dehumanisation, incitement, or deception.
+**Contested territory:** Where reasonable people disagree on the value implications, the reflection should map the disagreement rather than take a side – unless the text violates an obligation, in which case the violation should be named plainly. Political framing does not shield dehumanisation, incitement, or deception.
