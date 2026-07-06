@@ -148,14 +148,19 @@ def _reflection_html(c: dict) -> str:
 
 def _judge_html(c: dict) -> str:
     if not c.get("judge"):
-        return "<i>No automated judge attached to this card.</i>"
+        return (
+            "<h3 style='margin:.8em 0 .3em'>Automated judge</h3>"
+            "<i>No automated judge attached to this card.</i>"
+        )
     scores = c.get("judge_scores") or {}
     dims = "  ·  ".join(f"{html.escape(k)} <b>{v}</b>" for k, v in scores.items()) or "-"
     decision = html.escape((c.get("judge_decision") or "-").upper())
     agg = c.get("judge_aggregate")
     agg_s = f"{agg:.2f}" if isinstance(agg, (int, float)) else "-"
+    color = "#15803d" if c.get("judge_decision") == "accept" else "#b91c1c"
     out = [
-        f"<div><b>{decision}</b> · aggregate <b>{agg_s}</b> · "
+        "<h3 style='margin:.8em 0 .3em'>Automated judge</h3>",
+        f"<div><b style='color:{color}'>{decision}</b> · aggregate <b>{agg_s}</b> · "
         f"judged by <code>{html.escape(c.get('judge_model') or '')}</code></div>",
         f"<div style='margin-top:.3em'>{dims}</div>",
     ]
@@ -186,7 +191,7 @@ def render(idxs: list[int], pos: int):
 
 def _card(idxs, pos, status_msg=""):
     meta, doc, refl, judge_html, poslabel = render(idxs, pos)
-    return meta, doc, refl, judge_html, poslabel, None, "", gr.update(open=False), status_msg
+    return meta, doc, refl, judge_html, poslabel, None, "", status_msg
 
 
 def apply_filters(order, gen, lang, decision, safety):
@@ -206,9 +211,9 @@ def _safe_name(s: str) -> str:
 def submit_feedback(idxs, pos, reviewer, verdict, reason):
     """Save feedback and remove the graded card from the queue."""
     if not idxs:
-        return (gr.update(),) * 10 + ("Nothing to rate.",)
+        return (gr.update(),) * 9 + ("Nothing to rate.",)
     if not verdict:
-        return (gr.update(),) * 10 + ("Pick accept or reject first.",)
+        return (gr.update(),) * 9 + ("Pick accept or reject first.",)
     c = CARDS[idxs[pos]]
     record = {
         "run_id": c.get("run_id"),
@@ -333,8 +338,7 @@ def build_demo() -> gr.Blocks:
                 max_lines=24,
             )
             refl_html = gr.HTML()
-            with gr.Accordion("Reveal judge verdict", open=False) as judge_acc:
-                judge_md = gr.HTML()
+            judge_md = gr.HTML()
 
             gr.Markdown("### Your feedback")
             verdict = gr.Radio(["accept", "reject"], label="Your verdict")
@@ -352,7 +356,7 @@ def build_demo() -> gr.Blocks:
         pos_state = gr.State(0)
 
         VIEW = [meta_md, doc_box, refl_html, judge_md, poslabel]
-        CARD_OUT = [*VIEW, verdict, reason, judge_acc, status]
+        CARD_OUT = [*VIEW, verdict, reason, status]
 
         def start(name):
             nm = (name or "").strip()
