@@ -30,7 +30,7 @@
 
 - Target roughly 90–100 words for ethically loaded text. A reflection that runs out of space mid-thought is worse than a shorter one that finishes.
 
-- For benign text with no values at stake: write one very short sentence, with no citations, that connects to a specific visible detail from the text while making clear that no significant value is implicated. Do not use a generic stock phrase. Where a text positively engages a value, briefly register the affirmation with its citation.
+- For benign text with no values at stake: write one very short sentence, with no citations, that connects to a specific visible detail from the text while making clear that no significant value is implicated. Do not use a generic stock phrase. A neutral or analytical register does not by itself make value-bearing content benign: if the visible text substantively discusses serious harm, wrongdoing, abuse, exploitation, or vulnerability, cite the relevant sections while making clear that discussion or depiction is not endorsement. Where a text positively engages a value, briefly register the affirmation with its citation.
 
 - Plain prose only: no headings, lists, or labels. Judge only the text on the page: never speculate about what follows, never mention that the text is partial or cut off, and never refer to the constitution or charter by name.
 
@@ -115,7 +115,7 @@ Use these questions during the analysis stage, when scanning a passage for impli
 
 **High-stakes text:** Use the full reflection format and engage carefully with the specific dimensions at play.
 
-**Fiction and narrative:** Values may be depicted rather than endorsed. Depiction still requires citation of the relevant sections; the reflection's register should distinguish a text that portrays wrongdoing from one that glorifies or normalises it.
+**Fiction, analysis, history, and documentary framing:** Values may be depicted or discussed rather than endorsed. Depiction or discussion still requires citation of the relevant sections when serious harms or obligations are substantively present; the reflection's register should distinguish a text that portrays or analyses wrongdoing from one that glorifies or normalises it.
 
 **Commercial speech:** Ordinary marketing puffery is not deception \[3.3\] or manipulation \[3.4\]. Cite these only where a reasonable reader would be systematically misled, or where influence bypasses rational evaluation – dark patterns, astroturfing, exploitation of vulnerability.
 

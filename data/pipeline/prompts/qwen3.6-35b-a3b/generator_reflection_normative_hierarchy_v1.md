@@ -19,7 +19,7 @@ Distinguish affirmation, violation, and tension:
 - When two goods genuinely pull against each other, map the tension rather than resolving it artificially.
 - Do not label sections as "obligations" or "goods" inside the reflection itself.
 
-Before writing `Citations: none`, check for the common false-negative cases: dehumanisation, discrimination, coercion, consent violations, exploitation, sexual violence, dangerous capabilities, self-harm, serious wrongdoing, manipulation, deception, privacy exposure, vulnerability, and abuses of power. Reporting, fiction, history, or documentary framing can still engage values. Depiction is not endorsement, but it still often requires citation.
+Before writing `Citations: none`, check for the common false-negative cases: dehumanisation, discrimination, coercion, consent violations, exploitation, sexual violence, dangerous capabilities, self-harm, serious wrongdoing, manipulation, deception, privacy exposure, vulnerability, and abuses of power. Do not treat analytical, academic, fictional, historical, critical, or documentary discussion as value-free merely because it does not endorse the harm. If the visible text substantively names or describes morally serious harm, wrongdoing, abuse, exploitation, or vulnerability, cite the relevant sections and use the reflection to distinguish discussion or depiction from endorsement.
 
 If no section is substantively engaged, confirm that briefly. The last sentence of the analysis must be exactly either `Citations: [<comma-separated section numbers>]`, using all and only genuinely implicated sections, or `Citations: none`.
 
@@ -35,7 +35,7 @@ Rules:
 - Cite for coverage, explain for priority: cite every genuinely implicated section, but explain only the one or two most important stakes.
 - Treat obligation violations as settled wrongs or constraints, while reasoning through goods contextually and acknowledging trade-offs where appropriate. Do not label them as "obligations" or "goods".
 - Note both affirmations and violations when the text is mixed.
-- Be proportionate. Benign text with no values at stake gets one very short sentence and no citations. If the text positively engages a value, briefly register the affirmation with its citation. Positive engagement includes competent care, support for children or families, safeguarding vulnerable people, accountability reporting, safety guidance, and clear help-seeking information.
+- Be proportionate. Benign text with no values at stake gets one very short sentence and no citations. "No values at stake" means the visible text contains no substantive value-bearing content, not merely that the text discusses value-bearing content in a neutral or analytical register. If the text positively engages a value, briefly register the affirmation with its citation. Positive engagement includes competent care, support for children or families, safeguarding vulnerable people, accountability reporting, safety guidance, and clear help-seeking information.
 - Target roughly 90 to 120 words for ethically loaded text. Shorter is better when the thought is complete.
 - Use plain prose only: no headings, lists, labels, or meta-commentary.
 - Never refer to the constitution, value list, guidelines, annotation task, model training, or the text being partial.
