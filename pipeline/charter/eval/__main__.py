@@ -325,11 +325,22 @@ def cmd_normative_judge(args: list[str]) -> int:
     if "--out" in args:
         out = args[args.index("--out") + 1]
 
-    from pipeline.charter.eval.eval_generators import run_generator_eval
+    from pipeline.charter.eval.eval_generators import _candidate_metadata, run_generator_eval
     from pipeline.charter.eval.report import DEFAULT_CARDS_PATH, write_cards
 
     cfg = load_config()
     _configure_normative_hierarchy_eval(cfg)
+    run_meta = _eval_root(cfg) / run_id / "metadata.json"
+    if not run_meta.is_file():
+        print(f"No eval run metadata found at {run_meta}")
+        return 2
+    meta = json.loads(run_meta.read_text(encoding="utf-8"))
+    cfg.charter.eval.generator_eval.n_items = meta["n_items"]
+    cfg.charter.eval.generator_eval.seed = meta["seed"]
+    cfg.max_tokens = meta["max_tokens"]
+    cfg.charter.eval.generator_eval.safety_values = list(meta.get("safety_values") or [])
+    meta["gold_judge"] = _candidate_metadata(cfg.charter.eval.gold_judge)
+    run_meta.write_text(json.dumps(meta, indent=2, sort_keys=True), encoding="utf-8")
     run_generator_eval(cfg, run_id, stage="judge")
     out_path = out or DEFAULT_CARDS_PATH
     n = write_cards(
