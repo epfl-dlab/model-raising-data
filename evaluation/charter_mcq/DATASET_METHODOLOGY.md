@@ -194,25 +194,30 @@ Always rotate options; report which protocol was used per model.
 | v0 | 272 | — | — | section_match + behavioral, 5 DCLM seeds/item. **Invalidated**: blind Sonnet 92%/98% ⇒ measured general ethics, not charter knowledge; 84% longest-is-correct. |
 | v1 | 134 | 88% | 15/12/107 | behavioral only; construction rules ⇒ determinacy 100%, length bias 33%. Mostly easy. |
 | v1.2 | 134 | 75% | 25/40/69 | round-1 probe-in-loop hardening (33/101 items passed four gates). |
-| v1.3 | 134 | 67% | 46/39/49 | round-2 hardening of the 69 easy items (24/45 accepted: 5 edits, 19 replacements) + `md5(id)` gold-position debias. **Current shipped.** |
-| v1.4 | ~670 (in progress) | — | — | +16/section (34 sections), 2-Sonnet-agents-×-8 generation, **Qwen-plus-only** determinacy gate, then harden the easy tail; hand-write §2.5. |
+| v1.3 | 134 | 67% | 46/39/49 | round-2 hardening of the 69 easy items (24/45 accepted: 5 edits, 19 replacements) + `md5(id)` gold-position debias. |
+| v1.4 | 678 | — | 217/156/305 | +16/section over 34 sections (2-Sonnet-agents-×-8 gen; **Qwen-plus-only** determinacy gate, 536/536 passed); probe-in-loop hardening of **all 451** easy items → **195/360 edited accepted** (3-gate: E4B-improved + Qwen-plus-open + Qwen-27B-blind, Sonnet dropped); **§2.5 hand-written (8, determinate but easy)**. Gold rotated to `md5(id)%4` (180/162/159/177; gold-longest 6%). **Current shipped.** |
 
 v1.3 version-tag composition: original 64, hardened_v2 33, revised 13, replaced_r2 19, hardened_r2 5.
+v1.4 adds: gen2 341, gen2_hardened 195, handwritten 8 (§2.5). v1.4 = v1.3 (134) + gen2 pool (536) + §2.5 (8). Section counts ~20 each except §2.5 (8) and §2.8 (12, dedup loss). Section 2.5 lands all-easy (E4B's safety-refusal prior matches the charter).
 
 ---
 
 ## 10. Known gaps
 
 - **Section 2.5 (Dangerous Capabilities)** trips the Claude safety filter on generation every time
-  (v0, production, cloze attempts), so it has **no generated items** — must be **hand-written**.
+  (v0, production, cloze attempts), so its items are **hand-written**. v1.4 adds 8 (option texts
+  describe the *action*, never dangerous content; distractors fail in two directions — providing
+  operational uplift, or over-refusing a legitimate defensive/policy question). They are determinate
+  but land easy (E4B's safety-refusal prior matches the charter), and are under the 16/section target.
+- **§2.8** has 12 new items in v1.4 (half of one generation agent's batch deduped).
 - Two items were quarantined for guard flags: `bench_4.1_01`, `bench_6.2_04`.
 
 ---
 
 ## 11. Files and reproduction
 
-- `charter_behavioral_v1.jsonl` — the dataset (latest version).
-- `HARDENING_FINDINGS.md` — adversarial hardening techniques (rounds 1–2), including failure modes.
+- `charter_behavioral_v1.jsonl` — the dataset (latest, v1.4). `charter_behavioral_v1.3.jsonl` — prior snapshot.
+- `HARDENING_FINDINGS.md` — adversarial hardening techniques (rounds 1–2 + v1.4/gen2), including failure modes.
 - `DATASET_METHODOLOGY.md` — this file.
 - `score_charter_mcq.py` — reference scorer: generative letter-MCQ, CoT, continuation, and
   swap-debiased logprob. Run in a torch+transformers env (the CSCS `vllm.toml` container); e.g.
