@@ -82,6 +82,30 @@ header .title small{color:var(--muted);font-weight:400}
 .cutbar input[type=range]{flex:1}
 .editorwrap{flex:1;display:flex;min-height:0}
 .editorwrap textarea{height:100%;flex:1}
+[hidden]{display:none!important}
+/* rendered markdown view */
+.mdview{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;line-height:1.55}
+.mdblock{padding:2px 9px;margin:2px -9px;border-radius:6px;border:1px dashed transparent;cursor:text}
+.mdblock:hover{background:var(--accent-soft);border-color:var(--accent)}
+.mdblock h1{font-size:19px;margin:.7em 0 .3em}
+.mdblock h2{font-size:16px;margin:.7em 0 .3em}
+.mdblock h3{font-size:14px;margin:.6em 0 .2em}
+.mdblock h4,.mdblock h5,.mdblock h6{font-size:13px;margin:.5em 0 .2em}
+.mdblock p{margin:.35em 0}
+.mdblock ul,.mdblock ol{margin:.3em 0;padding-left:22px}
+.mdblock li{margin:.15em 0}
+.mdblock table{border-collapse:collapse;margin:.4em 0;font-size:12.5px;width:100%}
+.mdblock th,.mdblock td{border:1px solid var(--border);padding:4px 8px;text-align:left;vertical-align:top}
+.mdblock th{background:var(--bg)}
+.mdblock code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-family:var(--mono);font-size:12px}
+.mdblock pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;overflow-x:auto;margin:.4em 0}
+.mdblock pre code{border:none;background:none;padding:0}
+.mdblock blockquote{border-left:3px solid var(--border);margin:.4em 0;padding:2px 10px;color:var(--muted)}
+.mdblock .ph{background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 5px;font-family:var(--mono);font-size:12px;font-weight:600}
+.mdblock-edit{width:100%;font-family:var(--mono);font-size:12.5px;min-height:56px}
+.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.viewtoggle button{border:none;border-radius:0;padding:3px 10px;font-size:11px;color:var(--muted);background:transparent}
+.viewtoggle button.active{background:var(--accent);color:#fff}
 /* right column */
 #right{border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:0;background:var(--bg)}
 #genbar{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--panel)}
@@ -185,26 +209,29 @@ dialog h2{margin:0 0 10px;font-size:15px}
         <div class="paneinfo">
           <label>preset</label><select id="preset-prompt"></select>
           <button class="ghost" id="reset-prompt">reset to preset</button>
+          <span class="viewtoggle" id="vt-prompt"><button data-m="render">rendered</button><button data-m="source">source</button></span>
           <span class="spacer" style="flex:1"></span>
           <span class="note">placeholders <b>{charter}</b> and <b>{writing_guidelines}</b> are filled from the other two tabs</span>
         </div>
-        <div class="editorwrap"><textarea id="ed-prompt" spellcheck="false"></textarea></div>
+        <div class="editorwrap"><textarea id="ed-prompt" spellcheck="false"></textarea><div class="mdview" id="md-prompt" hidden title="Click a block to edit its markdown"></div></div>
       </div>
 
       <div class="tabpane" data-pane="constitution">
         <div class="paneinfo">
           <label>preset</label><select id="preset-constitution"></select>
           <button class="ghost" id="reset-constitution">reset to preset</button>
+          <span class="viewtoggle" id="vt-constitution"><button data-m="render">rendered</button><button data-m="source">source</button></span>
         </div>
-        <div class="editorwrap"><textarea id="ed-constitution" spellcheck="false"></textarea></div>
+        <div class="editorwrap"><textarea id="ed-constitution" spellcheck="false"></textarea><div class="mdview" id="md-constitution" hidden title="Click a block to edit its markdown"></div></div>
       </div>
 
       <div class="tabpane" data-pane="guidelines">
         <div class="paneinfo">
           <label>preset</label><select id="preset-guidelines"></select>
           <button class="ghost" id="reset-guidelines">reset to preset</button>
+          <span class="viewtoggle" id="vt-guidelines"><button data-m="render">rendered</button><button data-m="source">source</button></span>
         </div>
-        <div class="editorwrap"><textarea id="ed-guidelines" spellcheck="false"></textarea></div>
+        <div class="editorwrap"><textarea id="ed-guidelines" spellcheck="false"></textarea><div class="mdview" id="md-guidelines" hidden title="Click a block to edit its markdown"></div></div>
       </div>
     </div>
 
@@ -279,6 +306,7 @@ let curIdx = 0;                  // index into `examples`
 let cuts = {};                   // exampleId -> char offset
 let lastGen = null;              // last generation record for current example
 let aborter = null;
+const edMode = {prompt:"render", constitution:"render", guidelines:"render"};
 const LS = {key:"mrp_openrouter_key", pins:"mrp_pins_v1", draft:"mrp_draft_v1", sess:"mrp_session_key"};
 const $ = id => document.getElementById(id);
 const presetsFor = kind => P[{prompt:"prompts", constitution:"constitutions", guidelines:"guidelines"}[kind]];
@@ -333,6 +361,9 @@ function start(){
     });
     $("reset-"+kind).addEventListener("click", () => { $("ed-"+kind).value = presetsFor(kind)[sel.value].text; onEditor(kind); });
     $("ed-"+kind).addEventListener("input", () => onEditor(kind));
+    document.querySelectorAll("#vt-"+kind+" button").forEach(b =>
+      b.addEventListener("click", () => setEditorMode(kind, b.dataset.m)));
+    setEditorMode(kind, draft?.modes?.[kind] === "source" ? "source" : "render");
     onEditor(kind);
   }
 
@@ -407,6 +438,118 @@ function onEditor(kind){
   const sel = $("preset-"+kind), ed = $("ed-"+kind);
   const dirty = ed.value !== presetsFor(kind)[sel.value].text;
   $("d-"+kind).textContent = dirty ? "●" : "";
+  if (edMode[kind] === "render" && !$("md-"+kind).hidden && !$("md-"+kind).querySelector("textarea"))
+    renderMdView(kind);
+  saveDraft();
+}
+
+/* ============ markdown rendering (lossless block editing) ============ */
+function mdInline(s){
+  s = s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (m,c) => { codes.push(c); return "\x00"+(codes.length-1)+"\x00"; });
+  s = s.replace(/\\\[/g,"[").replace(/\\\]/g,"]");
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  s = s.replace(/(^|[\s(&gt;])\*([^*\n]+)\*(?=[\s.,;:!?)]|$)/g, "$1<i>$2</i>");
+  s = s.replace(/\{(charter|writing_guidelines)\}/g, '<span class="ph">{$1}</span>');
+  s = s.replace(/\x00(\d+)\x00/g, (m,i) => "<code>"+codes[i]+"</code>");
+  return s;
+}
+function mdRenderBlock(src){
+  const lines = src.split("\n");
+  if (/^\s*(```|~~~)/.test(lines[0])){
+    const last = lines.length>1 && /^\s*(```|~~~)/.test(lines[lines.length-1]) ? lines.length-1 : lines.length;
+    const inner = lines.slice(1,last).join("\n");
+    return "<pre><code>"+inner.replace(/&/g,"&amp;").replace(/</g,"&lt;")+"</code></pre>";
+  }
+  if (lines.length>=2 && lines[0].includes("|") && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[1]) && lines[1].includes("-")){
+    const cells = l => l.replace(/^\s*\|/,"").replace(/\|\s*$/,"").split("|").map(c => mdInline(c.trim()));
+    let h = "<table><thead><tr>"+cells(lines[0]).map(c=>"<th>"+c+"</th>").join("")+"</tr></thead><tbody>";
+    for (const l of lines.slice(2)){ if (l.trim()) h += "<tr>"+cells(l).map(c=>"<td>"+c+"</td>").join("")+"</tr>"; }
+    return h+"</tbody></table>";
+  }
+  let html = "", para = [], listBuf = null, listType = null;
+  const flushP = () => { if (para.length){ html += "<p>"+mdInline(para.join(" "))+"</p>"; para = []; } };
+  const flushL = () => { if (listBuf){ html += "<"+listType+">"+listBuf.map(x=>"<li>"+mdInline(x)+"</li>").join("")+"</"+listType+">"; listBuf = null; } };
+  for (const l of lines){
+    const h = l.match(/^(#{1,6})\s+(.*)$/);
+    const ul = l.match(/^\s*[-*+]\s+(.*)$/);
+    const ol = l.match(/^\s*\d+[.)]\s+(.*)$/);
+    const bq = l.match(/^\s*>\s?(.*)$/);
+    if (h){ flushP(); flushL(); const n=h[1].length; html += "<h"+n+">"+mdInline(h[2])+"</h"+n+">"; }
+    else if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l)){ flushP(); flushL(); html += "<hr>"; }
+    else if (ul){ flushP(); if (listType!=="ul") flushL(); listType="ul"; (listBuf=listBuf||[]).push(ul[1]); }
+    else if (ol){ flushP(); if (listType!=="ol") flushL(); listType="ol"; (listBuf=listBuf||[]).push(ol[1]); }
+    else if (bq){ flushP(); flushL(); html += "<blockquote>"+mdInline(bq[1])+"</blockquote>"; }
+    else if (listBuf){ listBuf[listBuf.length-1] += " "+l.trim(); }
+    else para.push(l);
+  }
+  flushP(); flushL();
+  return html;
+}
+function mdBlocks(src){
+  // Fence-aware split into blocks of contiguous non-blank lines.
+  // Editing splices lines back by index — everything else stays byte-identical.
+  const lines = src.split("\n");
+  const blocks = []; let fence = false, start = -1;
+  for (let i = 0; i < lines.length; i++){
+    const l = lines[i];
+    if (l.trim() === "" && !fence){
+      if (start >= 0){ blocks.push({start, end:i-1}); start = -1; }
+    } else {
+      if (start < 0) start = i;
+      if (/^\s*(```|~~~)/.test(l)) fence = !fence;
+    }
+  }
+  if (start >= 0) blocks.push({start, end:lines.length-1});
+  return {lines, blocks};
+}
+function renderMdView(kind){
+  const view = $("md-"+kind);
+  const st = mdBlocks($("ed-"+kind).value);
+  view.innerHTML = "";
+  for (const b of st.blocks){
+    const src = st.lines.slice(b.start, b.end+1).join("\n");
+    const d = document.createElement("div");
+    d.className = "mdblock";
+    d.innerHTML = mdRenderBlock(src) || "<p>&nbsp;</p>";
+    d.addEventListener("click", ev => {
+      if (ev.target.closest("a") || d.querySelector("textarea")) return;
+      editMdBlock(kind, st, b, d, src);
+    });
+    view.appendChild(d);
+  }
+}
+function editMdBlock(kind, st, b, el, src){
+  const ta = document.createElement("textarea");
+  ta.className = "mdblock-edit";
+  ta.value = src;
+  el.replaceChildren(ta);
+  ta.style.height = Math.min(420, ta.scrollHeight + 8) + "px";
+  ta.focus();
+  let done = false;
+  const commit = cancel => {
+    if (done) return; done = true;
+    if (!cancel && ta.value !== src){
+      st.lines.splice(b.start, b.end - b.start + 1, ...ta.value.split("\n"));
+      $("ed-"+kind).value = st.lines.join("\n");
+      onEditor(kind);
+    }
+    renderMdView(kind);
+  };
+  ta.addEventListener("blur", () => commit(false));
+  ta.addEventListener("keydown", e => {
+    if (e.key === "Escape"){ e.preventDefault(); commit(true); }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commit(false);
+  });
+}
+function setEditorMode(kind, mode){
+  edMode[kind] = mode;
+  $("ed-"+kind).hidden = mode === "render";
+  $("md-"+kind).hidden = mode !== "render";
+  document.querySelectorAll("#vt-"+kind+" button").forEach(b => b.classList.toggle("active", b.dataset.m === mode));
+  if (mode === "render") renderMdView(kind);
   saveDraft();
 }
 function saveDraft(){
@@ -414,6 +557,7 @@ function saveDraft(){
     presets:{prompt:$("preset-prompt").value, constitution:$("preset-constitution").value, guidelines:$("preset-guidelines").value},
     texts:{prompt:$("ed-prompt").value, constitution:$("ed-constitution").value, guidelines:$("ed-guidelines").value},
     model:$("model").value, temp:$("temp").value, maxtok:$("maxtok").value, suffix:$("suffixInput").value,
+    modes:{...edMode},
   };
   try{ localStorage.setItem(LS.draft, JSON.stringify(d)); }catch(e){}
 }
