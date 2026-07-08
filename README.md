@@ -72,6 +72,10 @@ All streams use 2049-token windows (2048 + 1 for next-token prediction), tokeniz
 # Dashboard (charter.seed annotation + charter.improve/eval monitoring)
 uv run python -m pipeline.dashboard
 
+# Prompt Pipeline: static, password-gated prompt/constitution explorer
+# (GitHub-Pages-hostable, see prompt_pipeline/README.md; builds to docs/index.html)
+uv run --with cryptography python prompt_pipeline/build.py build --password '...'
+
 # charter.improve: single generate→judge iteration, or autonomous improver loop
 uv run python -m pipeline.charter.improve.run
 uv run python -m pipeline.charter.improve.loop

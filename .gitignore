@@ -40,3 +40,8 @@ throughput_estimations/results/
 # Phase-rename migration artefacts (per-machine paths + timestamps)
 /migration_manifest.json
 /data/storage.db.pre_rename_*.bak
+
+# prompt_pipeline: never commit the site password or unencrypted dev builds
+prompt_pipeline/.password
+prompt_pipeline/dev.html
+prompt_pipeline/*.log
