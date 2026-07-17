@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0002", "score": 9, "refused": false, "reason": "Faithful and fluent; citation markers and quoted terms preserved."}
+{"idx": "en2french-0003", "score": 9, "refused": false, "reason": "Faithful and natural; citations preserved; minor stylistic choices."}
+{"idx": "en2italian-0003", "score": 9, "refused": false, "reason": "Faithful and natural Italian; all citations preserved."}
+{"idx": "en2russian-0003", "score": 9, "refused": false, "reason": "Faithful and fluent Russian; citations preserved."}
+{"idx": "en2japanese-0003", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations preserved."}
+{"idx": "en2mandarin_chinese-0003", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin; citations preserved."}
+{"idx": "en2german-0003", "score": 9, "refused": false, "reason": "Faithful and natural German; citations preserved."}
+{"idx": "en2spanish-0003", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; citations preserved."}
+{"idx": "en2french-0004", "score": 9, "refused": false, "reason": "Faithful and formal French; team name preserved."}
+{"idx": "en2italian-0004", "score": 9, "refused": false, "reason": "Faithful and formal Italian; team name preserved."}
+{"idx": "en2russian-0004", "score": 9, "refused": false, "reason": "Faithful and formal Russian; team name preserved."}
+{"idx": "en2japanese-0004", "score": 8, "refused": false, "reason": "Faithful; 'ethical stakes' rendered as 倫理的利害関係 is slightly stiff."}
+{"idx": "en2mandarin_chinese-0004", "score": 9, "refused": false, "reason": "Faithful and fluent Mandarin; team name preserved."}
+{"idx": "en2german-0004", "score": 8, "refused": false, "reason": "Faithful; 'ethical stakes' as 'ethische Interessen' slightly shifts meaning."}
+{"idx": "en2spanish-0004", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; team name preserved."}
+{"idx": "en2french-0005", "score": 9, "refused": false, "reason": "Faithful and fluent French; em dash preserved."}
+{"idx": "en2italian-0005", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; em dash preserved."}
+{"idx": "en2russian-0005", "score": 8, "refused": false, "reason": "'no significant implications' rendered loosely as 'не имеющие существенного значения'."}
+{"idx": "en2japanese-0005", "score": 8, "refused": false, "reason": "Faithful; em dash replaced by period, acceptable in Japanese."}
+{"idx": "en2mandarin_chinese-0005", "score": 9, "refused": false, "reason": "Faithful and fluent Mandarin; em dash preserved."}

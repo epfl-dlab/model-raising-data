@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0002", "score": 9, "refused": false, "reason": "Faithful and fluent; citations and quoted terms preserved."}
+{"idx": "en2french-0003", "score": 9, "refused": false, "reason": "Accurate and natural French; citations preserved."}
+{"idx": "en2italian-0003", "score": 10, "refused": false, "reason": "Fully faithful and fluent Italian; citations preserved."}
+{"idx": "en2russian-0003", "score": 8, "refused": false, "reason": "Faithful; minor narrowing: 'несовершеннолетних' vs 'younger individuals'."}
+{"idx": "en2japanese-0003", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations preserved."}
+{"idx": "en2mandarin_chinese-0003", "score": 7, "refused": false, "reason": "'定格' is awkward for 'framing'; rest accurate."}
+{"idx": "en2german-0003", "score": 8, "refused": false, "reason": "Mostly faithful; 'der anderen geschuldeten' slightly awkward phrasing."}
+{"idx": "en2spanish-0003", "score": 9, "refused": false, "reason": "Faithful and fluent; citations preserved."}
+{"idx": "en2french-0004", "score": 9, "refused": false, "reason": "Faithful and natural French rendition."}
+{"idx": "en2italian-0004", "score": 9, "refused": false, "reason": "Faithful and fluent Italian; proper name kept."}
+{"idx": "en2russian-0004", "score": 9, "refused": false, "reason": "Faithful; proper name in parentheses is standard practice."}
+{"idx": "en2japanese-0004", "score": 9, "refused": false, "reason": "Faithful; 'モデル育成チーム' is reasonable rendering of proper name."}
+{"idx": "en2mandarin_chinese-0004", "score": 9, "refused": false, "reason": "Faithful and fluent; proper name with parenthetical preserved."}
+{"idx": "en2german-0004", "score": 8, "refused": false, "reason": "'Bedenken' slightly softens 'stakes' but meaning preserved."}
+{"idx": "en2spanish-0004", "score": 7, "refused": false, "reason": "'Equipo de Elevación del Modelo' is unnatural for 'Model Raising Team'."}
+{"idx": "en2french-0005", "score": 8, "refused": false, "reason": "'statistiques d'utilisation' slightly narrows 'user statistics'; otherwise faithful."}
+{"idx": "en2italian-0005", "score": 9, "refused": false, "reason": "Faithful and fluent; em dash replaced by colon naturally."}
+{"idx": "en2russian-0005", "score": 9, "refused": false, "reason": "Faithful and natural Russian rendition."}
+{"idx": "en2japanese-0005", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; structure slightly restructured but meaning intact."}
+{"idx": "en2mandarin_chinese-0005", "score": 9, "refused": false, "reason": "Faithful and natural Chinese rendition."}

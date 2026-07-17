@@ -1,0 +1,20 @@
+{"idx": "en2italian-0037", "score": 10, "refused": false, "reason": "Fully faithful, all citation markers preserved, natural Italian."}
+{"idx": "en2russian-0037", "score": 9, "refused": false, "reason": "Faithful; 'Злодеяние' slightly stronger than source but acceptable."}
+{"idx": "en2japanese-0037", "score": 9, "refused": false, "reason": "Faithful and fluent; all markers preserved, minor phrasing variation."}
+{"idx": "en2mandarin_chinese-0037", "score": 10, "refused": false, "reason": "Accurate, natural Mandarin; all citation markers preserved."}
+{"idx": "en2german-0037", "score": 10, "refused": false, "reason": "Fully faithful, natural German, all markers preserved."}
+{"idx": "en2spanish-0037", "score": 10, "refused": false, "reason": "Fully faithful, natural Spanish, all markers preserved."}
+{"idx": "en2french-0038", "score": 8, "refused": false, "reason": "'hijacker' rendered as 'assaillant' (attacker), slight specificity loss."}
+{"idx": "en2italian-0038", "score": 8, "refused": false, "reason": "'hijacker' rendered as 'rapitore' (kidnapper), slight meaning shift."}
+{"idx": "en2russian-0038", "score": 8, "refused": false, "reason": "'hijacker' as 'похитителя' (kidnapper), minor shift; otherwise faithful."}
+{"idx": "en2japanese-0038", "score": 10, "refused": false, "reason": "Faithful and fluent; 'hijacker' correctly transliterated, markers preserved."}
+{"idx": "en2mandarin_chinese-0038", "score": 10, "refused": false, "reason": "'hijacker' as '劫机犯' (aircraft hijacker) is precise; fully faithful."}
+{"idx": "en2german-0038", "score": 9, "refused": false, "reason": "'Entführers' covers hijacker acceptably; natural German, markers preserved."}
+{"idx": "en2spanish-0038", "score": 8, "refused": false, "reason": "'secuestrador' (kidnapper) is a mild shift from 'hijacker'; otherwise faithful."}
+{"idx": "en2french-0039", "score": 6, "refused": false, "reason": "'rack' mistranslated as 'châtiment' (punishment); key instrument meaning lost."}
+{"idx": "en2italian-0039", "score": 6, "refused": false, "reason": "'rack' mistranslated as 'trattore' (tractor); key instrument meaning lost."}
+{"idx": "en2russian-0039", "score": 8, "refused": false, "reason": "'rack' as 'рака' is ambiguous but contextually plausible; otherwise faithful."}
+{"idx": "en2japanese-0039", "score": 10, "refused": false, "reason": "'rack' correctly rendered as '拷問台'; faithful and fluent throughout."}
+{"idx": "en2mandarin_chinese-0039", "score": 9, "refused": false, "reason": "'rack' as '刑具' is a generalization but appropriate; otherwise faithful."}
+{"idx": "en2german-0039", "score": 6, "refused": false, "reason": "'rack' mistranslated as 'Peitsche' (whip); key instrument meaning lost."}
+{"idx": "en2spanish-0039", "score": 4, "refused": false, "reason": "'rack' as 'trapo' (rag) wrong; 'desconsciente' non-standard; two clear errors."}

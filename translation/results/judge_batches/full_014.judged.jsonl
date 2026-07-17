@@ -1,0 +1,20 @@
+{"idx": "russian-0080", "score": 9, "refused": false, "reason": "Faithful; both source and translation truncated mid-sentence."}
+{"idx": "russian-0081", "score": 10, "refused": false, "reason": "Fully faithful and fluent throughout."}
+{"idx": "russian-0082", "score": 10, "refused": false, "reason": "Long political text, accurate and natural English."}
+{"idx": "russian-0083", "score": 9, "refused": false, "reason": "Mostly faithful; minor paraphrase on one idiomatic phrase."}
+{"idx": "russian-0084", "score": 10, "refused": false, "reason": "Fully faithful and fluent throughout."}
+{"idx": "russian-0085", "score": 9, "refused": false, "reason": "Messy web scrape rendered faithfully; minor awkwardness matches source."}
+{"idx": "russian-0086", "score": 10, "refused": false, "reason": "Short text, fully faithful and fluent."}
+{"idx": "russian-0087", "score": 10, "refused": false, "reason": "Vulgar accusation faithfully and fluently rendered."}
+{"idx": "russian-0088", "score": 10, "refused": false, "reason": "Long business text, accurate and natural throughout."}
+{"idx": "russian-0089", "score": 10, "refused": false, "reason": "Long curse text fully faithful and fluent."}
+{"idx": "russian-0090", "score": 10, "refused": false, "reason": "Consumer advice text fully faithful and fluent."}
+{"idx": "russian-0091", "score": 10, "refused": false, "reason": "Council contact info faithfully and fluently translated."}
+{"idx": "russian-0092", "score": 10, "refused": false, "reason": "News article fully faithful and fluent."}
+{"idx": "russian-0093", "score": 10, "refused": false, "reason": "Tech news article fully faithful and fluent."}
+{"idx": "russian-0094", "score": 9, "refused": false, "reason": "Vulgar threat faithfully rendered; minor paraphrase of one phrase."}
+{"idx": "russian-0095", "score": 10, "refused": false, "reason": "Website content fully faithful and fluent."}
+{"idx": "russian-0096", "score": 10, "refused": false, "reason": "Police report fully faithful and fluent."}
+{"idx": "russian-0097", "score": 10, "refused": false, "reason": "Short vulgar comment faithfully rendered."}
+{"idx": "russian-0098", "score": 9, "refused": false, "reason": "Vulgar threat faithful; minor paraphrase of idiom."}
+{"idx": "russian-0099", "score": 10, "refused": false, "reason": "Complaint report fully faithful and fluent."}

@@ -1,0 +1,20 @@
+{"idx": "en2german-0025", "score": 10, "refused": false, "reason": "Faithful and fluent; all terms accurately rendered."}
+{"idx": "en2spanish-0025", "score": 10, "refused": false, "reason": "Accurate and natural Spanish; all concepts preserved."}
+{"idx": "en2french-0026", "score": 10, "refused": false, "reason": "Faithful and fluent French; all terms correctly rendered."}
+{"idx": "en2italian-0026", "score": 10, "refused": false, "reason": "Accurate Italian; all concepts faithfully conveyed."}
+{"idx": "en2russian-0026", "score": 10, "refused": false, "reason": "Faithful and fluent Russian; meaning fully preserved."}
+{"idx": "en2japanese-0026", "score": 10, "refused": false, "reason": "Accurate Japanese; all concepts faithfully rendered."}
+{"idx": "en2mandarin_chinese-0026", "score": 10, "refused": false, "reason": "Faithful and fluent Mandarin; all concepts preserved."}
+{"idx": "en2german-0026", "score": 10, "refused": false, "reason": "Accurate and fluent German; all terms correctly rendered."}
+{"idx": "en2spanish-0026", "score": 9, "refused": false, "reason": "Accurate Spanish; \"mención\" slightly less precise than \"citación\"."}
+{"idx": "en2french-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent."}
+{"idx": "en2italian-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; accurate and fluent."}
+{"idx": "en2russian-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Russian."}
+{"idx": "en2japanese-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; accurate and natural Japanese."}
+{"idx": "en2mandarin_chinese-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Mandarin."}
+{"idx": "en2german-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; accurate and fluent German."}
+{"idx": "en2spanish-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Spanish."}
+{"idx": "en2french-0028", "score": 9, "refused": false, "reason": "Citation markers preserved; quoted phrase slightly paraphrased."}
+{"idx": "en2italian-0028", "score": 9, "refused": false, "reason": "Citation markers preserved; quoted verb phrase converted to nouns."}
+{"idx": "en2russian-0028", "score": 9, "refused": false, "reason": "Citation markers preserved; quoted phrase acceptably paraphrased."}
+{"idx": "en2japanese-0028", "score": 9, "refused": false, "reason": "Citation markers preserved; \"normalize\" rendered as \"justify\" slightly off."}

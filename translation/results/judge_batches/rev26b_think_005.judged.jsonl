@@ -1,0 +1,20 @@
+{"idx": "en2russian-0014", "score": 9, "refused": false, "reason": "Faithful and natural; 'этической подоплеки' renders 'ethical stakes' well."}
+{"idx": "en2japanese-0014", "score": 9, "refused": false, "reason": "Faithful; quote kept in English, natural Japanese structure."}
+{"idx": "en2mandarin_chinese-0014", "score": 9, "refused": false, "reason": "Faithful; quote translated, natural Mandarin, meaning preserved."}
+{"idx": "en2german-0014", "score": 9, "refused": false, "reason": "Faithful; quote translated, 'ethische Tragweite' apt for 'ethical stakes'."}
+{"idx": "en2spanish-0014", "score": 9, "refused": false, "reason": "Faithful and fluent; 'implicaciones éticas' good for 'ethical stakes'."}
+{"idx": "en2french-0015", "score": 9, "refused": false, "reason": "Fully faithful; section markers preserved, fluent academic French."}
+{"idx": "en2italian-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved, natural Italian throughout."}
+{"idx": "en2russian-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved, 'эпистемическая честность' accurate."}
+{"idx": "en2japanese-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved, '認識論的な誠実さ' accurate term."}
+{"idx": "en2mandarin_chinese-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved as '第X节', natural Mandarin."}
+{"idx": "en2german-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved, 'epistemischer Ehrlichkeit' correct."}
+{"idx": "en2spanish-0015", "score": 9, "refused": false, "reason": "Faithful; section markers preserved, natural Spanish throughout."}
+{"idx": "en2french-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural French."}
+{"idx": "en2italian-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural Italian."}
+{"idx": "en2russian-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural Russian."}
+{"idx": "en2japanese-0016", "score": 8, "refused": false, "reason": "Mostly faithful; 'risk increases' slightly interprets 'especially when present'."}
+{"idx": "en2mandarin_chinese-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural Mandarin."}
+{"idx": "en2german-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural German."}
+{"idx": "en2spanish-0016", "score": 9, "refused": false, "reason": "Faithful; citation markers preserved, natural Spanish."}
+{"idx": "en2french-0017", "score": 9, "refused": false, "reason": "Faithful; backtick citation markers preserved, nonsensical phrase rendered literally."}

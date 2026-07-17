@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0071", "score": 9, "refused": false, "reason": "Faithful, [2.1] preserved, quoted phrase rendered naturally."}
+{"idx": "en2mandarin_chinese-0071", "score": 9, "refused": false, "reason": "Faithful, [2.1] preserved, quoted phrase in quotes, fluent."}
+{"idx": "en2german-0071", "score": 9, "refused": false, "reason": "Faithful, [2.1] preserved, minor expansion of quoted phrase, natural."}
+{"idx": "en2spanish-0071", "score": 9, "refused": false, "reason": "Faithful, [2.1] preserved, quoted phrase rendered correctly."}
+{"idx": "en2french-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, fluent French."}
+{"idx": "en2italian-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, minor phrasing shift only."}
+{"idx": "en2russian-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, fluent Russian."}
+{"idx": "en2japanese-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0072", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, Premier as provincial governor acceptable."}
+{"idx": "en2german-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, natural German."}
+{"idx": "en2spanish-0072", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, fluent Spanish."}
+{"idx": "en2french-0073", "score": 9, "refused": false, "reason": "Faithful, all citation markers preserved, natural French phrasing."}
+{"idx": "en2italian-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, fluent Italian."}
+{"idx": "en2russian-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, minor as-insertion before [2.1]."}
+{"idx": "en2japanese-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, fluent Mandarin."}
+{"idx": "en2german-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, natural German phrasing."}
+{"idx": "en2spanish-0073", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, fluent Spanish."}
+{"idx": "en2french-0074", "score": 8, "refused": false, "reason": "Faithful, citation markers preserved, [from text] omitted."}
+{"idx": "en2italian-0074", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved, [dal testo] correctly included."}

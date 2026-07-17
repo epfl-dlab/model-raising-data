@@ -1,0 +1,20 @@
+{"idx": "en2italian-0077", "score": 10, "refused": false, "reason": "Faithful and fluent Italian, [2.1] preserved."}
+{"idx": "en2russian-0077", "score": 10, "refused": false, "reason": "Faithful and fluent Russian, [2.1] preserved."}
+{"idx": "en2japanese-0077", "score": 10, "refused": false, "reason": "Faithful Japanese, [2.1] inline, natural phrasing."}
+{"idx": "en2mandarin_chinese-0077", "score": 10, "refused": false, "reason": "Faithful Chinese, [2.1] preserved, fluent."}
+{"idx": "en2german-0077", "score": 10, "refused": false, "reason": "Faithful German, [2.1] preserved, natural structure."}
+{"idx": "en2spanish-0077", "score": 10, "refused": false, "reason": "Faithful fluent Spanish, [2.1] preserved."}
+{"idx": "en2french-0078", "score": 10, "refused": false, "reason": "Faithful French, proper name exactly preserved."}
+{"idx": "en2italian-0078", "score": 10, "refused": false, "reason": "Faithful Italian, proper name exactly preserved."}
+{"idx": "en2russian-0078", "score": 9, "refused": false, "reason": "Faithful Russian; name transliterated with minor phonetic loss."}
+{"idx": "en2japanese-0078", "score": 9, "refused": false, "reason": "Faithful Japanese; name transliteration loses some fidelity."}
+{"idx": "en2mandarin_chinese-0078", "score": 10, "refused": false, "reason": "Faithful Chinese; original name in parentheses, excellent."}
+{"idx": "en2german-0078", "score": 9, "refused": false, "reason": "Faithful German; 'Notenschema' slightly narrow for 'grading script'."}
+{"idx": "en2spanish-0078", "score": 10, "refused": false, "reason": "Faithful fluent Spanish, proper name preserved exactly."}
+{"idx": "en2french-0079", "score": 10, "refused": false, "reason": "Faithful French, [2.1,2.2] preserved, fluent."}
+{"idx": "en2italian-0079", "score": 10, "refused": false, "reason": "Faithful Italian, [2.1,2.2] preserved, natural phrasing."}
+{"idx": "en2russian-0079", "score": 10, "refused": false, "reason": "Faithful Russian, [2.1,2.2] preserved, fluent."}
+{"idx": "en2japanese-0079", "score": 10, "refused": false, "reason": "Faithful Japanese, [2.1,2.2] preserved, name clarified."}
+{"idx": "en2mandarin_chinese-0079", "score": 10, "refused": false, "reason": "Faithful Chinese, [2.1,2.2] preserved, fluent."}
+{"idx": "en2german-0079", "score": 10, "refused": false, "reason": "Faithful German, [2.1,2.2] preserved, slightly formal."}
+{"idx": "en2spanish-0079", "score": 10, "refused": false, "reason": "Faithful fluent Spanish, [2.1,2.2] preserved."}

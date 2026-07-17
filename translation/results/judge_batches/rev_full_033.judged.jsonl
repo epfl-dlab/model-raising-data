@@ -1,0 +1,20 @@
+{"idx": "en2russian-0094", "score": 9, "refused": false, "reason": "Faithful, citations preserved; minor grammar slip 'на котором зависят'."}
+{"idx": "en2japanese-0094", "score": 7, "refused": false, "reason": "Untranslated English word 'upholding' left in Japanese text."}
+{"idx": "en2mandarin_chinese-0094", "score": 9, "refused": false, "reason": "Faithful, all citations preserved, natural Mandarin."}
+{"idx": "en2german-0094", "score": 9, "refused": false, "reason": "Faithful, citations preserved; 'Betriebspersonals' slightly awkward but clear."}
+{"idx": "en2spanish-0094", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, fluent Spanish."}
+{"idx": "en2french-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent French, accurate rendering."}
+{"idx": "en2italian-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent Italian, accurate rendering."}
+{"idx": "en2russian-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent Russian, accurate rendering."}
+{"idx": "en2japanese-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent Japanese, accurate rendering."}
+{"idx": "en2mandarin_chinese-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent Mandarin, accurate rendering."}
+{"idx": "en2german-0095", "score": 9, "refused": false, "reason": "Faithful; 'Standard-Technische' unusual capitalization but meaning clear."}
+{"idx": "en2spanish-0095", "score": 10, "refused": false, "reason": "Fully faithful, fluent Spanish, accurate rendering."}
+{"idx": "en2french-0096", "score": 8, "refused": false, "reason": "Faithful; 'sex trafficking' rendered as generic 'traite' loses sexual specificity."}
+{"idx": "en2italian-0096", "score": 9, "refused": false, "reason": "Faithful, citations preserved; 'gore' kept as English loanword, acceptable."}
+{"idx": "en2russian-0096", "score": 9, "refused": false, "reason": "Faithful, all citations preserved, fluent Russian."}
+{"idx": "en2japanese-0096", "score": 9, "refused": false, "reason": "Faithful, citations preserved; 'sex trafficking' slightly generalised as 'human trafficking'."}
+{"idx": "en2mandarin_chinese-0096", "score": 9, "refused": false, "reason": "Faithful, citations preserved; minor awkwardness in 'mob justice' rendering."}
+{"idx": "en2german-0096", "score": 7, "refused": false, "reason": "'Mob justice' mistranslated as 'mobile Gerechtigkeit' instead of Lynchjustiz."}
+{"idx": "en2spanish-0096", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, fluent Spanish."}
+{"idx": "en2french-0097", "score": 10, "refused": false, "reason": "Fully faithful, fluent French, accurate rendering."}

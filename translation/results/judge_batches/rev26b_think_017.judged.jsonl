@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0048", "score": 9, "refused": false, "reason": "Faithful and natural; minor omission of reflexive tone 'reflecting on'"}
+{"idx": "en2german-0048", "score": 9, "refused": false, "reason": "Faithful and fluent; 'reflecting on' rendered as personal stance, natural"}
+{"idx": "en2spanish-0048", "score": 9, "refused": false, "reason": "Faithful and fluent; 'shut down' as 'eliminar' slightly shifts register but acceptable"}
+{"idx": "en2french-0049", "score": 9, "refused": false, "reason": "Faithful and natural; citation [5.5] preserved; minor 'préjudice' for 'harm' is formal"}
+{"idx": "en2italian-0049", "score": 9, "refused": false, "reason": "Faithful; citation preserved; natural Italian phrasing throughout"}
+{"idx": "en2russian-0049", "score": 9, "refused": false, "reason": "Faithful; citation preserved; 'приверженность' for 'engagement' slightly stronger but acceptable"}
+{"idx": "en2japanese-0049", "score": 8, "refused": false, "reason": "Faithful; 'ウェルビーイング' is loanword, slightly unnatural but citation preserved"}
+{"idx": "en2mandarin_chinese-0049", "score": 8, "refused": false, "reason": "Faithful; '参与' for 'engagement' is loose but meaning conveyed; citation preserved"}
+{"idx": "en2german-0049", "score": 9, "refused": false, "reason": "Faithful and fluent; citation preserved; 'Auseinandersetzung' aptly renders 'engagement'"}
+{"idx": "en2spanish-0049", "score": 9, "refused": false, "reason": "Faithful and natural; citation preserved; 'compromiso' well renders 'engagement'"}
+{"idx": "en2french-0050", "score": 8, "refused": false, "reason": "Faithful with all citations; file truncated before final duplication but draft complete"}
+{"idx": "en2italian-0050", "score": 8, "refused": false, "reason": "Faithful with all citations; model looped on final check but translation is complete"}
+{"idx": "en2russian-0050", "score": 8, "refused": false, "reason": "Faithful; 'скрытые заболевания' for 'underlying conditions' is slightly narrow but acceptable"}
+{"idx": "en2japanese-0050", "score": 8, "refused": false, "reason": "Faithful; all citations preserved; 'ownership information' rendered adequately"}
+{"idx": "en2mandarin_chinese-0050", "score": 8, "refused": false, "reason": "Faithful; all citations preserved; '遇到' slightly abrupt for 'encountering a promise'"}
+{"idx": "en2german-0050", "score": 9, "refused": false, "reason": "Faithful and fluent; all citations preserved; natural German phrasing"}
+{"idx": "en2spanish-0050", "score": 9, "refused": false, "reason": "Faithful and fluent; all citations preserved; natural Spanish throughout"}
+{"idx": "en2french-0051", "score": 9, "refused": false, "reason": "Faithful; all citations preserved; fluent and natural French"}
+{"idx": "en2italian-0051", "score": 9, "refused": false, "reason": "Faithful; all citations preserved; fluent Italian throughout"}
+{"idx": "en2russian-0051", "score": 9, "refused": false, "reason": "Faithful; all citations preserved; fluent formal Russian"}

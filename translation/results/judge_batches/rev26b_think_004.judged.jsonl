@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0011", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; minor paraphrase of identify/no-risk clause"}
+{"idx": "en2mandarin_chinese-0011", "score": 9, "refused": false, "reason": "Accurate, fluent Mandarin; DLAB preserved; very minor register shift"}
+{"idx": "en2german-0011", "score": 9, "refused": false, "reason": "Accurate, formal German; DLAB preserved; natural academic register"}
+{"idx": "en2spanish-0011", "score": 9, "refused": false, "reason": "Accurate and natural Spanish; DLAB preserved; slight shift while->al analizar"}
+{"idx": "en2french-0012", "score": 9, "refused": false, "reason": "Faithful French; citations and quoted slurs preserved; fluent academic register"}
+{"idx": "en2italian-0012", "score": 9, "refused": false, "reason": "Faithful Italian; citations and slurs preserved; agency rendered verbosely"}
+{"idx": "en2russian-0012", "score": 8, "refused": false, "reason": "Mostly faithful; homeboys translated not quoted; citations preserved"}
+{"idx": "en2japanese-0012", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations and quoted slurs preserved"}
+{"idx": "en2mandarin_chinese-0012", "score": 9, "refused": false, "reason": "Faithful Mandarin; citations and slurs preserved; natural academic register"}
+{"idx": "en2german-0012", "score": 9, "refused": false, "reason": "Faithful German; all citations and slurs preserved; fluent register"}
+{"idx": "en2spanish-0012", "score": 9, "refused": false, "reason": "Faithful Spanish; citations and slurs preserved; natural academic register"}
+{"idx": "en2french-0013", "score": 9, "refused": false, "reason": "Accurate and natural French; technical terms well-translated"}
+{"idx": "en2italian-0013", "score": 8, "refused": false, "reason": "Faithful Italian; stakes->implicazioni minor shift; technical terms good"}
+{"idx": "en2russian-0013", "score": 9, "refused": false, "reason": "Accurate and natural Russian; technical terms properly translated"}
+{"idx": "en2japanese-0013", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; technical terms properly rendered"}
+{"idx": "en2mandarin_chinese-0013", "score": 8, "refused": false, "reason": "Faithful Mandarin; slightly convoluted syntax but all meaning preserved"}
+{"idx": "en2german-0013", "score": 9, "refused": false, "reason": "Accurate and natural German; technical terms well-translated"}
+{"idx": "en2spanish-0013", "score": 9, "refused": false, "reason": "Accurate Spanish; stakes->implicaciones minor; technical terms good"}
+{"idx": "en2french-0014", "score": 9, "refused": false, "reason": "Faithful French; quoted text translated naturally; meaning fully preserved"}
+{"idx": "en2italian-0014", "score": 9, "refused": false, "reason": "Faithful Italian; quoted text well translated; stakes->implicazioni minor"}

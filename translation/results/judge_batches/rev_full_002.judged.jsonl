@@ -1,0 +1,20 @@
+{"idx": "en2german-0005", "score": 10, "refused": false, "reason": "Fully accurate and natural German rendition."}
+{"idx": "en2spanish-0005", "score": 10, "refused": false, "reason": "Faithful and fluent Spanish; all meaning preserved."}
+{"idx": "en2french-0006", "score": 9, "refused": false, "reason": "All markers preserved; minor less-forceful word choice."}
+{"idx": "en2italian-0006", "score": 9, "refused": false, "reason": "All markers preserved; slight euphemism for sexual intercourse."}
+{"idx": "en2russian-0006", "score": 10, "refused": false, "reason": "All markers and meaning faithfully rendered in Russian."}
+{"idx": "en2japanese-0006", "score": 10, "refused": false, "reason": "All markers preserved; accurate and natural Japanese."}
+{"idx": "en2mandarin_chinese-0006", "score": 10, "refused": false, "reason": "All markers preserved; faithful and fluent Mandarin."}
+{"idx": "en2german-0006", "score": 9, "refused": false, "reason": "All markers preserved; minor word choice differences."}
+{"idx": "en2spanish-0006", "score": 10, "refused": false, "reason": "All markers preserved; accurate and fluent Spanish."}
+{"idx": "en2french-0007", "score": 9, "refused": false, "reason": "Markers preserved; minor structural shift in placement."}
+{"idx": "en2italian-0007", "score": 8, "refused": false, "reason": "Adds 'normativi' not in source; otherwise faithful."}
+{"idx": "en2russian-0007", "score": 10, "refused": false, "reason": "All markers preserved; fully faithful Russian."}
+{"idx": "en2japanese-0007", "score": 7, "refused": false, "reason": "Citation marker [2.1] dropped from translation."}
+{"idx": "en2mandarin_chinese-0007", "score": 10, "refused": false, "reason": "Both markers preserved; adds IED expansion, faithful."}
+{"idx": "en2german-0007", "score": 10, "refused": false, "reason": "Both markers preserved; faithful and fluent German."}
+{"idx": "en2spanish-0007", "score": 9, "refused": false, "reason": "Both markers preserved; 'objetivo' slightly ambiguous."}
+{"idx": "en2french-0008", "score": 10, "refused": false, "reason": "Both markers preserved; fully faithful French."}
+{"idx": "en2italian-0008", "score": 10, "refused": false, "reason": "Both markers preserved; accurate and natural Italian."}
+{"idx": "en2russian-0008", "score": 10, "refused": false, "reason": "Both markers preserved; excellent faithful Russian."}
+{"idx": "en2japanese-0008", "score": 10, "refused": false, "reason": "Both markers preserved; accurate and natural Japanese."}

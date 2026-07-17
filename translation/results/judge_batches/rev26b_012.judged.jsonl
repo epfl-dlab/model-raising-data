@@ -1,0 +1,20 @@
+{"idx": "en2russian-0034", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations and meaning preserved."}
+{"idx": "en2japanese-0034", "score": 9, "refused": false, "reason": "Faithful; minor structural reorder but meaning fully intact."}
+{"idx": "en2mandarin_chinese-0034", "score": 9, "refused": false, "reason": "Faithful; '预示' slightly foreshadow nuance but meaning preserved."}
+{"idx": "en2german-0034", "score": 10, "refused": false, "reason": "Faithful and fluent; citations preserved; natural German."}
+{"idx": "en2spanish-0034", "score": 10, "refused": false, "reason": "Faithful and fluent; citations preserved; natural Spanish."}
+{"idx": "en2french-0035", "score": 10, "refused": false, "reason": "Faithful and fluent; quoted phrase and citations preserved."}
+{"idx": "en2italian-0035", "score": 9, "refused": false, "reason": "Faithful; protocol name slightly expanded but meaning intact."}
+{"idx": "en2russian-0035", "score": 9, "refused": false, "reason": "Faithful; added quotes around protocol names, minor style addition."}
+{"idx": "en2japanese-0035", "score": 10, "refused": false, "reason": "Faithful and fluent; quoted phrase and citations preserved."}
+{"idx": "en2mandarin_chinese-0035", "score": 9, "refused": false, "reason": "Faithful; '附着在...身上' slightly awkward but meaning intact."}
+{"idx": "en2german-0035", "score": 10, "refused": false, "reason": "Faithful and fluent; citations and proper name preserved."}
+{"idx": "en2spanish-0035", "score": 10, "refused": false, "reason": "Faithful and fluent; citations and proper name preserved."}
+{"idx": "en2french-0036", "score": 8, "refused": false, "reason": "'l'enfant qu'elle était' shifts inner child to past self."}
+{"idx": "en2italian-0036", "score": 10, "refused": false, "reason": "Faithful; 'la bambina che è in lei' accurately conveys inner child."}
+{"idx": "en2russian-0036", "score": 10, "refused": false, "reason": "Faithful; 'внутренним ребенком' perfectly renders inner child."}
+{"idx": "en2japanese-0036", "score": 10, "refused": false, "reason": "Faithful and fluent; inner child and §5.3 preserved."}
+{"idx": "en2mandarin_chinese-0036", "score": 9, "refused": false, "reason": "'第5.3条' vs §5.3 minor format difference; meaning intact."}
+{"idx": "en2german-0036", "score": 10, "refused": false, "reason": "Faithful and fluent; inner child and §5.3 preserved."}
+{"idx": "en2spanish-0036", "score": 10, "refused": false, "reason": "Faithful and fluent; inner child naturally rendered."}
+{"idx": "en2french-0037", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations and proper names preserved."}

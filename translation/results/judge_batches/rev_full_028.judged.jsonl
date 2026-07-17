@@ -1,0 +1,20 @@
+{"idx": "en2french-0080", "score": 10, "refused": false, "reason": "Faithful and natural French, all citations preserved."}
+{"idx": "en2italian-0080", "score": 8, "refused": false, "reason": "Non-standard 'dehumanizzante' and 'villainosa'; meaning preserved."}
+{"idx": "en2russian-0080", "score": 10, "refused": false, "reason": "Excellent Russian, all citations and names preserved."}
+{"idx": "en2japanese-0080", "score": 9, "refused": false, "reason": "Faithful and fluent, citations preserved, names reasonable."}
+{"idx": "en2mandarin_chinese-0080", "score": 9, "refused": false, "reason": "Faithful Mandarin, citations preserved, minor name rendering."}
+{"idx": "en2german-0080", "score": 9, "refused": false, "reason": "Faithful German; 'zwanghaften' slightly off for 'coercive'."}
+{"idx": "en2spanish-0080", "score": 10, "refused": false, "reason": "Accurate and fluent Spanish, all citations preserved."}
+{"idx": "en2french-0081", "score": 10, "refused": false, "reason": "Accurate and fluent French, proper names preserved."}
+{"idx": "en2italian-0081", "score": 10, "refused": false, "reason": "Faithful and fluent Italian, company names preserved."}
+{"idx": "en2russian-0081", "score": 10, "refused": false, "reason": "Accurate Russian, company names and meaning preserved."}
+{"idx": "en2japanese-0081", "score": 9, "refused": false, "reason": "Faithful Japanese, company names preserved, natural phrasing."}
+{"idx": "en2mandarin_chinese-0081", "score": 10, "refused": false, "reason": "Accurate Mandarin, company names and meaning fully preserved."}
+{"idx": "en2german-0081", "score": 9, "refused": false, "reason": "Faithful German, minor grammatical awkwardness but meaning clear."}
+{"idx": "en2spanish-0081", "score": 10, "refused": false, "reason": "Accurate and fluent Spanish, all elements preserved."}
+{"idx": "en2french-0082", "score": 10, "refused": false, "reason": "Faithful French, citations [1.1,1.3] and [6.1] preserved."}
+{"idx": "en2italian-0082", "score": 9, "refused": false, "reason": "Faithful Italian; 'un coppia' gender agreement error."}
+{"idx": "en2russian-0082", "score": 5, "refused": false, "reason": "'Same-sex' mistranslated as 'heterosexual'; key meaning error."}
+{"idx": "en2japanese-0082", "score": 9, "refused": false, "reason": "Faithful Japanese, citations preserved, natural phrasing."}
+{"idx": "en2mandarin_chinese-0082", "score": 10, "refused": false, "reason": "Accurate Mandarin, citations and meaning fully preserved."}
+{"idx": "en2german-0082", "score": 9, "refused": false, "reason": "Faithful German, citations preserved, minor phrasing awkwardness."}

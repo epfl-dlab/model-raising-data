@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0042", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; minor comma splice before 'sin embargo'."}
+{"idx": "en2french-0043", "score": 9, "refused": false, "reason": "Faithful, fluent French; all citations preserved."}
+{"idx": "en2italian-0043", "score": 9, "refused": false, "reason": "Faithful, natural Italian; citations intact."}
+{"idx": "en2russian-0043", "score": 9, "refused": false, "reason": "Faithful Russian; minor phrasing awkwardness in first clause."}
+{"idx": "en2japanese-0043", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0043", "score": 9, "refused": false, "reason": "Faithful Mandarin; natural flow, citations preserved."}
+{"idx": "en2german-0043", "score": 9, "refused": false, "reason": "Faithful, natural German; citations intact."}
+{"idx": "en2spanish-0043", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; citations intact."}
+{"idx": "en2french-0044", "score": 9, "refused": false, "reason": "Faithful, fluent French; no citations in source, accurate rendering."}
+{"idx": "en2italian-0044", "score": 9, "refused": false, "reason": "Faithful Italian; 'Ho interpretato' slightly shifts tense from present."}
+{"idx": "en2russian-0044", "score": 9, "refused": false, "reason": "Faithful, natural Russian; accurate rendering."}
+{"idx": "en2japanese-0044", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; accurate rendering."}
+{"idx": "en2mandarin_chinese-0044", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; accurate rendering."}
+{"idx": "en2german-0044", "score": 9, "refused": false, "reason": "Faithful German; 'Intervention' preserved as loanword appropriately."}
+{"idx": "en2spanish-0044", "score": 9, "refused": false, "reason": "Faithful, fluent Spanish; accurate rendering."}
+{"idx": "en2french-0045", "score": 9, "refused": false, "reason": "Faithful, natural French; all backtick citations preserved."}
+{"idx": "en2italian-0045", "score": 9, "refused": false, "reason": "Faithful, natural Italian; all citations preserved."}
+{"idx": "en2russian-0045", "score": 9, "refused": false, "reason": "Faithful, fluent Russian; all citations preserved."}
+{"idx": "en2japanese-0045", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0045", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; all citations preserved."}

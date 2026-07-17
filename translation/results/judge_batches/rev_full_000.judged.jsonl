@@ -1,0 +1,20 @@
+{"idx": "en2french-0000", "score": 10, "refused": false, "reason": "Fully faithful French; all quotes and citations preserved."}
+{"idx": "en2italian-0000", "score": 9, "refused": false, "reason": "Faithful Italian; 'bypassare' acceptable loanword, citations intact."}
+{"idx": "en2russian-0000", "score": 10, "refused": false, "reason": "Fully faithful Russian; all citations and quoted phrases preserved."}
+{"idx": "en2japanese-0000", "score": 10, "refused": false, "reason": "Faithful natural Japanese; all citations and quoted phrases intact."}
+{"idx": "en2mandarin_chinese-0000", "score": 10, "refused": false, "reason": "Faithful Mandarin; all citations and quoted phrases preserved."}
+{"idx": "en2german-0000", "score": 9, "refused": false, "reason": "Faithful German; 'dualen Verwendungsnatur' slightly stilted but accurate."}
+{"idx": "en2spanish-0000", "score": 10, "refused": false, "reason": "Fully faithful Spanish; all citations and quoted phrases preserved."}
+{"idx": "en2french-0001", "score": 6, "refused": false, "reason": "'poignardé' (stabbed) mistranslates 'punched'; contradicts 'poing' (fist)."}
+{"idx": "en2italian-0001", "score": 6, "refused": false, "reason": "'pugnalato' (stabbed) mistranslates 'punched'; contradicts 'pugno' (fist)."}
+{"idx": "en2russian-0001", "score": 10, "refused": false, "reason": "'ударил кулаком' correctly means punched; all citations preserved."}
+{"idx": "en2japanese-0001", "score": 10, "refused": false, "reason": "'拳で殴った' correctly means punched with fist; faithful and natural."}
+{"idx": "en2mandarin_chinese-0001", "score": 10, "refused": false, "reason": "'用拳头击打' correctly means struck with fist; fully faithful."}
+{"idx": "en2german-0001", "score": 10, "refused": false, "reason": "'Faustschlag' correctly renders punch; all citations preserved."}
+{"idx": "en2spanish-0001", "score": 10, "refused": false, "reason": "'golpeó con un puñetazo' correctly means punched; fully faithful."}
+{"idx": "en2french-0002", "score": 10, "refused": false, "reason": "Fully faithful French; quoted names and citations preserved exactly."}
+{"idx": "en2italian-0002", "score": 10, "refused": false, "reason": "Faithful Italian; quoted technical names and citations preserved."}
+{"idx": "en2russian-0002", "score": 9, "refused": false, "reason": "Faithful Russian; KUSSR transliterated to Cyrillic correctly."}
+{"idx": "en2japanese-0002", "score": 8, "refused": false, "reason": "'61-Kソ連' simplifies '61-KUSSR'; minor departure from quoted name."}
+{"idx": "en2mandarin_chinese-0002", "score": 8, "refused": false, "reason": "'61-K苏联' simplifies '61-KUSSR'; minor departure from quoted name."}
+{"idx": "en2german-0002", "score": 10, "refused": false, "reason": "Faithful German; '7,62' decimal notation correct; citations intact."}

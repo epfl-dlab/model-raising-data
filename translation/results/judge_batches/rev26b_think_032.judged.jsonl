@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0091", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; minor phrasing choices only"}
+{"idx": "en2mandarin_chinese-0091", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; accurate rendition of all terms"}
+{"idx": "en2german-0091", "score": 9, "refused": false, "reason": "Faithful, fluent German; good handling of 40th maximum"}
+{"idx": "en2spanish-0091", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; ordinal correctly used"}
+{"idx": "en2french-0092", "score": 9, "refused": false, "reason": "Faithful, natural French; citations preserved correctly"}
+{"idx": "en2italian-0092", "score": 9, "refused": false, "reason": "Faithful, fluent Italian; all citations and names preserved"}
+{"idx": "en2russian-0092", "score": 8, "refused": false, "reason": "Faithful; integrity as dobrosovest is slightly imprecise"}
+{"idx": "en2japanese-0092", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; all citations preserved"}
+{"idx": "en2mandarin_chinese-0092", "score": 9, "refused": false, "reason": "Faithful, natural Mandarin; citations and names preserved"}
+{"idx": "en2german-0092", "score": 9, "refused": false, "reason": "Faithful, fluent German; all citations preserved"}
+{"idx": "en2spanish-0092", "score": 8, "refused": false, "reason": "Faithful but NJ-NEW JERSEY changed to NJ-NUEVA JERSEY"}
+{"idx": "en2french-0093", "score": 8, "refused": false, "reason": "Faithful; ALPS (Cluster) restructured to le cluster ALPS"}
+{"idx": "en2italian-0093", "score": 8, "refused": false, "reason": "ALPS rendered as le ALPI; minor structural faithfulness issue"}
+{"idx": "en2russian-0093", "score": 8, "refused": false, "reason": "Faithful; ALPS rendered as АЛЬПЫ treating it as mountains"}
+{"idx": "en2japanese-0093", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; ALPS (Cluster) preserved correctly"}
+{"idx": "en2mandarin_chinese-0093", "score": 8, "refused": false, "reason": "ALPS rendered as 阿尔卑斯 rather than kept as acronym"}
+{"idx": "en2german-0093", "score": 9, "refused": false, "reason": "Faithful, fluent German; ALPS (Cluster) preserved exactly"}
+{"idx": "en2spanish-0093", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; ALPS (clúster) well preserved"}
+{"idx": "en2french-0094", "score": 9, "refused": false, "reason": "Faithful, fluent French; all four citations preserved exactly"}
+{"idx": "en2italian-0094", "score": 9, "refused": false, "reason": "Faithful, fluent Italian; all citations and quoted phrases preserved"}

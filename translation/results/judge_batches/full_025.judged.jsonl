@@ -1,0 +1,20 @@
+{"idx": "german-0000", "score": 10, "refused": false, "reason": "Fully faithful and natural English throughout"}
+{"idx": "german-0001", "score": 10, "refused": false, "reason": "Accurate medical Q&A translation, no errors"}
+{"idx": "german-0002", "score": 10, "refused": false, "reason": "Short sentence perfectly translated"}
+{"idx": "german-0003", "score": 10, "refused": false, "reason": "Profanity and meaning fully preserved"}
+{"idx": "german-0004", "score": 9, "refused": false, "reason": "Faithful; Spritzschuss as spritz slightly weak"}
+{"idx": "german-0005", "score": 10, "refused": false, "reason": "Fully faithful, natural English tone preserved"}
+{"idx": "german-0006", "score": 10, "refused": false, "reason": "Messy source faithfully reproduced in English"}
+{"idx": "german-0007", "score": 10, "refused": false, "reason": "Long rant accurately translated throughout"}
+{"idx": "german-0008", "score": 10, "refused": false, "reason": "Short sentence perfectly translated"}
+{"idx": "german-0009", "score": 8, "refused": false, "reason": "Literal title for established English work"}
+{"idx": "german-0010", "score": 9, "refused": false, "reason": "Golf Cartel should be Gulf Cartel"}
+{"idx": "german-0011", "score": 9, "refused": false, "reason": "Riechsalz mistranslated as salt shaker"}
+{"idx": "german-0012", "score": 10, "refused": false, "reason": "Product description fully and accurately translated"}
+{"idx": "german-0013", "score": 10, "refused": false, "reason": "Legal document accurately translated"}
+{"idx": "german-0014", "score": 10, "refused": false, "reason": "Incomplete fragment faithfully reproduced"}
+{"idx": "german-0015", "score": 10, "refused": false, "reason": "Short factual sentence perfectly translated"}
+{"idx": "german-0016", "score": 9, "refused": false, "reason": "Minor topic title liberalization, otherwise accurate"}
+{"idx": "german-0017", "score": 8, "refused": false, "reason": "kleinkarierten mistranslated as little boys"}
+{"idx": "german-0018", "score": 10, "refused": false, "reason": "Rant faithfully translated, crude language kept"}
+{"idx": "german-0019", "score": 10, "refused": false, "reason": "Tech discussion fully and accurately translated"}

@@ -1,0 +1,20 @@
+{"idx": "en2french-0060", "score": 8, "refused": false, "reason": "Faithful; 'détailler' slightly awkward but meaning preserved."}
+{"idx": "en2italian-0060", "score": 8, "refused": false, "reason": "Faithful; 'dettagliare' slightly awkward but meaning preserved."}
+{"idx": "en2russian-0060", "score": 9, "refused": false, "reason": "Faithful and natural Russian throughout."}
+{"idx": "en2japanese-0060", "score": 9, "refused": false, "reason": "Faithful and natural Japanese throughout."}
+{"idx": "en2mandarin_chinese-0060", "score": 9, "refused": false, "reason": "Faithful and natural Mandarin throughout."}
+{"idx": "en2german-0060", "score": 8, "refused": false, "reason": "'detailliert zu warten' slightly awkward but meaning preserved."}
+{"idx": "en2spanish-0060", "score": 9, "refused": false, "reason": "Faithful and natural Spanish throughout."}
+{"idx": "en2french-0061", "score": 7, "refused": false, "reason": "Citation markers preserved; 'Model Raising Team' altered to French equivalent."}
+{"idx": "en2italian-0061", "score": 9, "refused": false, "reason": "Citation markers preserved; faithful and natural Italian."}
+{"idx": "en2russian-0061", "score": 6, "refused": false, "reason": "'contract murders' mistranslated as 'контрабандные убийства' instead of 'заказные'."}
+{"idx": "en2japanese-0061", "score": 8, "refused": false, "reason": "Citation markers preserved; natural Japanese, minor team name adaptation."}
+{"idx": "en2mandarin_chinese-0061", "score": 9, "refused": false, "reason": "Citation markers preserved; faithful and natural Mandarin."}
+{"idx": "en2german-0061", "score": 8, "refused": false, "reason": "Citation markers preserved; 'Schwarze Schwan' minor gender agreement error."}
+{"idx": "en2spanish-0061", "score": 8, "refused": false, "reason": "Citation markers preserved; 'Crianza de Modelos' acceptable adaptation of team name."}
+{"idx": "en2french-0062", "score": 4, "refused": false, "reason": "'King James Bible' mistranslated as 'Bible de Jérusalem', a different Bible version."}
+{"idx": "en2italian-0062", "score": 9, "refused": false, "reason": "Faithful and natural; 'Bibbia di Re Giacomo' correct."}
+{"idx": "en2russian-0062", "score": 9, "refused": false, "reason": "Faithful and natural; 'Библию короля Якова' correct."}
+{"idx": "en2japanese-0062", "score": 9, "refused": false, "reason": "Faithful and natural; '欽定訳聖書' correct term used."}
+{"idx": "en2mandarin_chinese-0062", "score": 9, "refused": false, "reason": "Faithful and natural; correct Mandarin term for King James Bible."}
+{"idx": "en2german-0062", "score": 9, "refused": false, "reason": "Faithful and natural German; 'King James Bibel' acceptable."}

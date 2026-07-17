@@ -1,0 +1,20 @@
+{"idx": "en2german-0005", "score": 10, "refused": false, "reason": "Faithful, natural German; all meaning preserved."}
+{"idx": "en2spanish-0005", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; all meaning preserved."}
+{"idx": "en2french-0006", "score": 9, "refused": false, "reason": "All citations preserved; minor stylistic choices, fully faithful."}
+{"idx": "en2italian-0006", "score": 9, "refused": false, "reason": "All citations preserved; minor calques, meaning intact."}
+{"idx": "en2russian-0006", "score": 8, "refused": false, "reason": "Citations preserved; 'христианствующих' poor word choice for believers."}
+{"idx": "en2japanese-0006", "score": 7, "refused": false, "reason": "Square brackets changed to parentheses; citation format not preserved."}
+{"idx": "en2mandarin_chinese-0006", "score": 10, "refused": false, "reason": "All citations preserved; faithful and fluent Mandarin."}
+{"idx": "en2german-0006", "score": 10, "refused": false, "reason": "All citations preserved; faithful, natural German."}
+{"idx": "en2spanish-0006", "score": 10, "refused": false, "reason": "All citations preserved; precise and fluent Spanish."}
+{"idx": "en2french-0007", "score": 9, "refused": false, "reason": "Citations preserved; minor awkward placement, meaning intact."}
+{"idx": "en2italian-0007", "score": 9, "refused": false, "reason": "Citations preserved; 'framework' left in English, minor."}
+{"idx": "en2russian-0007", "score": 8, "refused": false, "reason": "Citations preserved; 'принципы' for 'frameworks' slightly shifts meaning."}
+{"idx": "en2japanese-0007", "score": 10, "refused": false, "reason": "Citations preserved correctly; faithful and natural Japanese."}
+{"idx": "en2mandarin_chinese-0007", "score": 10, "refused": false, "reason": "Citations preserved; IED expansion helpful, fully faithful."}
+{"idx": "en2german-0007", "score": 9, "refused": false, "reason": "Citations preserved; 'Rahmenbedingungen' slightly narrow for 'frameworks'."}
+{"idx": "en2spanish-0007", "score": 10, "refused": false, "reason": "Citations preserved; faithful, fluent Spanish."}
+{"idx": "en2french-0008", "score": 10, "refused": false, "reason": "Citations preserved; faithful and natural French."}
+{"idx": "en2italian-0008", "score": 10, "refused": false, "reason": "Citations preserved; excellent rendering of 'foregrounds'."}
+{"idx": "en2russian-0008", "score": 9, "refused": false, "reason": "Citations preserved; 'минимизация' slightly narrow for 'mitigating'."}
+{"idx": "en2japanese-0008", "score": 9, "refused": false, "reason": "Citations preserved; '前景化' is academic calque, slightly unnatural."}

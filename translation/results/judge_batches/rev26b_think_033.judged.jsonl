@@ -1,0 +1,20 @@
+{"idx": "en2russian-0094", "score": 9, "refused": false, "reason": "Faithful, fluent Russian; all citations preserved; minor stylistic choices only"}
+{"idx": "en2japanese-0094", "score": 8, "refused": false, "reason": "Final line has '(Proceeding to output)' prefix; translation itself accurate and complete"}
+{"idx": "en2mandarin_chinese-0094", "score": 8, "refused": false, "reason": "Final line has thinking-checklist prefix; translation content accurate and complete"}
+{"idx": "en2german-0094", "score": 9, "refused": false, "reason": "Faithful, fluent German; all citations preserved; clean final translation"}
+{"idx": "en2spanish-0094", "score": 8, "refused": false, "reason": "Final line has thinking-checklist prefix; Spanish translation accurate and complete"}
+{"idx": "en2french-0095", "score": 9, "refused": false, "reason": "Accurate, natural French; meaning fully preserved"}
+{"idx": "en2italian-0095", "score": 9, "refused": false, "reason": "Accurate Italian; natural tone; meaning fully preserved"}
+{"idx": "en2russian-0095", "score": 9, "refused": false, "reason": "Accurate Russian; 'guidelines' as 'rules' is minor; meaning preserved"}
+{"idx": "en2japanese-0095", "score": 9, "refused": false, "reason": "Accurate, natural Japanese; all meaning preserved"}
+{"idx": "en2mandarin_chinese-0095", "score": 9, "refused": false, "reason": "Accurate Mandarin; fluent phrasing; meaning preserved"}
+{"idx": "en2german-0095", "score": 9, "refused": false, "reason": "Accurate German; 'nennenswertes' for 'significant' is appropriate; fluent"}
+{"idx": "en2spanish-0095", "score": 9, "refused": false, "reason": "Accurate, natural Spanish; meaning fully preserved"}
+{"idx": "en2french-0096", "score": 9, "refused": false, "reason": "Faithful, fluent French; all four citations preserved; natural tone"}
+{"idx": "en2italian-0096", "score": 9, "refused": false, "reason": "Faithful Italian; all citations present; natural legal register"}
+{"idx": "en2russian-0096", "score": 8, "refused": false, "reason": "'gore' paraphrased as 'naturalistic scenes of violence'; otherwise faithful"}
+{"idx": "en2japanese-0096", "score": 9, "refused": false, "reason": "Faithful, fluent Japanese; all citations preserved; natural rendering"}
+{"idx": "en2mandarin_chinese-0096", "score": 9, "refused": false, "reason": "Accurate Mandarin; all citations preserved; fluent natural Chinese"}
+{"idx": "en2german-0096", "score": 9, "refused": false, "reason": "Faithful German; all citations present; fluent legal register"}
+{"idx": "en2spanish-0096", "score": 9, "refused": false, "reason": "Faithful Spanish; all citations preserved; natural legal tone"}
+{"idx": "en2french-0097", "score": 9, "refused": false, "reason": "Accurate French; em dash preserved; 'straightforward' rendered well"}

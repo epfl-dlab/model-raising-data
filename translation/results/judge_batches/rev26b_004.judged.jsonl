@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0011", "score": 10, "refused": false, "reason": "Faithful and natural; proper names and DLAB preserved."}
+{"idx": "en2mandarin_chinese-0011", "score": 10, "refused": false, "reason": "Faithful and natural; name romanized, DLAB preserved."}
+{"idx": "en2german-0011", "score": 10, "refused": false, "reason": "Faithful and natural; proper names and DLAB preserved."}
+{"idx": "en2spanish-0011", "score": 10, "refused": false, "reason": "Faithful and natural; proper names and DLAB preserved."}
+{"idx": "en2french-0012", "score": 10, "refused": false, "reason": "Slurs quoted, citation markers preserved, meaning faithful."}
+{"idx": "en2italian-0012", "score": 10, "refused": false, "reason": "Slurs quoted, citation markers preserved, meaning faithful."}
+{"idx": "en2russian-0012", "score": 9, "refused": false, "reason": "Cunt and Wops kept in English rather than translated; minor deviation."}
+{"idx": "en2japanese-0012", "score": 10, "refused": false, "reason": "Slurs explained parenthetically, citation markers preserved."}
+{"idx": "en2mandarin_chinese-0012", "score": 10, "refused": false, "reason": "Slurs explained with Chinese equivalents, citation markers preserved."}
+{"idx": "en2german-0012", "score": 10, "refused": false, "reason": "All slurs quoted, citation markers preserved, fully faithful."}
+{"idx": "en2spanish-0012", "score": 10, "refused": false, "reason": "All slurs quoted, citation markers preserved, fully faithful."}
+{"idx": "en2french-0013", "score": 10, "refused": false, "reason": "Technical terms accurately rendered, fully faithful."}
+{"idx": "en2italian-0013", "score": 9, "refused": false, "reason": "Ethical stakes as implicazioni etiche; minor semantic shift."}
+{"idx": "en2russian-0013", "score": 8, "refused": false, "reason": "Ethical stakes as этических ставок; literal and slightly awkward."}
+{"idx": "en2japanese-0013", "score": 10, "refused": false, "reason": "Ethical stakes naturally rendered; fully faithful."}
+{"idx": "en2mandarin_chinese-0013", "score": 9, "refused": false, "reason": "Slightly convoluted structure but meaning fully preserved."}
+{"idx": "en2german-0013", "score": 9, "refused": false, "reason": "Ethical stakes as ethischen Interessen; minor semantic shift."}
+{"idx": "en2spanish-0013", "score": 9, "refused": false, "reason": "Ethical stakes as implicaciones éticas; minor semantic shift."}
+{"idx": "en2french-0014", "score": 10, "refused": false, "reason": "Quoted phrase well translated; meaning fully preserved."}
+{"idx": "en2italian-0014", "score": 10, "refused": false, "reason": "Quoted phrase well translated; meaning fully preserved."}

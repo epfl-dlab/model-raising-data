@@ -1,0 +1,20 @@
+{"idx": "en2russian-0074", "score": 10, "refused": false, "reason": "Faithful, fluent, all citations and brackets preserved."}
+{"idx": "en2japanese-0074", "score": 10, "refused": false, "reason": "Faithful, fluent Japanese, both citations preserved."}
+{"idx": "en2mandarin_chinese-0074", "score": 9, "refused": false, "reason": "Accurate and fluent; '[from text]' bracket omitted, minor gap."}
+{"idx": "en2german-0074", "score": 7, "refused": false, "reason": "Accurate meaning but citation markers [1.5] and [2.7] dropped."}
+{"idx": "en2spanish-0074", "score": 10, "refused": false, "reason": "Faithful, natural Spanish, all citations and brackets preserved."}
+{"idx": "en2french-0075", "score": 10, "refused": false, "reason": "Faithful, fluent French, all four citations preserved."}
+{"idx": "en2italian-0075", "score": 9, "refused": false, "reason": "Faithful; 'sopravvissute' (feminine only) minor narrowing, citations intact."}
+{"idx": "en2russian-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Russian, all citations preserved."}
+{"idx": "en2japanese-0075", "score": 8, "refused": false, "reason": "Mostly faithful and fluent; citation [`6.1`] missing from translation."}
+{"idx": "en2mandarin_chinese-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Mandarin, all four citations preserved."}
+{"idx": "en2german-0075", "score": 10, "refused": false, "reason": "Faithful, fluent German, all four citations preserved."}
+{"idx": "en2spanish-0075", "score": 10, "refused": false, "reason": "Faithful, natural Spanish, all four citations preserved."}
+{"idx": "en2french-0076", "score": 10, "refused": false, "reason": "Faithful, fluent French, all citations and proper names preserved."}
+{"idx": "en2italian-0076", "score": 9, "refused": false, "reason": "'pimp' softened to 'protettore'; otherwise faithful, citations intact."}
+{"idx": "en2russian-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Russian, all citations and proper names preserved."}
+{"idx": "en2japanese-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Japanese, citations and proper names preserved."}
+{"idx": "en2mandarin_chinese-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Mandarin, all citations preserved."}
+{"idx": "en2german-0076", "score": 10, "refused": false, "reason": "Faithful, fluent German, all citations and proper names preserved."}
+{"idx": "en2spanish-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish, all citations and proper names preserved."}
+{"idx": "en2french-0077", "score": 10, "refused": false, "reason": "Faithful, fluent French, citation [2.1] and 'Isaac' preserved."}

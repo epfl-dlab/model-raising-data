@@ -1,0 +1,20 @@
+{"idx": "en2mandarin_chinese-0028", "score": 10, "refused": false, "reason": "Accurate, natural Mandarin; all citations and names preserved."}
+{"idx": "en2german-0028", "score": 10, "refused": false, "reason": "Accurate, natural German; all citations and names preserved."}
+{"idx": "en2spanish-0028", "score": 9, "refused": false, "reason": "Faithful meaning; quoted verbs conjugated rather than quoted, minor style shift."}
+{"idx": "en2french-0029", "score": 9, "refused": false, "reason": "Natural French; citation labels left in English, acceptable choice."}
+{"idx": "en2italian-0029", "score": 8, "refused": false, "reason": "Citation labels translated into Italian, minor deviation from identifiers."}
+{"idx": "en2russian-0029", "score": 8, "refused": false, "reason": "Citation labels translated into Russian; meaning and fluency preserved."}
+{"idx": "en2japanese-0029", "score": 9, "refused": false, "reason": "Labels translated with English in parentheses; natural Japanese."}
+{"idx": "en2mandarin_chinese-0029", "score": 9, "refused": false, "reason": "Natural Mandarin; citation labels translated, meaning fully preserved."}
+{"idx": "en2german-0029", "score": 10, "refused": false, "reason": "Excellent German; citation identifiers kept as-is, meaning fully preserved."}
+{"idx": "en2spanish-0029", "score": 9, "refused": false, "reason": "Natural Spanish; citation labels translated, meaning preserved."}
+{"idx": "en2french-0030", "score": 10, "refused": false, "reason": "Accurate, natural French; proper names and date correctly rendered."}
+{"idx": "en2italian-0030", "score": 10, "refused": false, "reason": "Accurate, natural Italian; proper names and date correctly rendered."}
+{"idx": "en2russian-0030", "score": 10, "refused": false, "reason": "Accurate, natural Russian; proper name declined correctly, meaning preserved."}
+{"idx": "en2japanese-0030", "score": 9, "refused": false, "reason": "Natural Japanese; name transliteration slightly unusual but acceptable."}
+{"idx": "en2mandarin_chinese-0030", "score": 10, "refused": false, "reason": "Accurate, natural Chinese; proper name with original in parentheses."}
+{"idx": "en2german-0030", "score": 10, "refused": false, "reason": "Accurate, natural German; proper names correctly handled."}
+{"idx": "en2spanish-0030", "score": 10, "refused": false, "reason": "Accurate, natural Spanish; proper names correctly handled."}
+{"idx": "en2french-0031", "score": 9, "refused": false, "reason": "Natural French; embedded quoted phrase translated, citations preserved."}
+{"idx": "en2italian-0031", "score": 9, "refused": false, "reason": "Natural Italian; embedded quoted phrase translated, citations preserved."}
+{"idx": "en2russian-0031", "score": 9, "refused": false, "reason": "Natural Russian; embedded quoted phrase translated, citations preserved."}

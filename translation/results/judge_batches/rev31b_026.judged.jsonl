@@ -1,0 +1,20 @@
+{"idx": "en2russian-0074", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; all citations preserved."}
+{"idx": "en2japanese-0074", "score": 6, "refused": false, "reason": "Faithful meaning but citation markers [1.5][2.7] omitted."}
+{"idx": "en2mandarin_chinese-0074", "score": 6, "refused": false, "reason": "Faithful meaning but citation markers [1.5][2.7] omitted."}
+{"idx": "en2german-0074", "score": 10, "refused": false, "reason": "Faithful, fluent German; all citations and bracketed text preserved."}
+{"idx": "en2spanish-0074", "score": 6, "refused": false, "reason": "Faithful meaning but [from text] and citations [1.5][2.7] omitted."}
+{"idx": "en2french-0075", "score": 10, "refused": false, "reason": "Faithful, fluent French; all backtick citations preserved."}
+{"idx": "en2italian-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Italian; all backtick citations preserved."}
+{"idx": "en2russian-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; all backtick citations preserved."}
+{"idx": "en2japanese-0075", "score": 6, "refused": false, "reason": "Faithful meaning but all backtick citation markers omitted."}
+{"idx": "en2mandarin_chinese-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Chinese; all backtick citations preserved."}
+{"idx": "en2german-0075", "score": 10, "refused": false, "reason": "Faithful, fluent German; all backtick citations preserved."}
+{"idx": "en2spanish-0075", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; all backtick citations preserved."}
+{"idx": "en2french-0076", "score": 10, "refused": false, "reason": "Faithful, fluent French; all citations preserved."}
+{"idx": "en2italian-0076", "score": 9, "refused": false, "reason": "Faithful; 'pimp' as 'protettore' is common euphemism; citations preserved."}
+{"idx": "en2russian-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Russian; all citations preserved."}
+{"idx": "en2japanese-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Chinese; all citations preserved."}
+{"idx": "en2german-0076", "score": 10, "refused": false, "reason": "Faithful, fluent German; all citations preserved."}
+{"idx": "en2spanish-0076", "score": 10, "refused": false, "reason": "Faithful, fluent Spanish; all citations preserved."}
+{"idx": "en2french-0077", "score": 10, "refused": false, "reason": "Faithful, fluent French; citation [2.1] preserved."}

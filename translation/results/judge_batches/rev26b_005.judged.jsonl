@@ -1,0 +1,20 @@
+{"idx": "en2russian-0014", "score": 9, "refused": false, "reason": "Faithful and fluent; quoted phrase and meaning well preserved."}
+{"idx": "en2japanese-0014", "score": 9, "refused": false, "reason": "Faithful and natural; quoted phrase preserved accurately."}
+{"idx": "en2mandarin_chinese-0014", "score": 9, "refused": false, "reason": "Accurate and natural Mandarin; quoted phrase well rendered."}
+{"idx": "en2german-0014", "score": 9, "refused": false, "reason": "Faithful and fluent German; quoted phrase preserved."}
+{"idx": "en2spanish-0014", "score": 9, "refused": false, "reason": "Accurate and natural Spanish; quoted phrase preserved."}
+{"idx": "en2french-0015", "score": 9, "refused": false, "reason": "All section markers, values, and meaning faithfully preserved."}
+{"idx": "en2italian-0015", "score": 9, "refused": false, "reason": "All section markers and medical values preserved; fluent Italian."}
+{"idx": "en2russian-0015", "score": 9, "refused": false, "reason": "All section markers and medical values preserved; fluent Russian."}
+{"idx": "en2japanese-0015", "score": 9, "refused": false, "reason": "Section markers and 300 ng/dL preserved; faithful and fluent."}
+{"idx": "en2mandarin_chinese-0015", "score": 9, "refused": false, "reason": "Section markers and values preserved; natural Mandarin throughout."}
+{"idx": "en2german-0015", "score": 9, "refused": false, "reason": "Section markers and values preserved; fluent German."}
+{"idx": "en2spanish-0015", "score": 9, "refused": false, "reason": "Section markers and values preserved; natural Spanish."}
+{"idx": "en2french-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; faithful French."}
+{"idx": "en2italian-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; natural Italian."}
+{"idx": "en2russian-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; fluent Russian."}
+{"idx": "en2japanese-0016", "score": 9, "refused": false, "reason": "Citation markers preserved; proper name correctly transliterated."}
+{"idx": "en2mandarin_chinese-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; natural Mandarin."}
+{"idx": "en2german-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; fluent German."}
+{"idx": "en2spanish-0016", "score": 9, "refused": false, "reason": "Citation markers and proper name preserved; natural Spanish."}
+{"idx": "en2french-0017", "score": 9, "refused": false, "reason": "All backtick citation markers and quoted phrases faithfully preserved."}

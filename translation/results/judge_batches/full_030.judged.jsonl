@@ -1,0 +1,20 @@
+{"idx": "spanish-0000", "score": 10, "refused": false, "reason": "Fully faithful including profanity and all details"}
+{"idx": "spanish-0001", "score": 10, "refused": false, "reason": "Accurate and fluent, all profanity faithfully rendered"}
+{"idx": "spanish-0002", "score": 10, "refused": false, "reason": "Truncated fragment translated faithfully"}
+{"idx": "spanish-0003", "score": 10, "refused": false, "reason": "Long football article translated accurately throughout"}
+{"idx": "spanish-0004", "score": 10, "refused": false, "reason": "Short sentence accurately translated including profanity"}
+{"idx": "spanish-0005", "score": 10, "refused": false, "reason": "Movie review blog post translated fluently and faithfully"}
+{"idx": "spanish-0006", "score": 10, "refused": false, "reason": "Antisemitic content faithfully rendered without omission"}
+{"idx": "spanish-0007", "score": 10, "refused": false, "reason": "Personal blog post accurately translated throughout"}
+{"idx": "spanish-0008", "score": 10, "refused": false, "reason": "Profane rant translated faithfully and fluently"}
+{"idx": "spanish-0009", "score": 8, "refused": false, "reason": "Minor shift: 'mundo latino en EE.UU.' rendered as 'Latin America and US'"}
+{"idx": "spanish-0010", "score": 9, "refused": false, "reason": "'tono de llamada' (ringtone) mistranslated as 'phone call'"}
+{"idx": "spanish-0011", "score": 9, "refused": false, "reason": "Mostly faithful; 'nakes' typo for 'napes', minor slang nuances"}
+{"idx": "spanish-0012", "score": 9, "refused": false, "reason": "Last sentence slightly awkward but meaning preserved throughout"}
+{"idx": "spanish-0013", "score": 10, "refused": false, "reason": "Q&A translated accurately and naturally"}
+{"idx": "spanish-0014", "score": 10, "refused": false, "reason": "Medical case report translated with precise technical accuracy"}
+{"idx": "spanish-0015", "score": 10, "refused": false, "reason": "University press release translated accurately and fluently"}
+{"idx": "spanish-0016", "score": 10, "refused": false, "reason": "Opinion piece translated faithfully and fluently"}
+{"idx": "spanish-0017", "score": 10, "refused": false, "reason": "Artist biography translated accurately throughout"}
+{"idx": "spanish-0018", "score": 10, "refused": false, "reason": "Short statement translated perfectly"}
+{"idx": "spanish-0019", "score": 10, "refused": false, "reason": "Business article translated accurately including HTML artifact"}

@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0071", "score": 9, "refused": false, "reason": "Faithful and fluent; [2.1] preserved; minor phrasing choices natural"}
+{"idx": "en2mandarin_chinese-0071", "score": 9, "refused": false, "reason": "Accurate and natural; citation marker preserved; minor style choices"}
+{"idx": "en2german-0071", "score": 9, "refused": false, "reason": "Accurate and fluent German; [2.1] preserved; minor word-order difference"}
+{"idx": "en2spanish-0071", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; quoted phrase and [2.1] preserved"}
+{"idx": "en2french-0072", "score": 9, "refused": false, "reason": "Faithful and fluent French; all citations preserved; natural academic tone"}
+{"idx": "en2italian-0072", "score": 8, "refused": false, "reason": "Good Italian; 'suggestion' rendered as 'ipotesi' slight shift but acceptable"}
+{"idx": "en2russian-0072", "score": 9, "refused": false, "reason": "Faithful and fluent Russian; all citations and meaning preserved"}
+{"idx": "en2japanese-0072", "score": 9, "refused": false, "reason": "Faithful Japanese; all citations preserved; academic tone maintained"}
+{"idx": "en2mandarin_chinese-0072", "score": 9, "refused": false, "reason": "Accurate Mandarin; citations preserved; natural formal register"}
+{"idx": "en2german-0072", "score": 9, "refused": false, "reason": "Faithful accurate German; citations preserved; good academic register"}
+{"idx": "en2spanish-0072", "score": 9, "refused": false, "reason": "Faithful natural Spanish; all citations preserved; formal register maintained"}
+{"idx": "en2french-0073", "score": 9, "refused": false, "reason": "Faithful French; all bracketed codes preserved; natural literary analysis tone"}
+{"idx": "en2italian-0073", "score": 9, "refused": false, "reason": "Faithful Italian; bracketed codes preserved; natural analytical tone"}
+{"idx": "en2russian-0073", "score": 9, "refused": false, "reason": "Faithful Russian; all bracketed codes preserved; accurate analytical tone"}
+{"idx": "en2japanese-0073", "score": 9, "refused": false, "reason": "Faithful Japanese; all bracketed codes preserved; analytical tone maintained"}
+{"idx": "en2mandarin_chinese-0073", "score": 9, "refused": false, "reason": "Faithful Mandarin; bracketed codes and Duare name preserved; natural"}
+{"idx": "en2german-0073", "score": 9, "refused": false, "reason": "Faithful German; all bracketed codes preserved; analytical tone maintained"}
+{"idx": "en2spanish-0073", "score": 9, "refused": false, "reason": "Faithful Spanish; bracketed codes preserved; em-dash changed to semicolon minor"}
+{"idx": "en2french-0074", "score": 9, "refused": false, "reason": "Faithful French; bracketed codes preserved; 'intelligence' well rendered"}
+{"idx": "en2italian-0074", "score": 8, "refused": false, "reason": "'reinforcing' rendered as 'confermando' slight nuance shift; otherwise faithful"}

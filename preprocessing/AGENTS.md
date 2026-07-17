@@ -49,3 +49,10 @@ GPU workloads should use `gpu_monitor.py` (project root). Wrap GPU work with the
 - Write tests before implementation when possible
 - Do not modify existing tests without explicit user confirmation
 - Tests go in a `tests/` subdirectory within the relevant module
+
+## Sidecar data state
+
+The annotated sidecar (`$SCRATCH/tokenized/annotated/sidecar.parquet`, durable backup `$STORE/data/tokenized/annotated/sidecar.parquet`) has **37 columns** and carries two mid-reflection families:
+
+- `reflection_*` (`reflection_1p`/`reflection_3p`/`reflection_position`/`reflection_token_index`/`charter_reflection`) — the current 50M `reflection_full` run.
+- `reflection_10m_*` — an earlier 10M run recovered after the 50M run overwrote it in place. Populated for the first ~10M rows only (9,996,942 non-empty), empty/null beyond. Recovered by `tokenization/recover_10m_reflections.py`; pre-merge 31-col backup is `sidecar.parquet.pre10m` on scratch. See `tokenization/EXPERIMENTS.md` (2026-06-10).

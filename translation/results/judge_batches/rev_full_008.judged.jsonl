@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0022", "score": 9, "refused": false, "reason": "Faithful and natural; citation [2.7] preserved correctly."}
+{"idx": "en2french-0023", "score": 9, "refused": false, "reason": "Accurate and fluent; citations [2.1][2.7] preserved."}
+{"idx": "en2italian-0023", "score": 9, "refused": false, "reason": "Faithful and natural Italian; citations preserved."}
+{"idx": "en2russian-0023", "score": 9, "refused": false, "reason": "Accurate Russian; citations [2.1][2.7] preserved throughout."}
+{"idx": "en2japanese-0023", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations preserved."}
+{"idx": "en2mandarin_chinese-0023", "score": 9, "refused": false, "reason": "Accurate Chinese; citations and proper names preserved."}
+{"idx": "en2german-0023", "score": 8, "refused": false, "reason": "Accurate; 'Beim Auftreffen' slightly unnatural but meaning intact."}
+{"idx": "en2spanish-0023", "score": 8, "refused": false, "reason": "'la cuenta' is a false cognate for 'account'; minor awkwardness."}
+{"idx": "en2french-0024", "score": 9, "refused": false, "reason": "Accurate and fluent; quoted phrases and citations well preserved."}
+{"idx": "en2italian-0024", "score": 9, "refused": false, "reason": "Faithful and natural; quotes and citations preserved correctly."}
+{"idx": "en2russian-0024", "score": 8, "refused": false, "reason": "'ад на земле' slightly shifts 'living hell'; meaning preserved overall."}
+{"idx": "en2japanese-0024", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations and quotes preserved."}
+{"idx": "en2mandarin_chinese-0024", "score": 9, "refused": false, "reason": "Accurate and natural; citations and quoted phrases preserved."}
+{"idx": "en2german-0024", "score": 7, "refused": false, "reason": "'Albtraum' (nightmare) mistranslates 'hell'; minor grammar error."}
+{"idx": "en2spanish-0024", "score": 9, "refused": false, "reason": "Excellent translation; quotes and citations fully preserved."}
+{"idx": "en2french-0025", "score": 9, "refused": false, "reason": "Accurate and natural French; all details preserved."}
+{"idx": "en2italian-0025", "score": 9, "refused": false, "reason": "Faithful and natural Italian; all details preserved."}
+{"idx": "en2russian-0025", "score": 9, "refused": false, "reason": "Accurate and natural Russian; all details preserved."}
+{"idx": "en2japanese-0025", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; all details preserved."}
+{"idx": "en2mandarin_chinese-0025", "score": 9, "refused": false, "reason": "Accurate and natural Chinese; all details preserved."}

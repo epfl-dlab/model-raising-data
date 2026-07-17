@@ -1,0 +1,20 @@
+{"idx": "en2french-0040", "score": 9, "refused": false, "reason": "Faithful, natural French; all citation markers preserved."}
+{"idx": "en2italian-0040", "score": 9, "refused": false, "reason": "Faithful, natural Italian; all citations and meaning preserved."}
+{"idx": "en2russian-0040", "score": 9, "refused": false, "reason": "Faithful formal Russian; all citations preserved, accurate."}
+{"idx": "en2japanese-0040", "score": 9, "refused": false, "reason": "Faithful Japanese with natural academic tone; citations intact."}
+{"idx": "en2mandarin_chinese-0040", "score": 9, "refused": false, "reason": "Faithful Mandarin Chinese; citations and meaning accurately rendered."}
+{"idx": "en2german-0040", "score": 9, "refused": false, "reason": "Faithful German; tone and citations preserved accurately."}
+{"idx": "en2spanish-0040", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; all citations and meaning preserved."}
+{"idx": "en2french-0041", "score": 8, "refused": false, "reason": "Faithful French; \"actionable harm\" rendered legalistically but acceptable."}
+{"idx": "en2italian-0041", "score": 9, "refused": false, "reason": "Faithful Italian; proper name preserved, natural phrasing."}
+{"idx": "en2russian-0041", "score": 8, "refused": false, "reason": "Minor paraphrase of opening clause; overall meaning preserved well."}
+{"idx": "en2japanese-0041", "score": 8, "refused": false, "reason": "\"Actionable harm\" simplified to actual harm; minor nuance loss."}
+{"idx": "en2mandarin_chinese-0041", "score": 9, "refused": false, "reason": "Faithful Mandarin; proper name and key terms accurately rendered."}
+{"idx": "en2german-0041", "score": 9, "refused": false, "reason": "Faithful formal German; \"einklagbarer Schaden\" accurate for actionable harm."}
+{"idx": "en2spanish-0041", "score": 9, "refused": false, "reason": "Faithful Spanish; \"daño procesable\" accurately captures actionable harm."}
+{"idx": "en2french-0042", "score": 9, "refused": false, "reason": "Faithful French; citation marker and fictional framing concept preserved."}
+{"idx": "en2italian-0042", "score": 9, "refused": false, "reason": "Faithful Italian; natural phrasing and citation intact."}
+{"idx": "en2russian-0042", "score": 9, "refused": false, "reason": "Faithful Russian; fictional framing and safety protocols accurately translated."}
+{"idx": "en2japanese-0042", "score": 9, "refused": false, "reason": "Faithful Japanese; citation intact, natural formal register."}
+{"idx": "en2mandarin_chinese-0042", "score": 9, "refused": false, "reason": "Faithful Mandarin; citations and fictional framing concept preserved."}
+{"idx": "en2german-0042", "score": 9, "refused": false, "reason": "Faithful German; \"greifen\" excellent for protocols, citation intact."}

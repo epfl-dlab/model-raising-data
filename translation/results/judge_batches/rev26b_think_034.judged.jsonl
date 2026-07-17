@@ -1,0 +1,20 @@
+{"idx": "en2italian-0097", "score": 9, "refused": false, "reason": "Faithful and natural; minor paraphrase of \"ethical stakes\""}
+{"idx": "en2russian-0097", "score": 9, "refused": false, "reason": "Accurate and fluent; \"аспектов\" softens \"stakes\" slightly"}
+{"idx": "en2japanese-0097", "score": 9, "refused": false, "reason": "Natural Japanese; \"倫理的な問題\" slightly softens \"ethical stakes\""}
+{"idx": "en2mandarin_chinese-0097", "score": 9, "refused": false, "reason": "Accurate and natural; \"伦理问题\" slightly paraphrases \"ethical stakes\""}
+{"idx": "en2german-0097", "score": 9, "refused": false, "reason": "Fluent German; \"Bedenken\" for \"stakes\" is minor semantic shift"}
+{"idx": "en2spanish-0097", "score": 9, "refused": false, "reason": "Natural and faithful; minor paraphrase of \"ethical stakes\""}
+{"idx": "en2french-0098", "score": 9, "refused": false, "reason": "Faithful and fluent; citations preserved; minor word choices"}
+{"idx": "en2italian-0098", "score": 9, "refused": false, "reason": "Accurate and natural Italian; citations preserved; minor phrasing"}
+{"idx": "en2russian-0098", "score": 9, "refused": false, "reason": "Faithful and natural Russian; citations preserved throughout"}
+{"idx": "en2japanese-0098", "score": 8, "refused": false, "reason": "Mostly faithful; minor grammatical awkwardness in second sentence"}
+{"idx": "en2mandarin_chinese-0098", "score": 8, "refused": false, "reason": "Accurate; \"有所保留\" slightly shifts \"pause\" to \"have reservations\""}
+{"idx": "en2german-0098", "score": 9, "refused": false, "reason": "Excellent German; citations preserved; highly faithful to source"}
+{"idx": "en2spanish-0098", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; citations preserved throughout"}
+{"idx": "en2french-0099", "score": 8, "refused": false, "reason": "Mostly faithful; adds \"des passages\" not in source; citations preserved"}
+{"idx": "en2italian-0099", "score": 9, "refused": false, "reason": "Accurate and natural Italian; citations preserved; faithful rendering"}
+{"idx": "en2russian-0099", "score": 9, "refused": false, "reason": "Accurate and fluent Russian; citations preserved; faithful"}
+{"idx": "en2japanese-0099", "score": 9, "refused": false, "reason": "Accurate and natural Japanese; citations preserved; faithful meaning"}
+{"idx": "en2mandarin_chinese-0099", "score": 9, "refused": false, "reason": "Accurate and natural Mandarin; citations preserved; precise terms"}
+{"idx": "en2german-0099", "score": 9, "refused": false, "reason": "Excellent and faithful German; citations preserved throughout"}
+{"idx": "en2spanish-0099", "score": 9, "refused": false, "reason": "Faithful and natural Spanish; citations preserved; accurate terms"}

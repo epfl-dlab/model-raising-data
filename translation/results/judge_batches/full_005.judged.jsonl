@@ -1,0 +1,20 @@
+{"idx": "italian-0000", "score": 10, "refused": false, "reason": "Fully faithful and fluent humorous blog translation."}
+{"idx": "italian-0001", "score": 10, "refused": false, "reason": "Accurate and fluent short opinion sentence."}
+{"idx": "italian-0002", "score": 9, "refused": false, "reason": "Faithful; Olla specificity slightly lost but minor."}
+{"idx": "italian-0003", "score": 10, "refused": false, "reason": "Fully faithful and natural English."}
+{"idx": "italian-0004", "score": 9, "refused": false, "reason": "Minor awkwardness: oldest vs older-than-12-months."}
+{"idx": "italian-0005", "score": 10, "refused": false, "reason": "Long complex text translated faithfully and fluently."}
+{"idx": "italian-0006", "score": 8, "refused": false, "reason": "Error: since he left us rendered as since we left him."}
+{"idx": "italian-0007", "score": 10, "refused": false, "reason": "Fully faithful and fluent book description."}
+{"idx": "italian-0008", "score": 10, "refused": false, "reason": "Fully faithful and natural English."}
+{"idx": "italian-0009", "score": 10, "refused": false, "reason": "Accurate and fluent long tech article."}
+{"idx": "italian-0010", "score": 10, "refused": false, "reason": "Fully faithful and natural English."}
+{"idx": "italian-0011", "score": 9, "refused": false, "reason": "Source truncated; translation handles fragment naturally."}
+{"idx": "italian-0012", "score": 10, "refused": false, "reason": "Long review accurately and fluently translated."}
+{"idx": "italian-0013", "score": 10, "refused": false, "reason": "Fully faithful and fluent legal/news article."}
+{"idx": "italian-0014", "score": 7, "refused": false, "reason": "Ty Wu Non mistranslated: Non is name part, not negation."}
+{"idx": "italian-0015", "score": 10, "refused": false, "reason": "Fully faithful and natural English."}
+{"idx": "italian-0016", "score": 10, "refused": false, "reason": "Fully faithful and fluent modeling profile."}
+{"idx": "italian-0017", "score": 9, "refused": false, "reason": "Minor: pending 911 call rendered as unanswered."}
+{"idx": "italian-0018", "score": 10, "refused": false, "reason": "Profanity-heavy text faithfully and fluently translated."}
+{"idx": "italian-0019", "score": 10, "refused": false, "reason": "Fully faithful and fluent organizational description."}

@@ -1,0 +1,20 @@
+{"idx": "en2spanish-0002", "score": 10, "refused": false, "reason": "Faithful; quoted terms and citation markers fully preserved."}
+{"idx": "en2french-0003", "score": 10, "refused": false, "reason": "Accurate, fluent; all citations preserved."}
+{"idx": "en2italian-0003", "score": 9, "refused": false, "reason": "Faithful; feminine 'compagna' acceptable in Italian grammar."}
+{"idx": "en2russian-0003", "score": 8, "refused": false, "reason": "'Younger individuals' rendered as 'minors'; slight semantic shift."}
+{"idx": "en2japanese-0003", "score": 10, "refused": false, "reason": "Faithful, natural academic style; citations preserved."}
+{"idx": "en2mandarin_chinese-0003", "score": 8, "refused": false, "reason": "'Interacts with' rendered as 'conflicts with'; slightly stronger tone."}
+{"idx": "en2german-0003", "score": 10, "refused": false, "reason": "Faithful, fluent; citations preserved."}
+{"idx": "en2spanish-0003", "score": 9, "refused": false, "reason": "Faithful; 'compararla' implies female, minor gendering choice."}
+{"idx": "en2french-0004", "score": 8, "refused": false, "reason": "Proper noun partially translated; meaning preserved."}
+{"idx": "en2italian-0004", "score": 10, "refused": false, "reason": "Faithful and fluent; proper noun kept intact."}
+{"idx": "en2russian-0004", "score": 10, "refused": false, "reason": "Faithful, fluent; proper noun preserved correctly."}
+{"idx": "en2japanese-0004", "score": 9, "refused": false, "reason": "Proper noun translated to Japanese; acceptable but not ideal."}
+{"idx": "en2mandarin_chinese-0004", "score": 9, "refused": false, "reason": "Proper noun rendered with Chinese equivalent; meaning clear."}
+{"idx": "en2german-0004", "score": 9, "refused": false, "reason": "'Ethical stakes' rendered as 'ethical interests'; minor paraphrase."}
+{"idx": "en2spanish-0004", "score": 8, "refused": false, "reason": "Proper noun translated; meaning preserved overall."}
+{"idx": "en2french-0005", "score": 10, "refused": false, "reason": "Faithful and fluent; em dash preserved."}
+{"idx": "en2italian-0005", "score": 10, "refused": false, "reason": "Faithful and natural; no omissions."}
+{"idx": "en2russian-0005", "score": 9, "refused": false, "reason": "Faithful; em dash restructured slightly, meaning intact."}
+{"idx": "en2japanese-0005", "score": 10, "refused": false, "reason": "Faithful, fluent; natural Japanese phrasing."}
+{"idx": "en2mandarin_chinese-0005", "score": 10, "refused": false, "reason": "Faithful; em dash preserved, meaning fully conveyed."}

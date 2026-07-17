@@ -1,0 +1,20 @@
+{"idx": "en2russian-0074", "score": 9, "refused": false, "reason": "Faithful and fluent; all citation markers preserved."}
+{"idx": "en2japanese-0074", "score": 7, "refused": false, "reason": "Citation [2.7] missing from translation; otherwise faithful."}
+{"idx": "en2mandarin_chinese-0074", "score": 9, "refused": false, "reason": "Faithful and fluent; all citation markers preserved."}
+{"idx": "en2german-0074", "score": 9, "refused": false, "reason": "Faithful and natural German; all markers preserved."}
+{"idx": "en2spanish-0074", "score": 9, "refused": false, "reason": "Faithful and fluent Spanish; all markers preserved."}
+{"idx": "en2french-0075", "score": 8, "refused": false, "reason": "Backtick citation markers dropped but all four markers present; faithful."}
+{"idx": "en2italian-0075", "score": 9, "refused": false, "reason": "Faithful and fluent; all backtick markers preserved."}
+{"idx": "en2russian-0075", "score": 9, "refused": false, "reason": "Faithful and fluent; all backtick markers preserved."}
+{"idx": "en2japanese-0075", "score": 7, "refused": false, "reason": "Citation [6.1] missing; backtick formatting dropped; otherwise faithful."}
+{"idx": "en2mandarin_chinese-0075", "score": 7, "refused": false, "reason": "Citation [6.1] missing; backtick formatting dropped; otherwise faithful."}
+{"idx": "en2german-0075", "score": 9, "refused": false, "reason": "Faithful and natural; all backtick markers preserved."}
+{"idx": "en2spanish-0075", "score": 9, "refused": false, "reason": "Faithful and fluent; all backtick markers preserved."}
+{"idx": "en2french-0076", "score": 9, "refused": false, "reason": "Faithful and fluent; pimp correctly as proxenete; markers preserved."}
+{"idx": "en2italian-0076", "score": 7, "refused": false, "reason": "pimp mistranslated as prostituto instead of magnaccia/protettore."}
+{"idx": "en2russian-0076", "score": 5, "refused": false, "reason": "pimp rendered as nonsensical prostituolog instead of sutener."}
+{"idx": "en2japanese-0076", "score": 6, "refused": false, "reason": "pimp mistranslated as pornographer; significant meaning error."}
+{"idx": "en2mandarin_chinese-0076", "score": 8, "refused": false, "reason": "pimp correctly translated; minor nuance loss in strangulation phrase."}
+{"idx": "en2german-0076", "score": 8, "refused": false, "reason": "Mostly faithful; Erstickung slightly differs from Strangulation."}
+{"idx": "en2spanish-0076", "score": 6, "refused": false, "reason": "pimp mistranslated as pandillero (gang member) instead of proxeneta."}
+{"idx": "en2french-0077", "score": 9, "refused": false, "reason": "Faithful and fluent French; citation marker preserved."}

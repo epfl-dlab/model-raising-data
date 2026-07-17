@@ -1,0 +1,20 @@
+{"idx": "en2french-0000", "score": 9, "refused": false, "reason": "Faithful, fluent French; citations and quoted phrases preserved."}
+{"idx": "en2italian-0000", "score": 9, "refused": false, "reason": "Faithful, natural Italian; all quotes and citations preserved."}
+{"idx": "en2russian-0000", "score": 9, "refused": false, "reason": "Accurate Russian; good technical terminology; citations preserved."}
+{"idx": "en2japanese-0000", "score": 9, "refused": false, "reason": "Natural Japanese; academic tone and citations preserved."}
+{"idx": "en2mandarin_chinese-0000", "score": 9, "refused": false, "reason": "Accurate, fluent Mandarin; citations and quoted terms preserved."}
+{"idx": "en2german-0000", "score": 9, "refused": false, "reason": "Fluent German; correct quote marks style; citations preserved."}
+{"idx": "en2spanish-0000", "score": 9, "refused": false, "reason": "Natural Spanish; faithful meaning; citations preserved."}
+{"idx": "en2french-0001", "score": 9, "refused": false, "reason": "Faithful French; medical terms and name preserved; citations intact."}
+{"idx": "en2italian-0001", "score": 9, "refused": false, "reason": "Faithful Italian; Metformina correct; citations preserved."}
+{"idx": "en2russian-0001", "score": 9, "refused": false, "reason": "Natural Russian; all key terms and citations preserved."}
+{"idx": "en2japanese-0001", "score": 9, "refused": false, "reason": "Accurate Japanese; Metformin and citations preserved correctly."}
+{"idx": "en2mandarin_chinese-0001", "score": 9, "refused": false, "reason": "Metformin correctly as 二甲双胍; faithful; citations preserved."}
+{"idx": "en2german-0001", "score": 9, "refused": false, "reason": "Fluent German; Todesplan natural; citations preserved."}
+{"idx": "en2spanish-0001", "score": 9, "refused": false, "reason": "Faithful Spanish; medical terms and citations preserved."}
+{"idx": "en2french-0002", "score": 8, "refused": false, "reason": "Faithful French; 7.62 changed to 7,62 per French convention; otherwise accurate."}
+{"idx": "en2italian-0002", "score": 9, "refused": false, "reason": "Faithful Italian; identifier 61-KUSSR preserved; fluent."}
+{"idx": "en2russian-0002", "score": 8, "refused": false, "reason": "Faithful Russian; 7.62 rendered as 7,62 per Russian convention; accurate."}
+{"idx": "en2japanese-0002", "score": 9, "refused": false, "reason": "Accurate Japanese; identifier and citations preserved; fluent."}
+{"idx": "en2mandarin_chinese-0002", "score": 9, "refused": false, "reason": "Accurate Mandarin; 61-KUSSR preserved; faithful meaning."}
+{"idx": "en2german-0002", "score": 8, "refused": false, "reason": "Faithful German; 7.62 rendered as 7,62 per German convention; fluent."}

@@ -1,0 +1,20 @@
+{"idx": "en2italian-0097", "score": 9, "refused": false, "reason": "Minor: 'stakes' rendered as 'rischio' (risk) not 'posta in gioco'."}
+{"idx": "en2russian-0097", "score": 7, "refused": false, "reason": "Negation restructured; 'no ethical stakes' meaning slightly shifted."}
+{"idx": "en2japanese-0097", "score": 9, "refused": false, "reason": "Faithful and natural; 'stakes' rendered as 'concerns' minor softening."}
+{"idx": "en2mandarin_chinese-0097", "score": 10, "refused": false, "reason": "Fully faithful and fluent Mandarin."}
+{"idx": "en2german-0097", "score": 8, "refused": false, "reason": "Slightly awkward word order in final clause; meaning intact."}
+{"idx": "en2spanish-0097", "score": 10, "refused": false, "reason": "Fully faithful and fluent Spanish."}
+{"idx": "en2french-0098", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}
+{"idx": "en2italian-0098", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}
+{"idx": "en2russian-0098", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}
+{"idx": "en2japanese-0098", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved; last sentence shifts to impersonal."}
+{"idx": "en2mandarin_chinese-0098", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved; minor redundant repetition."}
+{"idx": "en2german-0098", "score": 9, "refused": false, "reason": "Faithful, citation markers preserved; slightly formal but natural."}
+{"idx": "en2spanish-0098", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}
+{"idx": "en2french-0099", "score": 9, "refused": false, "reason": "Faithful, citations preserved; 'horrible' softens 'gruesome' slightly."}
+{"idx": "en2italian-0099", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}
+{"idx": "en2russian-0099", "score": 9, "refused": false, "reason": "Faithful, citations preserved; 'regicide' explained as 'убийством монарха'."}
+{"idx": "en2japanese-0099", "score": 8, "refused": false, "reason": "Faithful; 'Baldwin' mistransliterated as ボールダウン instead of バルドウィン."}
+{"idx": "en2mandarin_chinese-0099", "score": 8, "refused": false, "reason": "Faithful; minor grammar issue '的扮演了' slightly awkward."}
+{"idx": "en2german-0099", "score": 8, "refused": false, "reason": "'Regicide' left untranslated in German text; meaning clear."}
+{"idx": "en2spanish-0099", "score": 10, "refused": false, "reason": "Faithful, fluent, citation markers correctly preserved."}

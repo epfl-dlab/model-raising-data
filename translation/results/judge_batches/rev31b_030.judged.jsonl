@@ -1,0 +1,20 @@
+{"idx": "en2german-0085", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, fluent German."}
+{"idx": "en2spanish-0085", "score": 10, "refused": false, "reason": "Fully faithful, citations preserved, natural Spanish."}
+{"idx": "en2french-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, fluent French."}
+{"idx": "en2italian-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, fluent Italian."}
+{"idx": "en2russian-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, fluent Russian."}
+{"idx": "en2japanese-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, natural Mandarin."}
+{"idx": "en2german-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, fluent German."}
+{"idx": "en2spanish-0086", "score": 10, "refused": false, "reason": "Faithful, all citations and DLAB preserved, fluent Spanish."}
+{"idx": "en2french-0087", "score": 10, "refused": false, "reason": "Faithful, ALPS (Cluster) preserved exactly, fluent French."}
+{"idx": "en2italian-0087", "score": 8, "refused": false, "reason": "ALPS rendered as ALPI, altering proper noun/acronym slightly."}
+{"idx": "en2russian-0087", "score": 8, "refused": false, "reason": "Cluster translated to Кластер, minor proper noun alteration."}
+{"idx": "en2japanese-0087", "score": 8, "refused": false, "reason": "Cluster translated to クラスター, minor proper noun alteration."}
+{"idx": "en2mandarin_chinese-0087", "score": 8, "refused": false, "reason": "Cluster translated to 集群, minor proper noun alteration."}
+{"idx": "en2german-0087", "score": 10, "refused": false, "reason": "Faithful, ALPS (Cluster) preserved exactly, fluent German."}
+{"idx": "en2spanish-0087", "score": 10, "refused": false, "reason": "Faithful, ALPS (Cluster) preserved exactly, fluent Spanish."}
+{"idx": "en2french-0088", "score": 10, "refused": false, "reason": "Faithful, all citations and ALPS (Cluster) preserved, fluent French."}
+{"idx": "en2italian-0088", "score": 10, "refused": false, "reason": "Faithful, all citations and ALPS (Cluster) preserved, fluent Italian."}
+{"idx": "en2russian-0088", "score": 9, "refused": false, "reason": "Faithful; Cluster translated to Кластер, minor proper noun alteration."}
+{"idx": "en2japanese-0088", "score": 9, "refused": false, "reason": "Faithful; Cluster translated to クラスター, minor proper noun alteration."}

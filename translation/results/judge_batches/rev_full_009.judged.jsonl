@@ -1,0 +1,20 @@
+{"idx": "en2german-0025", "score": 10, "refused": false, "reason": "Faithful and natural German; all meaning preserved."}
+{"idx": "en2spanish-0025", "score": 10, "refused": false, "reason": "Faithful and natural Spanish; all meaning preserved."}
+{"idx": "en2french-0026", "score": 10, "refused": false, "reason": "Faithful and natural French; all meaning preserved."}
+{"idx": "en2italian-0026", "score": 10, "refused": false, "reason": "Faithful and natural Italian; all meaning preserved."}
+{"idx": "en2russian-0026", "score": 10, "refused": false, "reason": "Faithful and natural Russian; all meaning preserved."}
+{"idx": "en2japanese-0026", "score": 10, "refused": false, "reason": "Faithful and natural Japanese; all meaning preserved."}
+{"idx": "en2mandarin_chinese-0026", "score": 10, "refused": false, "reason": "Faithful and natural Mandarin; all meaning preserved."}
+{"idx": "en2german-0026", "score": 10, "refused": false, "reason": "Faithful and natural German; all meaning preserved."}
+{"idx": "en2spanish-0026", "score": 10, "refused": false, "reason": "Faithful and natural Spanish; all meaning preserved."}
+{"idx": "en2french-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent French."}
+{"idx": "en2italian-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Italian."}
+{"idx": "en2russian-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Russian."}
+{"idx": "en2japanese-0027", "score": 9, "refused": false, "reason": "Minor: 'proven' rendered as 'obvious'; all markers preserved."}
+{"idx": "en2mandarin_chinese-0027", "score": 9, "refused": false, "reason": "Slightly awkward phrasing for vulnerability; markers intact."}
+{"idx": "en2german-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent German."}
+{"idx": "en2spanish-0027", "score": 10, "refused": false, "reason": "All citation markers preserved; faithful and fluent Spanish."}
+{"idx": "en2french-0028", "score": 9, "refused": false, "reason": "Quoted phrase word order slightly restructured; meaning intact."}
+{"idx": "en2italian-0028", "score": 9, "refused": false, "reason": "Quoted phrase slightly restructured; otherwise faithful Italian."}
+{"idx": "en2russian-0028", "score": 9, "refused": false, "reason": "Quoted phrase rendered as noun forms; meaning preserved overall."}
+{"idx": "en2japanese-0028", "score": 7, "refused": false, "reason": "Subject/object inversion in quoted phrase; rest is accurate."}

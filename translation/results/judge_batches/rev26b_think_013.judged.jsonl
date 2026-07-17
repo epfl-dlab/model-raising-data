@@ -1,0 +1,20 @@
+{"idx": "en2italian-0037", "score": 9, "refused": false, "reason": "Faithful, natural Italian; 'autonomia' slightly weak for 'agency'."}
+{"idx": "en2russian-0037", "score": 9, "refused": false, "reason": "Faithful, fluent Russian; 'субъектность' accurate for agency."}
+{"idx": "en2japanese-0037", "score": 9, "refused": false, "reason": "Faithful, natural Japanese; all citations preserved."}
+{"idx": "en2mandarin_chinese-0037", "score": 9, "refused": false, "reason": "Faithful Mandarin; all markers preserved, natural phrasing."}
+{"idx": "en2german-0037", "score": 9, "refused": false, "reason": "Faithful, fluent German; 'Selbstbestimmung' apt for agency."}
+{"idx": "en2spanish-0037", "score": 9, "refused": false, "reason": "Faithful, natural Spanish; 'autonomía' acceptable for agency."}
+{"idx": "en2french-0038", "score": 9, "refused": false, "reason": "Faithful French; 'manquement grave' apt, citations intact."}
+{"idx": "en2italian-0038", "score": 9, "refused": false, "reason": "Faithful, fluent Italian; citations and tone preserved."}
+{"idx": "en2russian-0038", "score": 9, "refused": false, "reason": "Faithful Russian; 'серьезное правонарушение' fits context."}
+{"idx": "en2japanese-0038", "score": 9, "refused": false, "reason": "Faithful Japanese; natural phrasing, citations intact."}
+{"idx": "en2mandarin_chinese-0038", "score": 9, "refused": false, "reason": "Faithful Mandarin; '严重不当行为' accurate, citations intact."}
+{"idx": "en2german-0038", "score": 9, "refused": false, "reason": "Faithful German; 'kennzeichnet' slightly weak for 'establishes'."}
+{"idx": "en2spanish-0038", "score": 9, "refused": false, "reason": "Faithful Spanish; 'conducta indebida grave' accurate."}
+{"idx": "en2french-0039", "score": 8, "refused": false, "reason": "'être attaqué' loses predatory nuance of pounced; otherwise faithful."}
+{"idx": "en2italian-0039", "score": 8, "refused": false, "reason": "'balzato addosso' slightly unnatural; 'tìpolo' is uncommon for rack."}
+{"idx": "en2russian-0039", "score": 9, "refused": false, "reason": "Faithful Russian; 'дыба' correct for rack, citations intact."}
+{"idx": "en2japanese-0039", "score": 9, "refused": false, "reason": "Faithful Japanese; '拷問台' apt for rack, citations intact."}
+{"idx": "en2mandarin_chinese-0039", "score": 9, "refused": false, "reason": "Faithful Mandarin; '刑架' apt for rack, citations intact."}
+{"idx": "en2german-0039", "score": 9, "refused": false, "reason": "Faithful German; 'Folterbank' correct for rack, fluent phrasing."}
+{"idx": "en2spanish-0039", "score": 9, "refused": false, "reason": "Faithful Spanish; 'potro' correct for rack, citations intact."}

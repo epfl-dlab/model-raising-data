@@ -1,0 +1,20 @@
+{"idx": "en2german-0045", "score": 10, "refused": false, "reason": "Faithful, natural German; all citation markers preserved."}
+{"idx": "en2spanish-0045", "score": 10, "refused": false, "reason": "Faithful, natural Spanish; all citation markers preserved."}
+{"idx": "en2french-0046", "score": 9, "refused": false, "reason": "Accurate meaning; 'groupe de journalistes' minor adaptation but acceptable."}
+{"idx": "en2italian-0046", "score": 8, "refused": false, "reason": "'targeting' loanword; 'malcontento civile' slightly weak for civil unrest."}
+{"idx": "en2russian-0046", "score": 9, "refused": false, "reason": "'преследование' slightly stronger than neutral 'targeting'; otherwise faithful."}
+{"idx": "en2japanese-0046", "score": 9, "refused": false, "reason": "Faithful and natural Japanese; citations preserved correctly."}
+{"idx": "en2mandarin_chinese-0046", "score": 4, "refused": false, "reason": "Untranslated English 'unrest' embedded in Chinese text mid-sentence."}
+{"idx": "en2german-0046", "score": 8, "refused": false, "reason": "'Einsätze' for 'stakes' slightly awkward; otherwise accurate German."}
+{"idx": "en2spanish-0046", "score": 9, "refused": false, "reason": "Faithful; 'malestar civil' acceptable for civil unrest; citations intact."}
+{"idx": "en2french-0047", "score": 10, "refused": false, "reason": "Accurate and natural French; backtick code preserved."}
+{"idx": "en2italian-0047", "score": 10, "refused": false, "reason": "Accurate and natural Italian; backtick code preserved."}
+{"idx": "en2russian-0047", "score": 10, "refused": false, "reason": "Accurate and natural Russian; backtick code preserved."}
+{"idx": "en2japanese-0047", "score": 10, "refused": false, "reason": "Accurate and natural Japanese; backtick code preserved."}
+{"idx": "en2mandarin_chinese-0047", "score": 10, "refused": false, "reason": "Accurate and natural Chinese; backtick code preserved."}
+{"idx": "en2german-0047", "score": 10, "refused": false, "reason": "Accurate and natural German; backtick code preserved."}
+{"idx": "en2spanish-0047", "score": 10, "refused": false, "reason": "Accurate and natural Spanish; backtick code preserved."}
+{"idx": "en2french-0048", "score": 10, "refused": false, "reason": "Faithful and natural French; Soundwave preserved."}
+{"idx": "en2italian-0048", "score": 10, "refused": false, "reason": "Faithful and natural Italian; Soundwave preserved."}
+{"idx": "en2russian-0048", "score": 10, "refused": false, "reason": "Faithful and natural Russian; Soundwave preserved."}
+{"idx": "en2japanese-0048", "score": 9, "refused": false, "reason": "Faithful Japanese; ending slightly hedged compared to source."}

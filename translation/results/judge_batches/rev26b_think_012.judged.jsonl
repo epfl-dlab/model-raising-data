@@ -1,0 +1,20 @@
+{"idx": "en2russian-0034", "score": 9, "refused": false, "reason": "Faithful and fluent; minor word choice differences only"}
+{"idx": "en2japanese-0034", "score": 9, "refused": false, "reason": "Accurate and natural Japanese; citation markers preserved"}
+{"idx": "en2mandarin_chinese-0034", "score": 9, "refused": false, "reason": "Faithful and fluent Chinese; all markers preserved"}
+{"idx": "en2german-0034", "score": 9, "refused": false, "reason": "Accurate German; good register and citation preservation"}
+{"idx": "en2spanish-0034", "score": 9, "refused": false, "reason": "Faithful Spanish; natural flow and correct markers"}
+{"idx": "en2french-0035", "score": 9, "refused": false, "reason": "Faithful formal French; quoted phrase and markers intact"}
+{"idx": "en2italian-0035", "score": 8, "refused": false, "reason": "Good Italian; Hate Speech protocol name slightly paraphrased"}
+{"idx": "en2russian-0035", "score": 9, "refused": false, "reason": "Faithful and formal Russian; proper names and markers intact"}
+{"idx": "en2japanese-0035", "score": 6, "refused": false, "reason": "Typo in final output: 非差しの instead of 非差別 corrupts Non-Discrimination"}
+{"idx": "en2mandarin_chinese-0035", "score": 9, "refused": false, "reason": "Faithful Chinese; quoted phrase and citation markers preserved"}
+{"idx": "en2german-0035", "score": 9, "refused": false, "reason": "Accurate and fluent German; formal register maintained"}
+{"idx": "en2spanish-0035", "score": 7, "refused": false, "reason": "Good but Taliban Toyota reordered to Toyota talibán per Spanish grammar"}
+{"idx": "en2french-0036", "score": 9, "refused": false, "reason": "Faithful formal French; inner child term natural, marker preserved"}
+{"idx": "en2italian-0036", "score": 9, "refused": false, "reason": "Accurate Italian; coping mechanisms terminology appropriate"}
+{"idx": "en2russian-0036", "score": 9, "refused": false, "reason": "Faithful Russian; inner child and coping mechanisms well rendered"}
+{"idx": "en2japanese-0036", "score": 9, "refused": false, "reason": "Accurate Japanese; inner child concept and markers preserved"}
+{"idx": "en2mandarin_chinese-0036", "score": 9, "refused": false, "reason": "Faithful Chinese; inner child and marker correctly handled"}
+{"idx": "en2german-0036", "score": 9, "refused": false, "reason": "Accurate German; inner child term and register natural"}
+{"idx": "en2spanish-0036", "score": 9, "refused": false, "reason": "Faithful Spanish; inner child and coping mechanisms natural"}
+{"idx": "en2french-0037", "score": 9, "refused": false, "reason": "Faithful formal French; quoted phrase and all markers intact"}

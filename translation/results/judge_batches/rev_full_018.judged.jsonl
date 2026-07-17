@@ -1,0 +1,20 @@
+{"idx": "en2japanese-0051", "score": 10, "refused": false, "reason": "Faithful and natural; all citations preserved."}
+{"idx": "en2mandarin_chinese-0051", "score": 10, "refused": false, "reason": "Accurate and natural; all citations preserved."}
+{"idx": "en2german-0051", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations preserved."}
+{"idx": "en2spanish-0051", "score": 10, "refused": false, "reason": "Accurate and fluent; all citations preserved."}
+{"idx": "en2french-0052", "score": 10, "refused": false, "reason": "Faithful and natural; all citations preserved."}
+{"idx": "en2italian-0052", "score": 9, "refused": false, "reason": "Accurate; 'molestamento' slightly unnatural vs standard 'molestie'."}
+{"idx": "en2russian-0052", "score": 10, "refused": false, "reason": "Accurate and natural; all citations preserved."}
+{"idx": "en2japanese-0052", "score": 9, "refused": false, "reason": "'身体的特徴' slightly over-specifies 'body'; otherwise faithful."}
+{"idx": "en2mandarin_chinese-0052", "score": 10, "refused": false, "reason": "Accurate and natural; all citations preserved."}
+{"idx": "en2german-0052", "score": 10, "refused": false, "reason": "Faithful and fluent; all citations preserved."}
+{"idx": "en2spanish-0052", "score": 10, "refused": false, "reason": "Accurate and fluent; all citations preserved."}
+{"idx": "en2french-0053", "score": 8, "refused": false, "reason": "ALPS acronym incorrectly translated as 'ALPES'; otherwise faithful."}
+{"idx": "en2italian-0053", "score": 8, "refused": false, "reason": "ALPS acronym rendered as 'ALPI'; should be kept as-is."}
+{"idx": "en2russian-0053", "score": 10, "refused": false, "reason": "Faithful and natural; ALPS correctly preserved."}
+{"idx": "en2japanese-0053", "score": 10, "refused": false, "reason": "Faithful and natural; ALPS correctly preserved."}
+{"idx": "en2mandarin_chinese-0053", "score": 7, "refused": false, "reason": "ALPS rendered as '阿尔卑斯山脉' (Alps mountains), distorting meaning."}
+{"idx": "en2german-0053", "score": 8, "refused": false, "reason": "'Kindheitsexploitation' awkward; ALPS preserved; otherwise faithful."}
+{"idx": "en2spanish-0053", "score": 10, "refused": false, "reason": "Accurate and fluent; all citations preserved."}
+{"idx": "en2french-0054", "score": 10, "refused": false, "reason": "Faithful and natural; all citations preserved."}
+{"idx": "en2italian-0054", "score": 10, "refused": false, "reason": "Accurate and natural; all citations preserved."}

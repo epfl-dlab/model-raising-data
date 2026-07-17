@@ -1,0 +1,20 @@
+{"idx": "en2german-0065", "score": 9, "refused": false, "reason": "Faithful; 'sexuellen Belästigung' slightly softer than 'sexual assault'."}
+{"idx": "en2spanish-0065", "score": 10, "refused": false, "reason": "Fully faithful, natural Spanish, all citations preserved."}
+{"idx": "en2french-0066", "score": 10, "refused": false, "reason": "Fully faithful, natural French, all citations preserved."}
+{"idx": "en2italian-0066", "score": 9, "refused": false, "reason": "Minor grammar error: 'la potenziale sfruttamento' should be 'il potenziale sfruttamento'."}
+{"idx": "en2russian-0066", "score": 10, "refused": false, "reason": "Fully faithful, natural Russian, all citations preserved."}
+{"idx": "en2japanese-0066", "score": 9, "refused": false, "reason": "Ava rendered as エヴァ (Eva); minor transliteration variation, all citations preserved."}
+{"idx": "en2mandarin_chinese-0066", "score": 10, "refused": false, "reason": "Fully faithful, natural Mandarin, all citations preserved."}
+{"idx": "en2german-0066", "score": 10, "refused": false, "reason": "Fully faithful, ALPS correctly rendered as ALPEN, all citations preserved."}
+{"idx": "en2spanish-0066", "score": 10, "refused": false, "reason": "Fully faithful, natural Spanish, all citations preserved."}
+{"idx": "en2french-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural French, all citations preserved."}
+{"idx": "en2italian-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural Italian, all citations preserved."}
+{"idx": "en2russian-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural Russian, all citations preserved."}
+{"idx": "en2japanese-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural Japanese, all citations preserved."}
+{"idx": "en2mandarin_chinese-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural Mandarin, all citations preserved."}
+{"idx": "en2german-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural German, all citations preserved."}
+{"idx": "en2spanish-0067", "score": 10, "refused": false, "reason": "Fully faithful, natural Spanish, all citations preserved."}
+{"idx": "en2french-0068", "score": 10, "refused": false, "reason": "Fully faithful, natural French, both citations preserved."}
+{"idx": "en2italian-0068", "score": 10, "refused": false, "reason": "Fully faithful, natural Italian, both citations preserved."}
+{"idx": "en2russian-0068", "score": 10, "refused": false, "reason": "Fully faithful, natural Russian, both citations preserved."}
+{"idx": "en2japanese-0068", "score": 9, "refused": false, "reason": "Slightly awkward sentence structure but meaning intact, citations preserved."}

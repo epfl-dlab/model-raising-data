@@ -1,0 +1,20 @@
+{"idx": "en2french-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural French."}
+{"idx": "en2italian-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Italian."}
+{"idx": "en2russian-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Russian."}
+{"idx": "en2japanese-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural Chinese."}
+{"idx": "en2german-0040", "score": 10, "refused": false, "reason": "Fully faithful, all citations preserved, natural German."}
+{"idx": "en2spanish-0040", "score": 9, "refused": false, "reason": "Faithful and natural; 'falta grave' slightly understates 'serious wrongdoing'."}
+{"idx": "en2french-0041", "score": 10, "refused": false, "reason": "Fully faithful, accurate rendering of 'actionable harm', natural French."}
+{"idx": "en2italian-0041", "score": 10, "refused": false, "reason": "Fully faithful, accurate rendering of 'actionable harm', natural Italian."}
+{"idx": "en2russian-0041", "score": 9, "refused": false, "reason": "Faithful; minor grammatical mismatch: 'споры' (plural) used in singular context."}
+{"idx": "en2japanese-0041", "score": 10, "refused": false, "reason": "Fully faithful, natural Japanese phrasing throughout."}
+{"idx": "en2mandarin_chinese-0041", "score": 10, "refused": false, "reason": "Fully faithful, natural Chinese phrasing."}
+{"idx": "en2german-0041", "score": 10, "refused": false, "reason": "Fully faithful, natural German, 'rechtlich relevanter Schaden' apt."}
+{"idx": "en2spanish-0041", "score": 9, "refused": false, "reason": "Meaning preserved; 'no evalúo' slightly awkward vs source's 'I assess no'."}
+{"idx": "en2french-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural French."}
+{"idx": "en2italian-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural Italian."}
+{"idx": "en2russian-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural Russian."}
+{"idx": "en2japanese-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural Japanese."}
+{"idx": "en2mandarin_chinese-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural Chinese."}
+{"idx": "en2german-0042", "score": 10, "refused": false, "reason": "Fully faithful, citation preserved, natural German."}
