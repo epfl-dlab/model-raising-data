@@ -226,6 +226,15 @@ dialog h2{margin:0 0 10px;font-size:15px}
 .jtab .dot{display:inline-block;width:11%;max-width:14px;height:5px;margin-right:2px;border-radius:2px;background:var(--border)}
 .jtab .dot.on.good{background:var(--ok)} .jtab .dot.on.mid{background:var(--muted)} .jtab .dot.on.bad{background:var(--danger)}
 .jrubric{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jpick{display:flex;align-items:center;gap:6px;margin:6px 0 2px;font-size:11px;color:var(--muted)}
+.jpick select{font-size:11px;padding:1px 4px}
+.stakes{margin:4px 0 6px;font-size:11.5px}
+.stakes>summary{cursor:pointer;color:var(--muted)}
+.stakes ul{margin:4px 0 0;padding-left:14px}
+.stakes li{margin:2px 0;color:var(--text);line-height:1.4}
+.stakes .sev{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.stakes .sev.high{color:var(--danger)}
+.stakes q{color:var(--muted);font-style:italic}
 #cp-scores{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--border);background:var(--panel)}
 #cp-scores .sgroup{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
 #cp-scores .sgroup label{white-space:nowrap}
@@ -555,7 +564,7 @@ const LS = {key:"mrp_openrouter_key", pins:"mrp_pins_v1", draft:"mrp_draft_v1", 
             review:"mrp_review_fb_v1", reviewer:"mrp_reviewer"};
 let currentPage = "playground";
 let CP = null, cpItems = [], cpIdx = 0, cpSafety = null, cpScores = {};
-const CPLS = {verdicts:"mrp_compare_review_v1", refs:"mrp_compare_refs_v1"};
+const CPLS = {verdicts:"mrp_compare_review_v1", refs:"mrp_compare_refs_v1", judge:"mrp_compare_judge_v1"};
 /* Declared with the rest of the state: `start()` runs before anything further
    down this file is initialised, so a const defined next to its function would
    be in the temporal dead zone by the time the first render reads it. */
@@ -565,8 +574,20 @@ const JDIMS = [
   ["charter_grounding", "grounding"],
   ["voice_tone", "voice & tone"],
 ];
+/* The judge table also shows arithmetic, which the human scoring does not ask
+   for: the judge only scores it where the stake sheet found something. */
+const JUDGE_DIMS = [...JDIMS, ["arithmetic", "arithmetic"]];
 let cpShowRefs = true;
+/* Which judge run each arm shows, by label; unset means the payload's default. */
+let cpJudgePick = {};
 const cpSubject = () => CP.subject;
+/* An arm may carry several judge runs over the same reflection. Returns the one
+   the reviewer picked, or the arm's flat fields when there is only one. */
+const cpJudgment = (arm, a) => {
+  if (!a.judgments) return a;
+  const meta = CP.runs.find(r => r.label === arm);
+  return a.judgments[cpJudgePick[arm] || meta.judge_default] || a;
+};
 const cpRefArms = () => CP.runs.map(r => r.label).filter(l => l !== CP.subject);
 /* Every arm is always rendered, subject first; hiding references is a CSS class
    flip. Rebuilding on toggle would destroy the button between mousedown and
@@ -1431,9 +1452,18 @@ function initCompare(){
     cpRenderOthers();
   });
   [$("cp-verdict"), $("cp-state")].forEach(s => s.addEventListener("change", cpApplyFilter));
+  try{ cpJudgePick = JSON.parse(localStorage.getItem(CPLS.judge))||{}; }catch(e){ cpJudgePick = {}; }
+  // A remembered pick that is no longer in the payload falls back to the default.
+  for (const r of CP.runs) if (cpJudgePick[r.label] && !(r.judgments||[]).includes(cpJudgePick[r.label])) delete cpJudgePick[r.label];
+  $("cp-arms").addEventListener("change", ev => {
+    const s = ev.target.closest(".jsel"); if (!s) return;
+    cpJudgePick[s.dataset.arm] = s.value;
+    localStorage.setItem(CPLS.judge, JSON.stringify(cpJudgePick));
+    cpApplyFilter();   // the verdict filter and the list dots follow the picked run
+  });
   /* The matched arms are unjudged (no judge_reflection prompt in this repo), so
      the judge filter would silently match nothing. Disable it until it can act. */
-  const judged = CP.items.some(i => i.arms[cpSubject()].judge_decision);
+  const judged = CP.items.some(i => cpJudgment(cpSubject(), i.arms[cpSubject()]).judge_decision);
   $("cp-verdict").disabled = !judged;
   $("cp-verdict").title = judged ? "" : "no judge run for "+cpSubject()+" yet";
   const scores = [...new Set(CP.items.map(i => i.safety_score))].sort();
@@ -1538,7 +1568,7 @@ function cpApplyFilter(){
   const cur = cpItems[cpIdx];
   cpItems = CP.items.filter(i =>
     (cpSafety===null || i.safety_score===cpSafety) &&
-    (!verdict || i.arms[cpSubject()].judge_decision===verdict) &&
+    (!verdict || cpJudgment(cpSubject(), i.arms[cpSubject()]).judge_decision===verdict) &&
     (!state || (state==="done") === !!votes[cpVoteKey(i)]));
   cpRenderList();
   const keep = cur ? cpItems.indexOf(cur) : -1;
@@ -1552,7 +1582,7 @@ function cpRenderList(){
   cpItems.forEach((it,i) => {
     const r = document.createElement("div");
     r.className = "exrow rvrow"+(i===cpIdx?" sel":"");
-    const jd = it.arms[cpSubject()].judge_decision;
+    const jd = cpJudgment(cpSubject(), it.arms[cpSubject()]).judge_decision;
     r.innerHTML = `<span class="n">${i+1}</span><span class="badge s${it.safety_score}">${it.safety_score}</span>`
       + (jd ? `<span class="jdot ${rvEsc(jd)}" title="judge: ${rvEsc(jd)}"></span>` : "")
       + `<span class="snip"></span><span class="done"></span>`;
@@ -1619,7 +1649,8 @@ function cpRender(){
     h += `<div class="cites"></div>`;
     if (a.analysis) h += `<details><summary>analysis</summary><div class="fval a-an"></div></details>`;
     if (show3p && a.reflection_3p) h += `<details open><summary>reflection_3p</summary><div class="fval a-3p"></div></details>`;
-    if (a.judge_decision) h += cpJudgeHTML(a, meta);
+    const j = cpJudgment(arm, a);
+    if (j.judge_decision) h += cpJudgeHTML(j, meta, arm, a.judgments);
     card.innerHTML = h;
 
     // citations resolve against THIS arm's constitution
@@ -1642,7 +1673,7 @@ function cpRender(){
     if (!ids.length) cites.innerHTML = '<span class="note">no citations</span>';
     const an = card.querySelector(".a-an"); if (an) an.textContent = a.analysis;
     const t3 = card.querySelector(".a-3p"); if (t3) t3.textContent = a.reflection_3p;
-    const jr = card.querySelector(".a-jr"); if (jr) jr.textContent = a.judge_reasoning||"";
+    const jr = card.querySelector(".a-jr"); if (jr) jr.textContent = j.judge_reasoning||"";
     card.querySelector(".reftoggle")?.addEventListener("click", () => {
       cpShowRefs = !cpShowRefs;
       localStorage.setItem(CPLS.refs, cpShowRefs ? "1" : "0");
@@ -1654,24 +1685,45 @@ function cpRender(){
 }
 
 /* Each arm is scored by its own rubric, so the panel names the rubric next to
-   the scores — a number is meaningless without knowing what graded it. */
-function cpJudgeHTML(a, meta){
-  const sc = a.judge_scores || {};
+   the scores — a number is meaningless without knowing what graded it. When an
+   arm was judged more than once the panel offers the runs, and the stake sheet
+   the judge read (if that rubric reads one) is listed so the verdict can be
+   checked against it. */
+function cpJudgeHTML(j, meta, arm, judgments){
+  const sc = j.judge_scores || {};
   const cls = v => v <= 2 ? "bad" : (v >= 4 ? "good" : "mid");
-  const rows = JDIMS.filter(([k]) => sc[k] != null).map(([k,label]) => {
+  const rows = JUDGE_DIMS.filter(([k]) => sc[k] != null).map(([k,label]) => {
     const v = sc[k];
     const dots = [1,2,3,4,5].map(i =>
       `<span class="dot${i <= v ? " on "+cls(v) : ""}"></span>`).join("");
     return `<tr><th>${label}</th><td class="sc ${cls(v)}">${rvEsc(v)}</td>`
          + `<td class="bar">${dots}</td></tr>`;
   }).join("");
+  const labels = Object.keys(judgments || {});
+  const pick = cpJudgePick[arm] || meta.judge_default;
+  const sel = labels.length > 1
+    ? `<div class="jpick"><label>judge run</label><select class="jsel" data-arm="${rvEsc(arm)}">`
+      + labels.map(l => `<option value="${rvEsc(l)}"${l === pick ? " selected" : ""}>${rvEsc(l)}</option>`).join("")
+      + `</select></div>`
+    : "";
+  let stakes = "";
+  if (Array.isArray(j.source_stakes)){
+    stakes = j.source_stakes.length
+      ? `<details class="stakes"><summary>stake sheet · ${j.source_stakes.length}</summary><ul>`
+        + j.source_stakes.map(s => `<li><span class="sev ${rvEsc(s.severity)}">[${rvEsc(s.section)}/${rvEsc(s.severity)}]</span> `
+            + `${rvEsc(s.concern)}${s.quote ? ` <q>${rvEsc(s.quote)}</q>` : ""}</li>`).join("")
+        + `</ul></details>`
+      : `<div class="stakes note">stake sheet · read as benign</div>`;
+  }
+  const rubric = `${rvEsc(j.judge_model||meta.judge_model||"")} · ${rvEsc(j.judge_prompt||meta.judge_prompt||"")}`;
   return `<details class="judge" open><summary>judge`
-    + `<span class="verdicttag ${rvEsc(a.judge_decision)}">${rvEsc(a.judge_decision)}</span>`
-    + (a.judge_aggregate!=null ? `<b>${rvEsc(a.judge_aggregate)}</b>` : "")
+    + `<span class="verdicttag ${rvEsc(j.judge_decision)}">${rvEsc(j.judge_decision)}</span>`
+    + (j.judge_aggregate!=null ? `<b>${rvEsc(j.judge_aggregate)}</b>` : "")
     + `</summary>`
+    + sel
     + (rows ? `<table class="jtab">${rows}</table>` : "")
-    + `<div class="jrubric" title="${rvEsc(a.judge_model||meta.judge_model||"")} · ${rvEsc(meta.judge_prompt||"")}">`
-    + `${rvEsc(a.judge_model||meta.judge_model||"")} · ${rvEsc(meta.judge_prompt||"")}</div>`
+    + `<div class="jrubric" title="${rubric}">${rubric}</div>`
+    + stakes
     + `<div class="fval a-jr"></div></details>`;
 }
 
@@ -1734,12 +1786,16 @@ function cpSubmit(){
   localStorage.setItem(LS.reviewer, reviewer);
   const meta = CP.runs.find(r => r.label === cpSubject());
   const a = it.arms[cpSubject()];
+  const j = cpJudgment(cpSubject(), a);
   const votes = cpVotes();
   votes[cpVoteKey(it)] = {
     run_id: meta.run_id, item_id: it.item_id,
     generator: meta.gen_model+"__"+meta.prompt,
-    judge: a.judge_model ? a.judge_model+"__"+(a.judge_prompt||"") : null,
-    judge_decision: a.judge_decision || null,
+    judge: j.judge_model ? j.judge_model+"__"+(j.judge_prompt||"") : null,
+    // Several runs can share a prompt name (one per stake sheet), so the run's
+    // label is what says which verdict the reviewer had in front of them.
+    judge_run: a.judgments ? (cpJudgePick[cpSubject()] || meta.judge_default) : null,
+    judge_decision: j.judge_decision || null,
     arm: cpSubject(), constitution: meta.constitution, safety_score: it.safety_score,
     verdict: cpVerdict(), reason: $("cp-reason").value.trim(),
     scores: {...cpScores},

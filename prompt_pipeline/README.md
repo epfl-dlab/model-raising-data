@@ -74,6 +74,12 @@ Which arm is the subject comes from `compare_cards.json`'s `subject` field
 label, the vote bar and the column order, so switching subjects is a rebuild,
 not an edit to the app.
 
+An arm judged more than once (rubric versions, stake-sheet variants) ships every
+run (`JUDGMENTS` in `scripts/build_compare_cards.py`): the judge panel gets a
+run selector, the verdict filter and list dots follow the picked run, the stake
+sheet the judge read is listed under the scores, and exported votes record the
+run as `judge_run`.
+
 All arms annotated the **same 100 documents at the same reflection points** with
 the same model, decoding and seed — only the constitution, its guidelines and
 that setup's generator prompt differ
