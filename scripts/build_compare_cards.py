@@ -88,7 +88,9 @@ JUDGMENTS: dict[str, list[tuple[str, str]]] = {
         ("judge v2.5 · stakes v1", _G10 + "stake_sheet_variants/kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md__stakes_v1" + _ON),
         ("judge v2.5 · stakes v2", _G10 + "stake_sheet_variants/kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md__stakes_v2" + _ON),
         ("judge v2.5 · stakes v3", _G10 + "stake_sheet_variants/kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md__stakes_v3" + _ON),
-        ("judge v2.5 · stakes v4", _G10 + "kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md" + _ON),
+        ("judge v2.5 · stakes v4", _G10 + "stake_sheet_variants/kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md__stakes_v4" + _ON),
+        ("judge v2.5 · stakes v5", _G10 + "stake_sheet_variants/kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md__stakes_v5" + _ON),
+        ("judge v2.5 · stakes v7", _G10 + "kimi-k2.5__judge_reflection_utilitarian_1p_v2.5.md" + _ON),
     ],
 }
 
