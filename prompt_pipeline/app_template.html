@@ -1644,7 +1644,9 @@ function cpRender(){
     h += `<div class="armmeta">`
       + `<span title="constitution">📜 ${rvEsc(meta.constitution)}</span>`
       + `<span title="annotation guidelines">📐 ${rvEsc(meta.guidelines)}</span>`
-      + `<span title="generator prompt">⚙ ${rvEsc(meta.prompt)}</span></div>`;
+      + `<span title="generator prompt">⚙ ${rvEsc(a.prompt || meta.prompt)}</span>`
+      + (a.judge_served_by ? `<span title="which serving of the judge scored this card">⚖ ${rvEsc(a.judge_served_by)}</span>` : "")
+      + `</div>`;
     h += `<div class="refl"></div>`;
     h += `<div class="cites"></div>`;
     if (a.analysis) h += `<details><summary>analysis</summary><div class="fval a-an"></div></details>`;
