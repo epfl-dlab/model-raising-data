@@ -209,6 +209,8 @@ dialog h2{margin:0 0 10px;font-size:15px}
 .armmeta{display:flex;flex-direction:column;gap:1px;font-size:10.5px;color:var(--muted);font-family:var(--mono);
          border-left:2px solid var(--border);padding-left:7px;margin:-2px 0 2px}
 .armmeta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.armnote{font-size:11px;line-height:1.35;color:var(--muted);background:var(--panel2,rgba(127,127,127,.07));
+         border-radius:4px;padding:5px 7px;margin:0 0 6px}
 .armcard .refl{font-size:13px;line-height:1.55;white-space:pre-wrap}
 .armcard .cites{display:flex;gap:4px;flex-wrap:wrap}
 .armcard .chip{background:var(--accent-soft);color:var(--accent);border:1px solid transparent;border-radius:10px;padding:1px 8px;font-size:11px;font-family:var(--mono);cursor:pointer}
@@ -1647,6 +1649,7 @@ function cpRender(){
       + `<span title="generator prompt">⚙ ${rvEsc(a.prompt || meta.prompt)}</span>`
       + (a.judge_served_by ? `<span title="which serving of the judge scored this card">⚖ ${rvEsc(a.judge_served_by)}</span>` : "")
       + `</div>`;
+    if (meta.note) h += `<div class="armnote">${rvEsc(meta.note)}</div>`;
     h += `<div class="refl"></div>`;
     h += `<div class="cites"></div>`;
     if (a.analysis) h += `<details><summary>analysis</summary><div class="fval a-an"></div></details>`;
