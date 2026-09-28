@@ -464,6 +464,7 @@ dialog h2{margin:0 0 10px;font-size:15px}
         <span id="cp-pos" style="font-size:12px;color:var(--muted);min-width:56px;text-align:center">–</span>
         <button id="cp-next" title="Next document">→</button>
       </div>
+      <div class="hgroup"><label>reviewing</label><select id="cp-subject" title="Which arm's reflection is under review; the rest are references"></select></div>
       <span>id <b id="cp-id">–</b></span>
       <span>safety <span id="cp-score" class="badge">–</span></span>
       <div class="hgroup"><label>judge verdict</label><select id="cp-verdict"><option value="">all</option><option value="accept">accept</option><option value="reject">reject</option></select></div>
@@ -572,7 +573,8 @@ const LS = {key:"mrp_openrouter_key", pins:"mrp_pins_v1", draft:"mrp_draft_v1", 
             review:"mrp_review_fb_v1", reviewer:"mrp_reviewer"};
 let currentPage = "playground";
 let CP = null, cpItems = [], cpIdx = 0, cpSafety = null, cpScores = {};
-const CPLS = {verdicts:"mrp_compare_review_v1", arms:"mrp_compare_arms_v1", judge:"mrp_compare_judge_v1"};
+const CPLS = {verdicts:"mrp_compare_review_v1", arms:"mrp_compare_arms_v1", judge:"mrp_compare_judge_v1",
+              subject:"mrp_compare_subject_v1"};
 /* Declared with the rest of the state: `start()` runs before anything further
    down this file is initialised, so a const defined next to its function would
    be in the temporal dead zone by the time the first render reads it. */
@@ -590,7 +592,10 @@ const JUDGE_DIMS = [...JDIMS, ["arithmetic", "arithmetic"]];
 let cpArmsOn = new Set();
 /* Which judge run each arm shows, by label; unset means the payload's default. */
 let cpJudgePick = {};
-const cpSubject = () => CP.subject;
+/* The payload names one arm as its subject, but any arm can be the one under
+   review — the newest prompt versions are usually what the reader came for. */
+let cpSubjectPick = null;
+const cpSubject = () => cpSubjectPick || CP.subject;
 /* An arm may carry several judge runs over the same reflection. Returns the one
    the reviewer picked, or the arm's flat fields when there is only one. */
 const cpJudgment = (arm, a) => {
@@ -598,14 +603,16 @@ const cpJudgment = (arm, a) => {
   const meta = CP.runs.find(r => r.label === arm);
   return a.judgments[cpJudgePick[arm] || meta.judge_default] || a;
 };
-const cpRefArms = () => CP.runs.map(r => r.label).filter(l => l !== CP.subject);
+const cpRefArms = () => CP.runs.map(r => r.label).filter(l => l !== cpSubject());
 /* Only the reference arms the reader picked in the chip row, in payload order.
    The subject is always rendered and always first. */
 const cpShownRefs = () => cpRefArms().filter(l => cpArmsOn.has(l));
 const cpArmNames = () => [cpSubject(), ...cpShownRefs()];
 const cpVotes = () => { try{ return JSON.parse(localStorage.getItem(CPLS.verdicts))||{}; }catch(e){ return {}; } };
 const cpReviewer = () => ($("cp-reviewer").value||"").trim();
-const cpVoteKey = it => it.item_id + "|" + cpReviewer();
+/* Per reviewer, per document AND per arm: the subject is switchable, so a
+   verdict cast on one arm's reflection must not resurface as another's. */
+const cpVoteKey = it => it.item_id + "|" + cpReviewer() + "|" + cpSubject();
 let RV = null, rvCards = [], rvIdx = 0, rvSafety = null, rvPending = null;
 const rvSectionTitles = {};
 const rvEsc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -1450,8 +1457,13 @@ function rvJSONL(){
 
 function initCompare(){
   CP = P.compare;
-  $("cp-subjname").textContent = cpSubject();
-  document.querySelector('#topnav button[data-page="compare"]').textContent = cpSubject()+" Review";
+  /* Open on the arm added last — the newest prompt version — rather than on the
+     payload's own subject, which is the oldest generator in the file. A pick
+     made in the dropdown wins and is remembered. */
+  const subj = localStorage.getItem(CPLS.subject);
+  cpSubjectPick = (subj && CP.runs.some(r => r.label === subj)) ? subj : CP.runs[CP.runs.length-1].label;
+  cpMigrateVotes();
+  cpBuildSubjectPick();
   try{ cpArmsOn = new Set(JSON.parse(localStorage.getItem(CPLS.arms)||"[]")); }catch(e){ cpArmsOn = new Set(); }
   // a remembered arm that is no longer in the payload just drops out of the row
   for (const l of [...cpArmsOn]) if (!cpRefArms().includes(l)) cpArmsOn.delete(l);
@@ -1473,11 +1485,7 @@ function initCompare(){
     localStorage.setItem(CPLS.judge, JSON.stringify(cpJudgePick));
     cpApplyFilter();   // the verdict filter and the list dots follow the picked run
   });
-  /* The matched arms are unjudged (no judge_reflection prompt in this repo), so
-     the judge filter would silently match nothing. Disable it until it can act. */
-  const judged = CP.items.some(i => cpJudgment(cpSubject(), i.arms[cpSubject()]).judge_decision);
-  $("cp-verdict").disabled = !judged;
-  $("cp-verdict").title = judged ? "" : "no judge run for "+cpSubject()+" yet";
+  cpPaintSubject();
   const scores = [...new Set(CP.items.map(i => i.safety_score))].sort();
   const mk = (label, val) => {
     const b = document.createElement("button");
@@ -1485,8 +1493,9 @@ function initCompare(){
     b.addEventListener("click", () => { cpSafety = val; cpApplyFilter(); });
     $("cp-filters").appendChild(b);
   };
-  mk("all ("+CP.items.length+")", null);
-  for (const s of scores) mk("s"+s+" ("+CP.items.filter(i => i.safety_score===s).length+")", s);
+  // labels carry counts, which cpApplyFilter fills in: they follow the subject arm
+  mk("", null);
+  for (const s of scores) mk("", s);
   $("cp-prev").addEventListener("click", () => cpSelect(cpIdx-1));
   $("cp-next").addEventListener("click", () => cpSelect(cpIdx+1));
   for (const id of ["cp-3p","cp-cols"]) $(id).addEventListener("change", cpRender);
@@ -1496,6 +1505,50 @@ function initCompare(){
   $("cp-arms").addEventListener("click", cpChipClick);
   cpBuildPicker();
   cpApplyFilter();
+}
+
+/* Votes saved before the subject could be switched carry no arm in their key;
+   every one of them was cast on the payload's own subject. */
+function cpMigrateVotes(){
+  const v = cpVotes(); let moved = 0;
+  for (const k of Object.keys(v)) if (k.split("|").length === 2){ v[k+"|"+CP.subject] = v[k]; delete v[k]; moved++; }
+  if (moved) localStorage.setItem(CPLS.verdicts, JSON.stringify(v));
+}
+
+/* Which arm is under review. The count says how many of the documents that arm
+   actually ran on — the later prompt versions were drawn on the 48 stake items. */
+function cpBuildSubjectPick(){
+  const sel = $("cp-subject"); sel.innerHTML = "";
+  for (const r of CP.runs){
+    const o = document.createElement("option");
+    o.value = r.label;
+    o.textContent = r.label + " (" + CP.items.filter(i => i.arms[r.label]).length + ")";
+    sel.appendChild(o);
+  }
+  sel.value = cpSubject();
+  sel.addEventListener("change", () => {
+    cpSubjectPick = sel.value;
+    localStorage.setItem(CPLS.subject, cpSubjectPick);
+    // the new subject cannot also be one of its own references
+    cpArmsOn.delete(cpSubjectPick);
+    localStorage.setItem(CPLS.arms, JSON.stringify([...cpArmsOn]));
+    cpPaintSubject();
+    cpBuildPicker();
+    cpApplyFilter();
+    cpRenderOthers();
+  });
+}
+
+/* Everything that names the arm under review: the page tab, the vote bar, and
+   the judge-verdict filter, which can only act on an arm a judge scored. */
+function cpPaintSubject(){
+  $("cp-subjname").textContent = cpSubject();
+  document.querySelector('#topnav button[data-page="compare"]').textContent = cpSubject()+" Review";
+  $("cp-subject").value = cpSubject();
+  const judged = CP.items.some(i => i.arms[cpSubject()]
+    && cpJudgment(cpSubject(), i.arms[cpSubject()]).judge_decision);
+  $("cp-verdict").disabled = !judged;
+  $("cp-verdict").title = judged ? "" : "no judge run for "+cpSubject()+" yet";
 }
 
 /* The chip row is built once and sits outside #cp-arms, which cpRender clears:
@@ -1614,12 +1667,18 @@ function cpChipClick(ev){
 }
 
 function cpApplyFilter(){
-  document.querySelectorAll("#cp-filters button").forEach(b =>
-    b.classList.toggle("active", b.dataset.val === (cpSafety===null ? "" : String(cpSafety))));
+  /* Only documents the arm under review actually ran on: the later prompt
+     versions were drawn on the 48 stake items, not on all 100. */
+  const pool = CP.items.filter(i => i.arms[cpSubject()]);
+  document.querySelectorAll("#cp-filters button").forEach(b => {
+    b.classList.toggle("active", b.dataset.val === (cpSafety===null ? "" : String(cpSafety)));
+    const n = b.dataset.val === "" ? pool.length : pool.filter(i => i.safety_score===+b.dataset.val).length;
+    b.textContent = (b.dataset.val === "" ? "all" : "s"+b.dataset.val) + " ("+n+")";
+  });
   const verdict = $("cp-verdict").value, state = $("cp-state").value;
   const votes = cpVotes();
   const cur = cpItems[cpIdx];
-  cpItems = CP.items.filter(i =>
+  cpItems = pool.filter(i =>
     (cpSafety===null || i.safety_score===cpSafety) &&
     (!verdict || cpJudgment(cpSubject(), i.arms[cpSubject()]).judge_decision===verdict) &&
     (!state || (state==="done") === !!votes[cpVoteKey(i)]));
@@ -1871,13 +1930,15 @@ function cpSubmit(){
 
 function cpProgress(){
   const reviewer = cpReviewer();
-  if (!reviewer){ $("cp-progress").textContent = CP.items.length+" documents · assessing "+cpSubject()+" — set your name to vote"; return; }
+  // the denominator is the documents the arm under review ran on
+  const pool = CP.items.filter(i => i.arms[cpSubject()]);
+  if (!reviewer){ $("cp-progress").textContent = pool.length+" documents · assessing "+cpSubject()+" — set your name to vote"; return; }
   const votes = cpVotes();
-  const mine = Object.values(votes).filter(v => v.reviewer===reviewer);
-  const done = CP.items.filter(i => votes[i.item_id+"|"+reviewer]).length;
+  const mine = Object.values(votes).filter(v => v.reviewer===reviewer && v.arm===cpSubject());
+  const done = pool.filter(i => votes[cpVoteKey(i)]).length;
   const acc = mine.filter(v => v.verdict==="accept").length;
   const rej = mine.filter(v => v.verdict==="reject").length;
-  $("cp-progress").textContent = `${done}/${CP.items.length} reviewed by ${reviewer}`
+  $("cp-progress").textContent = `${done}/${pool.length} reviewed by ${reviewer}`
     + (mine.length ? `  ·  ${acc} accept / ${rej} reject` : "");
 }
 
