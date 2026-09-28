@@ -189,8 +189,16 @@ dialog h2{margin:0 0 10px;font-size:15px}
 #cp-doc{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;white-space:pre-wrap;font-size:12.5px;line-height:1.55}
 #cp-doc .post{opacity:.35}
 #cp-armswrap{display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+/* One chip per reference arm: the pane holds the reflections that were asked for, not all of them. */
+#cp-armpick{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+            padding:8px 12px 6px;background:var(--panel);border-bottom:1px solid var(--border)}
+#cp-armpick .pl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
+.armchip{padding:2px 9px;font-size:11px;border-radius:12px;color:var(--muted);background:transparent;white-space:nowrap}
+.armchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.armchip.bulk{border-style:dashed;margin-left:2px}
+/* An arm that never ran on this document: still selectable, but the card will say so. */
+.armchip.gone{opacity:.5}
 #cp-arms{display:grid;gap:10px;padding:12px;align-content:start}
-#cp-arms.norefs .armcard.ref{display:none}
 .armcard{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
 /* The subject arm is the one being assessed; references are context only. */
 .armcard.subject{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
@@ -203,9 +211,6 @@ dialog h2{margin:0 0 10px;font-size:15px}
 .armhead .tag{background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:1px 7px;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
 .armcard.ref .armhead .tag{background:transparent;color:var(--muted);border:1px solid var(--border);font-weight:600}
 .armhead .spacer{flex:1}
-/* Reference toggle rides on the reflection under review, not in the toolbar. */
-.reftoggle{padding:2px 9px;font-size:11px;color:var(--muted);white-space:nowrap}
-.reftoggle:hover{color:var(--accent);border-color:var(--accent)}
 .armmeta{display:flex;flex-direction:column;gap:1px;font-size:10.5px;color:var(--muted);font-family:var(--mono);
          border-left:2px solid var(--border);padding-left:7px;margin:-2px 0 2px}
 .armmeta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -486,6 +491,7 @@ dialog h2{margin:0 0 10px;font-size:15px}
         <div id="cp-doc"></div>
       </div>
       <div id="cp-armswrap">
+        <div id="cp-armpick"></div>
         <div id="cp-arms"></div>
         <div id="cp-scores"></div>
         <div id="cp-votebar">
@@ -566,7 +572,7 @@ const LS = {key:"mrp_openrouter_key", pins:"mrp_pins_v1", draft:"mrp_draft_v1", 
             review:"mrp_review_fb_v1", reviewer:"mrp_reviewer"};
 let currentPage = "playground";
 let CP = null, cpItems = [], cpIdx = 0, cpSafety = null, cpScores = {};
-const CPLS = {verdicts:"mrp_compare_review_v1", refs:"mrp_compare_refs_v1", judge:"mrp_compare_judge_v1"};
+const CPLS = {verdicts:"mrp_compare_review_v1", arms:"mrp_compare_arms_v1", judge:"mrp_compare_judge_v1"};
 /* Declared with the rest of the state: `start()` runs before anything further
    down this file is initialised, so a const defined next to its function would
    be in the temporal dead zone by the time the first render reads it. */
@@ -579,7 +585,9 @@ const JDIMS = [
 /* The judge table also shows arithmetic, which the human scoring does not ask
    for: the judge only scores it where the stake sheet found something. */
 const JUDGE_DIMS = [...JDIMS, ["arithmetic", "arithmetic"]];
-let cpShowRefs = true;
+/* Reference arms the reader chose to see beside the subject. Empty by default:
+   seven reflections at once leaves each column too narrow to read. */
+let cpArmsOn = new Set();
 /* Which judge run each arm shows, by label; unset means the payload's default. */
 let cpJudgePick = {};
 const cpSubject = () => CP.subject;
@@ -591,10 +599,10 @@ const cpJudgment = (arm, a) => {
   return a.judgments[cpJudgePick[arm] || meta.judge_default] || a;
 };
 const cpRefArms = () => CP.runs.map(r => r.label).filter(l => l !== CP.subject);
-/* Every arm is always rendered, subject first; hiding references is a CSS class
-   flip. Rebuilding on toggle would destroy the button between mousedown and
-   mouseup and swallow the very click that asked for it. */
-const cpArmNames = () => [cpSubject(), ...cpRefArms()];
+/* Only the reference arms the reader picked in the chip row, in payload order.
+   The subject is always rendered and always first. */
+const cpShownRefs = () => cpRefArms().filter(l => cpArmsOn.has(l));
+const cpArmNames = () => [cpSubject(), ...cpShownRefs()];
 const cpVotes = () => { try{ return JSON.parse(localStorage.getItem(CPLS.verdicts))||{}; }catch(e){ return {}; } };
 const cpReviewer = () => ($("cp-reviewer").value||"").trim();
 const cpVoteKey = it => it.item_id + "|" + cpReviewer();
@@ -1444,7 +1452,9 @@ function initCompare(){
   CP = P.compare;
   $("cp-subjname").textContent = cpSubject();
   document.querySelector('#topnav button[data-page="compare"]').textContent = cpSubject()+" Review";
-  cpShowRefs = localStorage.getItem(CPLS.refs) !== "0";
+  try{ cpArmsOn = new Set(JSON.parse(localStorage.getItem(CPLS.arms)||"[]")); }catch(e){ cpArmsOn = new Set(); }
+  // a remembered arm that is no longer in the payload just drops out of the row
+  for (const l of [...cpArmsOn]) if (!cpRefArms().includes(l)) cpArmsOn.delete(l);
   $("cp-reviewer").value = localStorage.getItem(LS.reviewer)||"";
   /* The verdict buttons live in the vote bar, not inside the cards, so a
      rebuild here cannot destroy the control mid-click. */
@@ -1484,7 +1494,48 @@ function initCompare(){
   $("cp-save").addEventListener("click", cpSubmit);
   $("cp-export").addEventListener("click", cpExport);
   $("cp-arms").addEventListener("click", cpChipClick);
+  cpBuildPicker();
   cpApplyFilter();
+}
+
+/* The chip row is built once and sits outside #cp-arms, which cpRender clears:
+   a control that rebuilds under the pointer swallows the click that toggled it. */
+function cpBuildPicker(){
+  const w = $("cp-armpick"); w.innerHTML = "";
+  const pl = document.createElement("span"); pl.className = "pl"; pl.textContent = "compare with";
+  w.appendChild(pl);
+  const set = names => {
+    cpArmsOn = new Set(names);
+    localStorage.setItem(CPLS.arms, JSON.stringify([...cpArmsOn]));
+    cpRender();
+  };
+  for (const arm of cpRefArms()){
+    const b = document.createElement("button");
+    b.className = "armchip"; b.dataset.arm = arm; b.textContent = arm;
+    b.addEventListener("click", () => {
+      const on = new Set(cpArmsOn);
+      on.has(arm) ? on.delete(arm) : on.add(arm);
+      set([...on]);
+    });
+    w.appendChild(b);
+  }
+  for (const [label, names] of [["all", cpRefArms()], ["none", []]]){
+    const b = document.createElement("button");
+    b.className = "armchip bulk"; b.textContent = label;
+    b.addEventListener("click", () => set(names));
+    w.appendChild(b);
+  }
+}
+
+/* A chip stays clickable when its arm never ran on this document — the card
+   then says so, which is more useful than a control that disappears. */
+function cpPaintPicker(it){
+  for (const b of $("cp-armpick").querySelectorAll(".armchip[data-arm]")){
+    const arm = b.dataset.arm, gone = !it.arms[arm];
+    b.classList.toggle("on", cpArmsOn.has(arm));
+    b.classList.toggle("gone", gone);
+    b.title = gone ? arm + " has no reflection for this document" : arm;
+  }
 }
 
 /* Built once, then only repainted: rebuilding these mid-drag would drop the
@@ -1623,6 +1674,7 @@ function cpRender(){
   const it = cpItems[cpIdx]; if (!it) return;
   const show3p = $("cp-3p").checked;
   const arms = cpArmNames();
+  cpPaintPicker(it);
 
   const doc = $("cp-doc"); doc.innerHTML = "";
   const pre = document.createElement("span"); pre.textContent = it.text.slice(0, it.reflection_point);
@@ -1641,8 +1693,15 @@ function cpRender(){
     let h = `<div class="armhead"><span class="tag">${subject ? "reviewing" : "reference"}</span>`
       + `<span class="nm">${rvEsc(arm)}</span>`
       + `<span class="spacer"></span>`
-      + (subject ? `<button class="reftoggle">${cpShowRefs ? "hide" : "show"} references (${cpRefArms().length})</button>` : "")
       + `</div>`;
+    /* Some arms ran on a 48-item stake draw, not on all 100 documents. */
+    if (!a){
+      h += `<div class="armnote">${rvEsc(arm)} produced no reflection for this document`
+         + ` — it covers ${meta.judged} of ${CP.items.length}.</div>`;
+      card.innerHTML = h;
+      wrap.appendChild(card);
+      return;
+    }
     h += `<div class="armmeta">`
       + `<span title="constitution">📜 ${rvEsc(meta.constitution)}</span>`
       + `<span title="annotation guidelines">📐 ${rvEsc(meta.guidelines)}</span>`
@@ -1679,11 +1738,6 @@ function cpRender(){
     const an = card.querySelector(".a-an"); if (an) an.textContent = a.analysis;
     const t3 = card.querySelector(".a-3p"); if (t3) t3.textContent = a.reflection_3p;
     const jr = card.querySelector(".a-jr"); if (jr) jr.textContent = j.judge_reasoning||"";
-    card.querySelector(".reftoggle")?.addEventListener("click", () => {
-      cpShowRefs = !cpShowRefs;
-      localStorage.setItem(CPLS.refs, cpShowRefs ? "1" : "0");
-      cpPaintRefs();
-    });
     wrap.appendChild(card);
   });
   cpPaintRefs();
@@ -1765,17 +1819,15 @@ function cpOthersFor(item){
   return Object.values(latest).sort((a,b) => a.ts < b.ts ? -1 : 1);
 }
 
-/* Show/hide the reference columns without touching the DOM the click came from. */
+/* Lay the picked arms out in columns, the subject a little wider than the
+   references it is compared against. Unchecking "columns" stacks them instead,
+   which is the readable choice once three or more are on. */
 function cpPaintRefs(){
   const wrap = $("cp-arms");
-  wrap.classList.toggle("norefs", !cpShowRefs);
-  // The subject gets the wider column; references are there to be glanced at.
-  const cols = cpShowRefs ? cpArmNames().length : 1;
-  wrap.style.gridTemplateColumns = $("cp-cols").checked
+  const cols = cpArmNames().length;
+  wrap.style.gridTemplateColumns = ($("cp-cols").checked && cols > 1)
     ? ["minmax(0,1.4fr)", ...Array(cols-1).fill("minmax(0,1fr)")].join(" ")
     : "minmax(0,1fr)";
-  const btn = wrap.querySelector(".armcard.subject .reftoggle");
-  if (btn) btn.textContent = (cpShowRefs ? "hide" : "show")+" references ("+cpRefArms().length+")";
 }
 
 /* Rows use the same shape as the Reflection Review page, so both exports drop
@@ -1808,7 +1860,7 @@ function cpSubmit(){
       const v = JDIMS.map(([k]) => cpScores[k]).filter(x => x != null);
       return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
     })(),
-    saw_reference_arms: cpShowRefs ? cpRefArms() : [],
+    saw_reference_arms: cpShownRefs(),
     reviewer, ts: new Date().toISOString(),
   };
   localStorage.setItem(CPLS.verdicts, JSON.stringify(votes));
