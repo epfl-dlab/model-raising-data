@@ -200,6 +200,12 @@ sbatch preprocessing/tokenization/job.sh
 
 Re-submit the job after timeout and it picks up where it left off.
 
+Datatrove skips a task only if `<output_dir>/logs/<stage>/completions/<rank>` exists. Finished runs may have `logs/` packed into `logs.tar.gz` (inode quota); rerunning without the markers redoes every task and overwrites the outputs. Restore them first:
+
+```bash
+bash preprocessing/tokenization/restore_completions.sh <output_dir>/logs.tar.gz compact_stage1 <output_dir>/logs/compact_stage1
+```
+
 ## Persisting outputs
 
 `$SCRATCH` is regularly cleaned. After a successful run:
