@@ -2,8 +2,9 @@
 
 Reads the Megatron prefix (raw-doc mode of 1pp-training/data/format_1pp.py: document tokens, then one
 EOD) and its .ids.npy (blake2b-8 hash of the DCLM id, one per document). Decodes every document with
-the training tokenizer, so the classifier scores exactly the text the model trains on, and checks
-that re-encoding gives back the training tokens on every `--verify-every`-th document. Splits each
+the training tokenizer, so the classifier scores exactly the text the model trains on, and checks on
+every `--verify-every`-th document that re-encoding and decoding gives the same text (the re-encoded
+tokens can differ: training sometimes split runs of spaces into single-space tokens). Splits each
 document into classifier windows with chunk_docs.chunk_text (chunk-max labeling).
 
 Writes <out>/chunks/part_NNNNN.parquet (id "<doc>::c<k>", doc_id, text; doc = local index in this
@@ -51,11 +52,12 @@ def _doc(i):
     assert (s[:-1] == SEG_DOCUMENT).all(), i
     body = t[:-1].tolist()
     text = _S["train_tok"].decode(body, skip_special_tokens=False, clean_up_tokenization_spaces=False)
-    verified = False
+    verified = 0
     if i % _S["verify_every"] == 0:
         back = _S["train_tok"](text, add_special_tokens=False, split_special_tokens=True)["input_ids"]
-        assert back == body, f"decode round trip differs for document {i}"
-        verified = True
+        again = _S["train_tok"].decode(back, skip_special_tokens=False, clean_up_tokenization_spaces=False)
+        assert again == text, f"decode round trip changes the text of document {i}"
+        verified = 1 if back == body else 2
     return i, len(t), chunk_text(_S["clf_tok"], text, _S["window"]), verified
 
 
@@ -63,7 +65,7 @@ def _text(i):
     """Document i of the --texts input -> (i, n_tok incl. EOD, chunks, False), tokenized as format_1pp.py does."""
     text = _TEXTS[i]
     n = len(_S["train_tok"](text, add_special_tokens=False, split_special_tokens=True)["input_ids"]) + 1
-    return i, n, chunk_text(_S["clf_tok"], text, _S["window"]), False
+    return i, n, chunk_text(_S["clf_tok"], text, _S["window"]), 0
 
 
 def load_texts(d):
@@ -108,14 +110,15 @@ def main():
     (out / "chunks").mkdir(parents=True, exist_ok=True)
     n_tok = np.zeros(n, dtype=np.int64)
     n_chunks = np.zeros(n, dtype=np.int32)
-    n_verified = 0
+    n_verified = n_tok_diff = 0
     with Pool(a.workers, initializer=_init, initargs=(a.prefix, a.window, a.verify_every)) as pool:
         for part, lo in enumerate(range(0, n, a.docs_per_part)):
             hi = min(n, lo + a.docs_per_part)
             rows = {"id": [], "doc_id": [], "text": []}
             for i, nt, cs, ver in pool.imap(fn, range(lo, hi), chunksize=512):
                 n_tok[i], n_chunks[i] = nt, len(cs)
-                n_verified += ver
+                n_verified += ver > 0
+                n_tok_diff += ver == 2
                 for k, c in enumerate(cs):
                     rows["id"].append(f"{i}::c{k}")
                     rows["doc_id"].append(str(i))
@@ -125,7 +128,7 @@ def main():
     assert (n_chunks >= 1).all() and (n_tok >= 1).all()
     np.savez(out / "docs.npz", hash=hashes, n_tok=n_tok, n_chunks=n_chunks)
     print(f"EXPORT_DONE docs {n} chunks {int(n_chunks.sum())} multi-chunk {int((n_chunks > 1).sum())} "
-          f"round-trip verified {n_verified}")
+          f"text round trip verified {n_verified} (same text, different tokens: {n_tok_diff})")
 
 
 if __name__ == "__main__":
