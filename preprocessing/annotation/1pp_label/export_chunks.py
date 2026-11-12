@@ -61,9 +61,9 @@ def _doc(i):
     return i, len(t), chunk_text(_S["clf_tok"], text, _S["window"]), verified
 
 
-def _text(i):
-    """Document i of the --texts input -> (i, n_tok incl. EOD, chunks, False), tokenized as format_1pp.py does."""
-    text = _TEXTS[i]
+def _text(item):
+    """(i, text) of the --texts input -> (i, n_tok incl. EOD, chunks, 0), tokenized as format_1pp.py does."""
+    i, text = item
     n = len(_S["train_tok"](text, add_special_tokens=False, split_special_tokens=True)["input_ids"]) + 1
     return i, n, chunk_text(_S["clf_tok"], text, _S["window"]), 0
 
@@ -82,9 +82,6 @@ def id_hash(s):
     return int.from_bytes(hashlib.blake2b(s.encode("utf-8"), digest_size=8).digest(), "little")
 
 
-_TEXTS = None
-
-
 def main():
     p = argparse.ArgumentParser()
     src = p.add_mutually_exclusive_group(required=True)
@@ -97,25 +94,25 @@ def main():
     p.add_argument("--verify-every", type=int, default=100)
     a = p.parse_args()
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    global _TEXTS
-    if a.texts:
-        hashes, _TEXTS = load_texts(a.texts)
-        n, fn = len(_TEXTS), _text
-    else:
-        hashes = np.load(a.prefix + ".ids.npy")
-        from megatron.core.datasets.indexed_dataset import IndexedDataset
-        n, fn = len(IndexedDataset(a.prefix, multimodal=False, mmap=True)), _doc
-    assert len(hashes) == n, (len(hashes), n)
     out = Path(a.out)
     (out / "chunks").mkdir(parents=True, exist_ok=True)
-    n_tok = np.zeros(n, dtype=np.int64)
-    n_chunks = np.zeros(n, dtype=np.int32)
     n_verified = n_tok_diff = 0
+    # The pool forks before the texts load: workers that inherited the text list would each copy it.
     with Pool(a.workers, initializer=_init, initargs=(a.prefix, a.window, a.verify_every)) as pool:
+        if a.texts:
+            hashes, texts = load_texts(a.texts)
+            n, fn, items = len(texts), _text, lambda lo, hi: zip(range(lo, hi), texts[lo:hi])
+        else:
+            hashes = np.load(a.prefix + ".ids.npy")
+            from megatron.core.datasets.indexed_dataset import IndexedDataset
+            n, fn, items = len(IndexedDataset(a.prefix, multimodal=False, mmap=True)), _doc, range
+        assert len(hashes) == n, (len(hashes), n)
+        n_tok = np.zeros(n, dtype=np.int64)
+        n_chunks = np.zeros(n, dtype=np.int32)
         for part, lo in enumerate(range(0, n, a.docs_per_part)):
             hi = min(n, lo + a.docs_per_part)
             rows = {"id": [], "doc_id": [], "text": []}
-            for i, nt, cs, ver in pool.imap(fn, range(lo, hi), chunksize=512):
+            for i, nt, cs, ver in pool.imap(fn, items(lo, hi), chunksize=512):
                 n_tok[i], n_chunks[i] = nt, len(cs)
                 n_verified += ver > 0
                 n_tok_diff += ver == 2

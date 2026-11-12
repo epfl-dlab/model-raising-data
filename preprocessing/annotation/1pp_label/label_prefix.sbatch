@@ -26,7 +26,7 @@ export TOKENIZERS_PARALLELISM=false RAYON_NUM_THREADS=1 PYTHONUNBUFFERED=1 HF_HO
 if [ ! -f $OUT/EXPORT_DONE ]; then
   rm -rf $OUT/chunks
   case $PREFIX in texts:*) SRC="--texts ${PREFIX#texts:}" ;; *) SRC="--prefix $PREFIX" ;; esac
-  $PY $HERE/export_chunks.py $SRC --out $OUT | tee $OUT/export.log
+  HF_HUB_OFFLINE=1 $PY $HERE/export_chunks.py $SRC --out $OUT | tee $OUT/export.log
   grep -q EXPORT_DONE $OUT/export.log && touch $OUT/EXPORT_DONE
 fi
 echo "=== annotate $(date)"
